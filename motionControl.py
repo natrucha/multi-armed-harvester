@@ -21,13 +21,15 @@ class axisValues:
     '''Class for keeping track of important values for each axis's motion.'''
     maxVel: float
     maxAccel: float
+    maxDeaccel: float
     maxJerk: float
 
 @dataclass
 class periodValues:
-    x: float
-    x_bar: float
-    x_hat: float
+    '''Class for keeping track of the time periods of the S-Curve.'''
+    x: float     # time period during which velocity increases
+    x_bar: float # time period during which velocity is constant
+    x_hat: float # time period during which velocity decreases
 
 ##################### FUNCTIONS ##########################
 
@@ -40,46 +42,40 @@ def returnAxisMaxValues( ):
 
     maxVel   = rpm * 0.10472 /1000 # in rad/sec -> rad/msec
     maxAccel = torque / inertia /(1000*1000)# in rad/msec^2
+    maxDeaccel = torque / inertia /(1000*1000)# in rad/msec^2
     maxJerk  = maxAccel**2 / (maxVel - (v0/1000))# /(1000*1000*1000)# X.maxJerk >= Time / (2*X.maxAccel)
-    return axisValues(maxVel, maxAccel, maxJerk)
+    return axisValues(maxVel, maxAccel, maxDeaccel, maxJerk)
 
-def calculatePeriods( maxVel, maxAccel, maxJerk ):
+def calculatePeriods( maxVel, maxAccel, maxDeaccel, maxJerk ):
     # calculate x and x_bar depending on the profile type
     # based on [4]
     x_hat = 0
     if profileType == 0:
         x = 2*maxAccel / maxJerk
-        x_bar = 2*maxAccel / maxJerk
+        x_bar = 2*maxDeaccel / maxJerk
     elif profileType == 1:
         x = maxAccel / (2*maxJerk)
-        x_bar = maxAccel / (2*maxJerk)
+        x_bar = maxDeaccel / (2*maxJerk)
     elif profileType == 2:
         x = (maxVel - v0) / maxAccel + maxAccel / maxJerk
-        x_bar = (maxVel - vf) / maxAccel + maxAccel / maxJerk
+        x_bar = (maxVel - vf) / maxDeaccel + maxDeaccel / maxJerk
         x_hat = ( xDist - 0.5*(v0 + maxVel)*x - 0.5*(maxVel-vf)*x_bar ) / maxVel # from L = 0.5*(v0 + vp)*x + 0.5*(vp-vf)*x_bar + vp*x_hat
     return periodValues(x, x_bar, x_hat)
 
 ##################### MAIN FUNCTION #########################
 
 if __name__ == '__main__':
-    # import sys
-    # if len(sys.argv) > 1:
-    #     file_location = sys.argv[1].strip()
-    #     with open(file_location, 'r') as input_data_file:
-    #         input_data = input_data_file.read()
-    #     print(solve_it(input_data)) # will need to be the fruit tree data?
-    # else:
-    #     print('This test requires an input file.  Please select one from the data directory. (i.e. python solver.py ./data/tsp_51_1)')
-    # initial velocity
     v0 = 0 # will have to get from simulation
     vf = 0 # will probably always want to stop at the end
 
     # starting point in x, y for now
     start = [2, 0] # will need to get this from the simulation
-    end   = [100, 6] # will need to get this from the simulation
+    end   = [300, 6] # will need to get this from the simulation
 
     X = returnAxisMaxValues()
     Y = returnAxisMaxValues()
+
+    print("max velocity:", X.maxVel)
 
     ## calculate total time to travel using the trapezoidal curve
     # distance for x-coordinates
@@ -106,7 +102,7 @@ if __name__ == '__main__':
     finalVel_x = X.maxVel
     distConstVel_x = 0
     timeConstVel_x = 0
-
+    # calculate trapezoidal profile
     if (distAccel_x + distDeaccel_x) > xDist:
         # calculate the actual "final velocity" at which deaccel needed
         distAccel_x = xDist / 2
@@ -114,7 +110,7 @@ if __name__ == '__main__':
         finalVel_x  = X.maxAccel / distAccel_x
         # Calulate total travel time
         timeAccel_x = finalVel_x / X.maxAccel
-        timeDeaccel_x = finalVel_x / X.maxAccel
+        timeDeaccel_x = finalVel_x / X.maxDeaccel
         total_time_x = timeAccel_x + timeDeaccel_x
         profileType = 1
 
@@ -127,26 +123,27 @@ if __name__ == '__main__':
     total_time_x = timeAccel_x + timeDeaccel_x + timeConstVel_x
     # total_dist_x = distAccel_x + distDeaccel_x + distConstVel_x # checks that final value equal to distance
 
-    X_time = calculatePeriods( X.maxVel, X.maxAccel, X.maxJerk)
+    X_time = calculatePeriods(X.maxVel, X.maxAccel, X.maxDeaccel, X.maxJerk)
 
     print("x value: ", X_time.x, "x_bar value: ", X_time.x_bar, "x_hat value: ", X_time.x_hat )
 
     change = 0
-    # Calculate when max acceleration has to be changed. Not quite correct for smaller values   
+    # Calculate when max acceleration has to be changed. Not quite correct for smaller values
     if X.maxVel - v0 > 0.25*X.maxJerk*X_time.x**2 :
         X.maxAccel = 0.5*X.maxJerk*X_time.x*2
+        # maxJerk  = X.maxAccel**2 / (X.maxVel - (v0/1000))
         change = 1
 
     if X.maxVel - vf > 0.25*X.maxJerk*X_time.x_bar**2 :
-        X.maxAccel = 0.5*X.maxJerk*X_time.x_bar*2
+        X.maxDeaccel = 0.5*X.maxJerk*X_time.x_bar*2
         change = 1
 
     if change == 1:
-        X_time = calculatePeriods( X.maxVel, X.maxAccel, X.maxJerk)
+        X_time = calculatePeriods( X.maxVel, X.maxAccel, X.maxDeaccel, X.maxJerk)
 
     print("x value: ", X_time.x, "x_bar value: ", X_time.x_bar, "x_hat value: ", X_time.x_hat )
 
-    # Set the various timepoints
+    # how long each s-curve section takes
     T1 = X.maxAccel / X.maxJerk
     T2 = X_time.x - 2*T1
     if T2 <= 0:
@@ -155,38 +152,29 @@ if __name__ == '__main__':
     T4 = X_time.x_hat
     if T4 < 0:
         T4 = 0
-    T5 = T1       # when symmetric accel and deaccel
+    T5 = X.maxDeaccel / X.maxJerk
     T6 = X_time.x_bar - 2*T5
     if T6 < 0:
         T6 = 0
-    T7 = 2*T1 + T2 + T3 + T4 + T5 + T6  # only works when vo==vf and Accel==Deaccel
+
     print("time_1: ",T1,"time_2: ",T2,"time_3: ",T3)
     print("time_4: ",T4,"time_5: ",T5,"time_6: ",T6)
 
+    # time at the end of each section of the s-curve
     Ts1 = T1 + T2
     Ts2 = Ts1 + T3
     Ts3 = Ts2 + T4
     Ts4 = Ts3 + T5
     Ts5 = Ts4 + T6
 
-    print("final time smooth: ",T7, "final time trapezoid: ", total_time_x)
+    Ts6= Ts5 + T5 # total time it takes to go thorugh every s-curve section
 
-    ## plot distance versus time to check results
-    time_x = [0, timeAccel_x, (timeConstVel_x + timeAccel_x), (timeConstVel_x + timeAccel_x + timeDeaccel_x)]
-    dist_x = [0, distAccel_x, (distAccel_x + distConstVel_x), (distAccel_x + distConstVel_x + distDeaccel_x)]
-    vel_x  = [v0, finalVel_x, finalVel_x, v0]
-    # plt.plot(time_x, vel_x)
-    plt.plot(time_x, dist_x)
-    # plt.xlabel('Time [s]', fontsize=18)
-    # plt.ylabel('Distance [u]', fontsize=16)
-    # plt.show()
+    print("final time smooth: ",Ts6, "final time trapezoid: ", total_time_x)
 
     ## S-curve setup
     # calculate the number of points for the s, v, and a arrays
-    # numPoints = int(total_time_x / 5)#* 1000 / 5) # total time divided into 5 msec points
-    numPoints = int(T7 / 5)
-    print("num points:", numPoints)
-    # print(numPoints)
+    numPoints = int(Ts6 / 5) # point every 5 msec
+
     # set up the arrays
     s = np.zeros(numPoints)
     v = np.zeros(numPoints)
@@ -195,7 +183,9 @@ if __name__ == '__main__':
 
     t = np.zeros(numPoints)
 
-    curveSection = 0
+    curveSection = 0   # which of the 7 s-curve sections code's currently on
+    Tm = 0             # time at which v[t] = v0 to correct if v0 != 0
+    TmFound = 0        # used to tell if Tm has been found
 
     for i in range(numPoints):
         t[i] = i * 5 # in msec
@@ -218,8 +208,10 @@ if __name__ == '__main__':
             else:
                 j[i] = X.maxJerk
                 a[i] = X.maxJerk*t[i]                   ##
-                v[i] = v0 + X.maxJerk*t[i]**2 / 2       ##
-                s[i] = v0*t[i] + X.maxJerk*t[i]**3 / 6  ##
+                v[i] = X.maxJerk*t[i]**2 / 2       ##
+                s[i] = X.maxJerk*t[i]**3 / 6  ##
+                # v[i] = v0 + X.maxJerk*t[i]**2 / 2       ##
+                # s[i] = v0*t[i] + X.maxJerk*t[i]**3 / 6  ##
 
         if curveSection == 10:
             if t[i] >= Ts1:
@@ -228,7 +220,7 @@ if __name__ == '__main__':
                 v2 = v[i-1]
                 s2 = s[i-1]
             else:
-                j[i] = 0                                                ##
+                # j[i] = 0                                                ##
                 a[i] = X.maxAccel
                 v[i] = v1 + X.maxAccel*(t[i]-T1)                        ##
                 s[i] = s1 + v1*(t[i]-T1) + X.maxAccel*(t[i]-T1)**2 / 2  ##
@@ -248,7 +240,7 @@ if __name__ == '__main__':
                 s4 = s3
             else:
                 # Convex accel period
-                j[i] = -X.maxJerk
+                # j[i] = -X.maxJerk
                 a[i] = X.maxAccel - X.maxJerk*(t[i]-Ts1)                                              ##
                 v[i] = v2 + X.maxAccel*(t[i]-Ts1) - X.maxJerk*(t[i]-Ts1)**2 / 2                 ##
                 s[i] = s2 + v2*(t[i]-Ts1) + X.maxAccel*(t[i]-Ts1)**2 / 2 - X.maxJerk*(t[i]-Ts1)**3 / 6  ##
@@ -261,7 +253,7 @@ if __name__ == '__main__':
                 s4 = s[i-1]
             else:
                 # Constant velocity section
-                j[i] = 0
+                # j[i] = 0
                 a[i] = 0                       ##
                 v[i] = v3 #X.maxVel             ##
                 s[i] = s3 + X.maxVel*(t[i]-Ts2) ##
@@ -283,7 +275,7 @@ if __name__ == '__main__':
                 s5 = s[i-1]
                 s6 = s5
             else:
-                j[i] = -X.maxJerk
+                # j[i] = -X.maxJerk
                 a[i] = -X.maxJerk*(t[i]-Ts3)                           ##
                 v[i] = v4 - X.maxJerk*(t[i]-Ts3)**2 / 2                ##
                 s[i] = s4 + v4*(t[i]-Ts3) - X.maxJerk*(t[i]-Ts3)**3 / 6 ##
@@ -295,23 +287,48 @@ if __name__ == '__main__':
                 v6 = v[i-1]
                 s6 = s[i-1]
             else:
-                j[i] = 0
-                a[i] = -X.maxAccel                                              ##
-                v[i] = v5 - X.maxAccel*(t[i]-Ts4)                   ##
-                s[i] = s5 + v5*(t[i]-Ts4) - X.maxAccel*(t[i]-Ts4)**2 / 2      ##
+                # j[i] = 0
+                a[i] = -X.maxDeaccel                                              ##
+                v[i] = v5 - X.maxDeaccel*(t[i]-Ts4)                   ##
+                s[i] = s5 + v5*(t[i]-Ts4) - X.maxDeaccel*(t[i]-Ts4)**2 / 2      ##
 
         if curveSection == 4:
-            # Concave deaccel period
             j[i] = X.maxJerk
-            a[i] = -X.maxAccel + X.maxJerk*(t[i]-Ts5)                                                                  ##
-            v[i] = v6 - X.maxAccel*(t[i]-Ts5) + X.maxJerk*(t[i]-Ts5)**2 / 2 ##
-            s[i] = s6 + v6*(t[i]-Ts5) - X.maxAccel*(t[i]-Ts5)**2 / 2 + X.maxJerk*(t[i]-Ts5)**3 / 6
+            a[i] = -X.maxDeaccel + X.maxJerk*(t[i]-Ts5)                                                                  ##
+            v[i] = v6 - X.maxDeaccel*(t[i]-Ts5) + X.maxJerk*(t[i]-Ts5)**2 / 2 ##
+            s[i] = s6 + v6*(t[i]-Ts5) - X.maxDeaccel*(t[i]-Ts5)**2 / 2 + X.maxJerk*(t[i]-Ts5)**3 / 6
 
-    print("calculated distance:", xDist,"distance moved:", s[numPoints - 1])
+        if v[i] >= v0 and TmFound == 0:
+            # if v0 != 0 corrections by finding where v[t] == v0
+            TmFound = 1
+            Tm = t[i]
+
+
+    ## plot distance versus time to check results
+    time_x = [0, timeAccel_x, (timeConstVel_x + timeAccel_x), (timeConstVel_x + timeAccel_x + timeDeaccel_x)]
+    dist_x = [0, distAccel_x, (distAccel_x + distConstVel_x), (distAccel_x + distConstVel_x + distDeaccel_x)]
+    vel_x  = [0, finalVel_x, finalVel_x, 0]
+    plt.plot(time_x, vel_x)
+    # plt.plot(time_x, dist_x)
+    # plt.xlabel('Time [s]', fontsize=18)
+    # plt.ylabel('Distance [u]', fontsize=16)
+    # plt.show()
+
+    # with index of where v0 == v[index], correct the velocity, distance travelled, etc.
+    if v0 > vf:
+        indexGreaterTm = np.where(t >= Tm)
+        indexTm = indexGreaterTm[0][0]
+        print("time:",t[indexTm],"distance:",s[indexTm],"velocity:",v[indexTm])
+        t = t[indexTm:] - t[indexTm]
+        s = s[indexTm:] - s[indexTm]
+        v = v[indexTm:]
+        a = a[indexTm:]
+
+    print("calculated distance:", xDist,"distance moved:", s[s.size-1])
 
     # Plot values
-    plt.plot(t, s)
-    # plt.plot(t, v)
+    # plt.plot(t, s)
+    plt.plot(t, v)
     # plt.plot(t, a)
     plt.xlabel('Time [msec]', fontsize=18)
     # plt.ylabel('Distance [u]', fontsize=16)
