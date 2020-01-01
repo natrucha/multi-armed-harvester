@@ -31,6 +31,14 @@ class periodValues:
     x_bar: float # time period during which velocity is constant
     x_hat: float # time period during which velocity decreases
 
+@dataclass
+class trapezoid:
+    '''Class for keeping track of the trapezoidal profile values.'''
+    timeAccel: float     # time period during which acceleration increases
+    timeDeaccel: float   # time period during which acceleration decreases
+    distAccel: float
+    distDeaccel: float
+
 ##################### FUNCTIONS ##########################
 
 def returnAxisMaxValues( ):
@@ -46,6 +54,10 @@ def returnAxisMaxValues( ):
     maxJerk  = maxAccel**2 / (maxVel - (v0/1000))# /(1000*1000*1000)# X.maxJerk >= Time / (2*X.maxAccel)
     return axisValues(maxVel, maxAccel, maxDeaccel, maxJerk)
 
+def updateAxisMaxJerk(v0, velocity, acceleration):
+    updatedJerk  = acceleration**2 / (velocity - (v0/1000))
+    return updatedJerk
+
 def calculatePeriods( maxVel, maxAccel, maxDeaccel, maxJerk ):
     # calculate x and x_bar depending on the profile type
     # based on [4]
@@ -53,14 +65,22 @@ def calculatePeriods( maxVel, maxAccel, maxDeaccel, maxJerk ):
     if profileType == 0:
         x = 2*maxAccel / maxJerk
         x_bar = 2*maxDeaccel / maxJerk
-    elif profileType == 1:
-        x = maxAccel / (2*maxJerk)
-        x_bar = maxDeaccel / (2*maxJerk)
-    elif profileType == 2:
+    elif profileType == 1 or profileType == 2:
         x = (maxVel - v0) / maxAccel + maxAccel / maxJerk
         x_bar = (maxVel - vf) / maxDeaccel + maxDeaccel / maxJerk
         x_hat = ( xDist - 0.5*(v0 + maxVel)*x - 0.5*(maxVel-vf)*x_bar ) / maxVel # from L = 0.5*(v0 + vp)*x + 0.5*(vp-vf)*x_bar + vp*x_hat
     return periodValues(x, x_bar, x_hat)
+
+def calculateTrapTime(velocity, accel, deaccel):
+    # calculate the trapezoidal time for accel and deaccel
+    timeAccel   = velocity / accel
+    timeDeaccel = velocity / deaccel
+    # calculate the trapezoidal distance achieved with given accelerationa and velocity
+    distAccel = 0.5 * timeAccel * velocity
+    distDeaccel = 0.5 * timeDeaccel * velocity # if deaccel != accel
+    return trapezoid(timeAccel, timeDeaccel, distAccel, distDeaccel)
+    # return accelTime(timeAccel, timeDeaccel)
+
 
 ##################### MAIN FUNCTION #########################
 
@@ -70,11 +90,10 @@ if __name__ == '__main__':
 
     # starting point in x, y for now
     start = [2, 0] # will need to get this from the simulation
-    end   = [300, 6] # will need to get this from the simulation
+    end   = [70, 6] # will need to get this from the simulation
 
     X = returnAxisMaxValues()
     Y = returnAxisMaxValues()
-
     print("max velocity:", X.maxVel)
 
     ## calculate total time to travel using the trapezoidal curve
@@ -83,48 +102,55 @@ if __name__ == '__main__':
     # distance for y-coordinates
     yDist = np.sqrt( end[1]**2 - start[1]**2 )
 
-    # Calculate max trapezoidal time for x
-    timeAccel_x   = X.maxVel / X.maxAccel
-    timeDeaccel_x = X.maxVel / X.maxAccel
-    # print("One-way time during acceleration for max velocity")
-    # print(timeAccel_x)
-
-    # Calculate distance travel during max accel/Deaccel to max velocity
-    distAccel_x = 0.5 * timeAccel_x * X.maxVel
-    distDeaccel_x = 0.5 * timeDeaccel_x * X.maxVel # if deaccel != accel
-    # print("One way distance travelled during acceleration for max velocity")
-    # print(distAccel_x)
+    # Calculate max trapezoidal time and  distance travel during max accel/Deaccel to max velocity
+    X_trap = calculateTrapTime(X.maxVel, X.maxAccel, X.maxDeaccel)
+    print("dist accel:", X_trap.distAccel, "dist deaccel:", X_trap.distDeaccel)
 
     # Set default profile type (if no const velocity section but it does reach max velocity)
     profileType = 0
-
     # Set default variables for profile type 0
-    finalVel_x = X.maxVel
     distConstVel_x = 0
     timeConstVel_x = 0
+
     # calculate trapezoidal profile
-    if (distAccel_x + distDeaccel_x) > xDist:
+    if (X_trap.distAccel + X_trap.distDeaccel)*1.25 > xDist:
+        # profile type has such short distance, max velocity has to be recalculated
         # calculate the actual "final velocity" at which deaccel needed
-        distAccel_x = xDist / 2
-        distDeaccel_x = xDist / 2
-        finalVel_x  = X.maxAccel / distAccel_x
-        # Calulate total travel time
-        timeAccel_x = finalVel_x / X.maxAccel
-        timeDeaccel_x = finalVel_x / X.maxDeaccel
-        total_time_x = timeAccel_x + timeDeaccel_x
+        tst = xDist / (X_trap.distAccel + X_trap.distDeaccel)
+        print("test:", tst)
+        if tst > 1.15:
+            k = 0.4
+        elif tst > 1.1:
+            k = 0.475
+        elif tst > 1:
+            k = 0.675
+        elif tst > 0.85:
+            k = 0.65
+        elif tst > 0.55:
+            k = 0.8
+        elif tst > 0.25:
+            k = 0.85
+        else:
+            k = 1
+        X.maxVel = X.maxVel * tst * k
+        print("new max velocity:", X.maxVel)
+        # recalculate values with new speed and time values
+        X_trap = calculateTrapTime(X.maxVel, X.maxAccel, X.maxDeaccel)
+        X.maxJerk = updateAxisMaxJerk(v0, X.maxVel, X.maxAccel)
         profileType = 1
 
-    elif (distAccel_x + distDeaccel_x) < xDist:
-        # calculate the constant velocity section time and distance
-        distConstVel_x = xDist - distAccel_x - distDeaccel_x
-        timeConstVel_x = distConstVel_x / X.maxVel
+    elif (X_trap.distAccel + X_trap.distDeaccel)*1.25 < xDist:
+        # profile type reaches max velocity and has some constant velocity
         profileType = 2
 
-    total_time_x = timeAccel_x + timeDeaccel_x + timeConstVel_x
-    # total_dist_x = distAccel_x + distDeaccel_x + distConstVel_x # checks that final value equal to distance
+    print("Profile type:", profileType)
+    # calculate total values
+    distConstVel_x = xDist - X_trap.distAccel - X_trap.distDeaccel
+    timeConstVel_x = distConstVel_x / X.maxVel
+    print("new dist accel:", X_trap.distAccel, "dist deaccel:", X_trap.distDeaccel, "dist const:", distConstVel_x)
+    total_time_x = X_trap.timeAccel + X_trap.timeDeaccel + timeConstVel_x
 
     X_time = calculatePeriods(X.maxVel, X.maxAccel, X.maxDeaccel, X.maxJerk)
-
     print("x value: ", X_time.x, "x_bar value: ", X_time.x_bar, "x_hat value: ", X_time.x_hat )
 
     change = 0
@@ -173,14 +199,14 @@ if __name__ == '__main__':
 
     ## S-curve setup
     # calculate the number of points for the s, v, and a arrays
-    numPoints = int(Ts6 / 5) # point every 5 msec
+    numMillsec = 0.001
+    numPoints = int(Ts6 / numMillsec) # point every 5 msec
 
     # set up the arrays
     s = np.zeros(numPoints)
     v = np.zeros(numPoints)
     a = np.zeros(numPoints)
     j = np.zeros(numPoints)
-
     t = np.zeros(numPoints)
 
     curveSection = 0   # which of the 7 s-curve sections code's currently on
@@ -188,17 +214,17 @@ if __name__ == '__main__':
     TmFound = 0        # used to tell if Tm has been found
 
     for i in range(numPoints):
-        t[i] = i * 5 # in msec
+        t[i] = i * numMillsec # in msec
         if curveSection == 0:
             # Concave accel section
             if t[i] >= T1 and T2 > 0:
-                print("time_1: ", t[i], "change: ", T1, "dist moved: ", s[i-1])
+                # print("time_1: ", t[i], "change: ", T1, "dist moved: ", s[i-1])
                 # curveSection = 1
                 curveSection = 10
                 v1 = v[i-1]
                 s1 = s[i-1]
             elif t[i] >= T1 and T2 <= 0:
-                print("time_1: ", t[i], "change: ", T1, "dist moved: ", s[i-1])
+                # print("time_1: ", t[i], "change: ", T1, "dist moved: ", s[i-1])
                 # curveSection = 1
                 curveSection = 1
                 v1 = v[i-1]
@@ -207,32 +233,29 @@ if __name__ == '__main__':
                 s2 = s1
             else:
                 j[i] = X.maxJerk
-                a[i] = X.maxJerk*t[i]                   ##
-                v[i] = X.maxJerk*t[i]**2 / 2       ##
+                a[i] = X.maxJerk*t[i]         ##
+                v[i] = X.maxJerk*t[i]**2 / 2  ##
                 s[i] = X.maxJerk*t[i]**3 / 6  ##
-                # v[i] = v0 + X.maxJerk*t[i]**2 / 2       ##
-                # s[i] = v0*t[i] + X.maxJerk*t[i]**3 / 6  ##
 
         if curveSection == 10:
             if t[i] >= Ts1:
-                print("time_2: ", t[i], "change: ", Ts1, "dist moved: ", s[i-1])
+                # print("time_2: ", t[i], "change: ", Ts1, "dist moved: ", s[i-1])
                 curveSection = 1
                 v2 = v[i-1]
                 s2 = s[i-1]
             else:
-                # j[i] = 0                                                ##
                 a[i] = X.maxAccel
                 v[i] = v1 + X.maxAccel*(t[i]-T1)                        ##
                 s[i] = s1 + v1*(t[i]-T1) + X.maxAccel*(t[i]-T1)**2 / 2  ##
 
         if curveSection == 1:
             if t[i] >= Ts2 and T4 > 0:
-                print("time_3: ", t[i], "change: ", Ts2, "dist moved: ", s[i-1])
+                # print("time_3: ", t[i], "change: ", Ts2, "dist moved: ", s[i-1])
                 curveSection = 2
                 v3 = v[i-1]
                 s3 = s[i-1]
             elif t[i] >= Ts2 and T4 <= 0:
-                print("time_3: ", t[i], "change: ", Ts2, "dist moved: ", s[i-1])
+                # print("time_3: ", t[i], "change: ", Ts2, "dist moved: ", s[i-1])
                 curveSection = 3
                 v3 = v[i-1]
                 v4 = v3
@@ -240,20 +263,18 @@ if __name__ == '__main__':
                 s4 = s3
             else:
                 # Convex accel period
-                # j[i] = -X.maxJerk
                 a[i] = X.maxAccel - X.maxJerk*(t[i]-Ts1)                                              ##
                 v[i] = v2 + X.maxAccel*(t[i]-Ts1) - X.maxJerk*(t[i]-Ts1)**2 / 2                 ##
                 s[i] = s2 + v2*(t[i]-Ts1) + X.maxAccel*(t[i]-Ts1)**2 / 2 - X.maxJerk*(t[i]-Ts1)**3 / 6  ##
 
         if curveSection == 2:
             if t[i] >= Ts3:
-                print("time_4: ", t[i], "change: ", Ts3, "dist moved: ", s[i-1])
+                # print("time_4: ", t[i], "change: ", Ts3, "dist moved: ", s[i-1])
                 curveSection = 3
                 v4 = v[i-1]
                 s4 = s[i-1]
             else:
                 # Constant velocity section
-                # j[i] = 0
                 a[i] = 0                       ##
                 v[i] = v3 #X.maxVel             ##
                 s[i] = s3 + X.maxVel*(t[i]-Ts2) ##
@@ -261,33 +282,29 @@ if __name__ == '__main__':
         if curveSection == 3:
             # Convex deaccel period
             if t[i] >= Ts4 and T6 > 0:
-                print("time_5: ", t[i], "change: ", Ts4, "dist moved: ", s[i-1])
-                # curveSection = 4
+                # print("time_5: ", t[i], "change: ", Ts4, "dist moved: ", s[i-1])
                 curveSection = 20
                 v5 = v[i-1]
                 s5 = s[i-1]
             elif t[i] >= Ts4 and T6 <= 0:
-                print("time_5: ", t[i], "change: ", Ts4, "dist moved: ", s[i-1])
-                # curveSection = 4
+                # print("time_5: ", t[i], "change: ", Ts4, "dist moved: ", s[i-1])
                 curveSection = 4
                 v5 = v[i-1]
                 v6 = v5
                 s5 = s[i-1]
                 s6 = s5
             else:
-                # j[i] = -X.maxJerk
                 a[i] = -X.maxJerk*(t[i]-Ts3)                           ##
                 v[i] = v4 - X.maxJerk*(t[i]-Ts3)**2 / 2                ##
                 s[i] = s4 + v4*(t[i]-Ts3) - X.maxJerk*(t[i]-Ts3)**3 / 6 ##
 
         if curveSection == 20:
             if t[i] >= Ts5:
-                print("time_6: ", t[i], "change: ", Ts5, "dist moved: ", s[i-1])
+                # print("time_6: ", t[i], "change: ", Ts5, "dist moved: ", s[i-1])
                 curveSection = 4
                 v6 = v[i-1]
                 s6 = s[i-1]
             else:
-                # j[i] = 0
                 a[i] = -X.maxDeaccel                                              ##
                 v[i] = v5 - X.maxDeaccel*(t[i]-Ts4)                   ##
                 s[i] = s5 + v5*(t[i]-Ts4) - X.maxDeaccel*(t[i]-Ts4)**2 / 2      ##
@@ -305,9 +322,9 @@ if __name__ == '__main__':
 
 
     ## plot distance versus time to check results
-    time_x = [0, timeAccel_x, (timeConstVel_x + timeAccel_x), (timeConstVel_x + timeAccel_x + timeDeaccel_x)]
-    dist_x = [0, distAccel_x, (distAccel_x + distConstVel_x), (distAccel_x + distConstVel_x + distDeaccel_x)]
-    vel_x  = [0, finalVel_x, finalVel_x, 0]
+    time_x = [0, X_trap.timeAccel, (timeConstVel_x + X_trap.timeAccel), (timeConstVel_x + X_trap.timeAccel + X_trap.timeDeaccel)]
+    dist_x = [0, X_trap.distAccel, (X_trap.distAccel + distConstVel_x), (X_trap.distAccel + distConstVel_x + X_trap.distDeaccel)]
+    vel_x  = [v0, X.maxVel, X.maxVel, vf]
     plt.plot(time_x, vel_x)
     # plt.plot(time_x, dist_x)
     # plt.xlabel('Time [s]', fontsize=18)
@@ -325,6 +342,7 @@ if __name__ == '__main__':
         a = a[indexTm:]
 
     print("calculated distance:", xDist,"distance moved:", s[s.size-1])
+    print("calculated time:", total_time_x,"actual total time:", t[t.size-1])
 
     # Plot values
     # plt.plot(t, s)
