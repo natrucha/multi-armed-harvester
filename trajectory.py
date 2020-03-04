@@ -2,13 +2,18 @@ import numpy as np
 import math
 
 class Trajectory(object):
-    def __init__(self):
+    def __init__(self, vm, am, dm):
         ####### CLASS VARIABLES ########
         # kinematic bounds
-        self.v_max = 1  # Shared instance member :D
-        self.a_max = 16
-        self.d_max = 16
+        self.v_max = vm  # Shared instance member :D
+        self.a_max = am
+        self.d_max = dm
         self.j_max = 250
+        
+#         self.v_max = 1  # Shared instance member :D
+#         self.a_max = 16
+#         self.d_max = 16
+#         self.j_max = 250
 
         # initial values
         self.q0 = 0
@@ -78,7 +83,7 @@ class Trajectory(object):
     #/* Calculate the triangular profile times and reached values */
     #/* ********************************************************* */
     def triangProfile(self, v, a, d, s):
-        self.vr = self.s * math.sqrt( (2*a*d*self.Dq - d*self.v0**2) / (a + d) )
+        self.vr = self.s * math.sqrt( (2*abs(a)*abs(d)*abs(self.Dq) - abs(d)*self.v0**2) / (abs(a) + abs(d)) )
         self.ar = self.s * a
         self.dr = self.s * d
 
@@ -96,10 +101,11 @@ class Trajectory(object):
         self.v0 = v0
         self.qe = qe
 
-        # print(self.q0, self.qe, self.v0)
+        print("start, end, start velocity:", self.q0, self.qe, self.v0)
 
         sign = 1
-        Dq_stop = self.v0**2 / (2 * self.d_max) # minimum stopping distance
+#         Dq_stop = self.v0**2 / (2 * self.d_max) # minimum stopping distance
+        Dq_stop = self.v0**2 / (2 * dm) # minimum stopping distance
         self.Dq = self.qe - self.q0
 
         # check if a full stop trajectory is needed
@@ -141,8 +147,11 @@ class Trajectory(object):
 
 #         print("delta_q:", self.delta_q, "delta_v:", self.delta_v)
 
-        self.q0 = self.q0f + self.delta_q
-        self.v0 = self.v0f + self.delta_v
+        self.q0 = self.q0f
+        self.v0 = self.v0f
+        
+#         self.q0 = self.q0f + self.delta_q
+#         self.v0 = self.v0f + self.delta_v
 
 #         print("q0f:", self.q0f, "v0f:", self.v0f)
 
