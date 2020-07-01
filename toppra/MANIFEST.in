@@ -1,4 +1,0 @@
-recursive-include toppra *.pyx
-include requirements.txt
-include requirements3.txt
-include VERSION
