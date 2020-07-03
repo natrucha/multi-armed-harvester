@@ -51,42 +51,53 @@ class simulation_config(object):
 
         # decide on the number of arms and rows
         self.num_arms     = 3           # set number of arms on robot, will determine the length of the robot (for now)
-        num_row      = 3           # set the number of rows of arms
-        frame_height = 3.          # set the height of the arm's frame
+        self.num_row      = 3           # set the number of rows of arms
+        self.frame_height = 3.          # set the height of the arm's frame
         # frame height will be calculated from tree height and number of rows?
 
         # arm's max velocity and acceleration values apparently in ft/s
-        max_v = 1.
-        max_a = 10.
+        self.max_v = 1.
+        self.max_a = 10.
         # if semionline:
-        n_goals = 20       # number of goals the semionline scheduler will look for
+        self.n_goals = 20       # number of goals the semionline scheduler will look for
 
         # decide if the arms are in individual or shared spaces
-        space_config = spaceConf.SHARED
+        self.space_config = spaceConf.SHARED
         # decide on the type of scheduler
-        appointment = calendar.EDF
+        self.appointment = calendar.EDF
         # decide what fruit distribution to use to create fruit coordinates
-        data_config  = treeCreation.SYN_LINE
+        self.data_config  = treeCreation.SYN_LINE
         # decide if fake fruit will be added
-        existance = reality.TURN_OFF
+        self.existance = reality.TURN_OFF
         # decide if noise should be added and the distribution
-        noise_level = noiseMaker.TURN_OFF
+        self.noise_level = noiseMaker.TURN_OFF
 
-        ## Convert to JSON
-        data = {'orchard': {'x': {'start': fruit_row_ed, 'end': fruit_row_tk},
-                            'y': {'start': fruit_row_st, 'end': fruit_row_end},
-                            'z': {'start': fruit_row_bt, 'end': fruit_row_tp}},
-                'vehicle': {'num_arms': num_arms,
-                            'num_rows': num_row,
-                            'frame_height': frame_height},
-                'arms':    {'max_v': max_v,
-                            'max_a': max_a},
-                'num_goals':    n_goals,
-                'space_config': space_config.value,
-                'appointment':  appointment.value,
-                'data_config':  data_config.value,
-                'existance':    existance.value,
-                'noise_level':  noise_level.value
+    def monteCarlo(self):
+        '''
+           Function to run Monte Carlo simulation where a value is changes per parameter and a
+           JSON file exported to be used by the simulation code
+        '''
+        print("Functionality not added yet")
+
+
+    def convertJSON(self):
+        '''
+           Convert data into JSON format that is then sent to createFiles to turn it into a file.
+        '''
+        data = {'orchard': {'x': {'start': self.fruit_row_ed, 'end': self.fruit_row_tk},
+                            'y': {'start': self.fruit_row_st, 'end': self.fruit_row_end},
+                            'z': {'start': self.fruit_row_bt, 'end': self.fruit_row_tp}},
+                'vehicle': {'num_arms': self.num_arms,
+                            'num_rows': self.num_row,
+                            'frame_height': self.frame_height},
+                'arms':    {'max_v': self.max_v,
+                            'max_a': self.max_a},
+                'num_goals':    self.n_goals,
+                'space_config': self.space_config.value,
+                'appointment':  self.appointment.value,
+                'data_config':  self.data_config.value,
+                'existance':    self.existance.value,
+                'noise_level':  self.noise_level.value
                 }
 
         # Use the data dictionary to create a JSON file, and save the used parameters in
