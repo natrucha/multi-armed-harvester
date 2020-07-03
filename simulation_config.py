@@ -48,18 +48,23 @@ class simulation_config(object):
         # fruit row height, in ft -- z-axis
         self.fruit_row_bt   = 0.
         self.fruit_row_tp   = 9.
+        # fruit density
+        self.rho_real       = 1.
+        # fake fruit density
+        self.rho_fake       = 0.3
 
         # decide on the number of arms and rows
         self.num_arms     = 3           # set number of arms on robot, will determine the length of the robot (for now)
-        self.num_row      = 3           # set the number of rows of arms
-        self.frame_height = 3.          # set the height of the arm's frame
-        # frame height will be calculated from tree height and number of rows?
+        self.num_row      = 4           # set the number of rows of arms
 
         # arm's max velocity and acceleration values apparently in ft/s
         self.max_v = 1.
         self.max_a = 10.
         # if semionline:
         self.n_goals = 20       # number of goals the semionline scheduler will look for
+
+        # when working with the fruit ribbon, how high above the conveyors will the ribbon be
+        self.ribbon_z = 1.
 
         # decide if the arms are in individual or shared spaces
         self.space_config = spaceConf.SHARED
@@ -86,13 +91,15 @@ class simulation_config(object):
         '''
         data = {'orchard': {'x': {'start': self.fruit_row_ed, 'end': self.fruit_row_tk},
                             'y': {'start': self.fruit_row_st, 'end': self.fruit_row_end},
-                            'z': {'start': self.fruit_row_bt, 'end': self.fruit_row_tp}},
+                            'z': {'start': self.fruit_row_bt, 'end': self.fruit_row_tp},
+                            'rho_real': self.rho_real,
+                            'rho_fake': self.rho_fake   },
                 'vehicle': {'num_arms': self.num_arms,
-                            'num_rows': self.num_row,
-                            'frame_height': self.frame_height},
+                            'num_rows': self.num_row},
                 'arms':    {'max_v': self.max_v,
                             'max_a': self.max_a},
                 'num_goals':    self.n_goals,
+                'ribbon_z':     self.ribbon_z,
                 'space_config': self.space_config.value,
                 'appointment':  self.appointment.value,
                 'data_config':  self.data_config.value,
