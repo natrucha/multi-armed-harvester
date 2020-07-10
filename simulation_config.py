@@ -71,7 +71,7 @@ class simulation_config(object):
         # decide on the type of scheduler
         self.appointment = calendar.EDF
         # decide what fruit distribution to use to create fruit coordinates
-        self.data_config  = treeCreation.SYN_LINE
+        self.data_config  = treeCreation.UNIFORM
         # decide if fake fruit will be added
         self.existance = reality.TURN_OFF
         # decide if noise should be added and the distribution
