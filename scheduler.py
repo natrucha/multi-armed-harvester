@@ -211,7 +211,7 @@ class scheduler(object):
         return(total_time)
 
 
-    def singleFruitScheduler(self, num_row, num_arms, a, row_picture, fruit):
+    def singleFruitScheduler(self, num_row, num_arms, a, row_picture, fruit, t_step):
         '''Assigns fruit one at a time to each fruit. Not really a scheduler, but useful for testing'''
 
         # for each row

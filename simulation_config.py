@@ -55,11 +55,16 @@ class simulation_config(object):
 
         # decide on the number of arms and rows
         self.num_arms     = 3           # set number of arms on robot, will determine the length of the robot (for now)
-        self.num_row      = 4           # set the number of rows of arms
+        self.num_row      = 3           # set the number of rows of arms
 
         # arm's max velocity and acceleration values apparently in ft/s
         self.max_v = 1.
         self.max_a = 10.
+
+        # vehicle velocity, in ft/s
+        self.v_vx = 0.0
+        self.v_vy = 0.05
+
         # if semionline:
         self.n_goals = 20       # number of goals the semionline scheduler will look for
 
@@ -95,7 +100,9 @@ class simulation_config(object):
                             'rho_real': self.rho_real,
                             'rho_fake': self.rho_fake   },
                 'vehicle': {'num_arms': self.num_arms,
-                            'num_rows': self.num_row},
+                            'num_rows': self.num_row,
+                            'v_vx':     self.v_vx,
+                            'v_vy':     self.v_vy,},
                 'arms':    {'max_v': self.max_v,
                             'max_a': self.max_a},
                 'num_goals':    self.n_goals,
