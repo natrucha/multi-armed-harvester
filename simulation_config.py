@@ -129,7 +129,7 @@ class simulation_config(object):
         with open('data.json', 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4, sort_keys=True)
 
-        save = input('Would you like to save in seperate file? (y or n)')      # If you use Python 3
+        save = input('Would you like to save the JSON configurations in seperate file? (y or n)')      # If you use Python 3
 
         if save == "y":
             timestr   = time.strftime("%Y%m%d")
