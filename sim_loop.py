@@ -4,7 +4,6 @@ from enum import Enum
 import math
 
 # Plotting
-#%matplotlib notebook
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.pyplot as plt
@@ -108,24 +107,31 @@ class sim_loop(object):
 
         ##################### Other Variables #######################
         # Orchard row settings
-        self.t       = []         # 'global' time
-        self.t_step  = 0.
-        self.dt      = 0.01      # 'global' time step size
-        self.runs    = 0         # saves the number of loops in one simulation run
+        self.t           = []        # 'global' time
+        self.t_step      = 0.
+        self.dt          = 0.01      # 'global' time step size
+        self.runs        = 0         # saves the number of loops in one simulation run
+        self.prog_time   = 0.        # how long the program takes to run
+        self.start_time  = 0.        # OS time at which the program started to calculate total running time
+
+        # variables to save and analyze final results
+        self.avg_pick_cycle     = [] # saves the average picking cycle for each individual arm
+        self.percent_reached    = [] # saves the percent of fruit reached by each arm
+        self.total_fruit_picked = 0  # by the whole system
 
         # Lists
-        self.arm_states = []  # saves arm states for plotting and data processing
+        self.arm_states  = []  # saves arm states for plotting and data processing
         self.row_picture = [] # saves the fruit seen by the row
         # used to plot the vehicle
-        self.qv0 = []
-        self.qv1 = []
+        self.qv0         = []
+        self.qv1         = []
         # for plotting data, saves the location of the edges of the vehicle
-        self.left_edge  = []
-        self.right_edge = []
-        self.front_edge = []
-        self.back_edge  = []
+        self.left_edge   = []
+        self.right_edge  = []
+        self.front_edge  = []
+        self.back_edge   = []
         # list to obtain individual state information on each arm
-        self.arm_list  = []
+        self.arm_list    = []
 
         ####### Vehicle Init Values for parameter setting #######
         # create the vehicle speed array
@@ -232,18 +238,19 @@ class sim_loop(object):
         # make a scheduler function that sets n_goals only if it's synthetic data
 
         # see if user wants to run main loop,
-        save = input('Would you like to run the simulator once? (y or n)')
-        if save == "y":
-            print("running the loop")
-            self.simulationLoop()
-        else:
-            print("not running the loop")
+        self.simulationLoop()
+        # save = input('Would you like to run the simulator once? (y or n)')
+        # if save == "y":
+        #     print("running the loop")
+        #     self.simulationLoop()
+        # else:
+        #     print("not running the loop")
 
 
     def simulationLoop(self):
         '''Main loop that runs through all the nodes'''
         ## start timer to see how long code takes to execute
-        start_time = time.time()
+        self.start_time = time.time()
 
         ##### while loooop!
         while(self.q_v[1] < self.end_row):
@@ -288,7 +295,7 @@ class sim_loop(object):
                 for arm2step in range(self.num_arms):
                     q_a = self.arm_obj[rows,arm2step].armStep(self.v_v, self.arm_obj[rows,:], self.dt, self.t_step, self.fruit, self.row_picture)
 
-            # plotting data
+            # save plotting data
             self.qv0.append(float(self.q_v[0]))
             self.qv1.append(float(self.q_v[1]))
 
@@ -310,10 +317,101 @@ class sim_loop(object):
             self.runs+=1
 
         # obtain the amount of time it took to run the simulator
-        prog_time = time.time() - start_time
-        print("HI, I'M DONE")
+        self.prog_time = time.time() - self.start_time
+
+        try:
+            print("program took: {0:.2f}".format(self.prog_time), "sec")
+        except NameError:
+            self.prog_time = time.time() - self.start_time
+            print("***prog_time, and thus the total time, maybe incorrect because the main loop terminated early***")
+
+
+    def sysData(self):
+        '''Print system values such as running time, number of fruit, internal simulator time, etc.'''
+        tot_internal_time = self.t[-1]
+        tot_vehicle_dist  = self.q_v[1]-self.q_v[0]
+
+        try:
+            print("program took: {0:.2f}".format(self.prog_time), "sec")
+        except NameError:
+            self.prog_time = time.time() - start_time
+            print("***prog_time, and thus the total time, maybe incorrect because the main loop terminated early***")
+
+        print("total internal time: {0:.2f}".format(tot_internal_time), "sec")
+        print("total vehicle distance moved: {0:.2f}".format(tot_vehicle_dist), "ft")
+        print("vehicle speed (if constant) in the y-axis:", self.v_v[1], "ft/s")
+        print("max arm velocity:", self.arm_obj[0,0].v_max, "ft/s, max arm acceleration:", self.arm_obj[0,0].a_max, "ft/s^2")
+        print("total number of fruit in CSV file:", len(self.fruit.x_fr)) # reality check
+
+
+    def armStateResults(self):
+        '''
+            Compiles the information of what state each arm is at at each time step in the main
+            loop.
+
+            OUTPUT: tot_num_arms x len(self.arm_states) array
+        '''
+        # calculate how long each arm spent in each state
+        state_step = 0     # used to save the state in the correct order
+        state_data = np.zeros((tot_num_arms, len(self.arm_states))) # used to separate the states based on the arm number
+
+        # obtain the state for each arm at each time step of the simulation loop
+        for time_step in self.arm_states:  # has all the arms' states at each loop of the main code
+            for arm_num in time_step:      # for each arm in that time step
+                # save the state value
+                state_data[arm_num[0],state_step] = arm_num[1]
+
+            state_step += 1
+
+        # use where() on the state_data array to calculate all the individual or
+        # total state percentages.
+        return state_data
+
+
+    def perArmResults(self):
+        '''Calculate the statistics for each individual arm'''
+        total_fruit = len(self.fruit.x_fr)
+        tot_num_arms = self.num_arms*self.num_row
+
+        # lists to be added to self. lists in __init__
+
+        # print("Rear arms are arm no. 0, bottom row is row no. 0:")
+        for rows in range(self.num_row):
+            for count in range(self.num_arms):
+                # calculate picking cycle average for each arm
+                try:
+                    avg_PC = sum(self.arm_obj[rows,count].pick_cycle)/len(self.arm_obj[rows,count].pick_cycle)
+                    self.avg_pick_cycle.append(avg_PC)
+
+                except ZeroDivisionError: # in case no fruit were picked by an arm
+                    avg_PC = np.nan
+                    self.avg_pick_cycle.append(avg_PC)
+                # print("Total fruit reached for arm", self.arm_obj[rows,count].n,"in row", rows, "is", a[rows,count].reached_goals, "with an avg. picking cycle time {0:.2f}".format(avg_PC), "sec")
+
+                # calculate the percent reached goals for each arm
+                given = self.arm_obj[rows, count].goals_given
+                reached = self.arm_obj[rows, count].reached_goals
+                self.percent_reached.append((reached / given) * 100)
+                # print("For arm", count, "row", rows)
+                # print("Number of goals given:", given, "number of goals reached:", reached)
+                # print("Percent reached goals: {0:.2f}".format(percent_reached), "%")
+                # print("")
+
+        # print all the per arm statistics
+        # for arm_n in range(tot_num_arms):
+        #     print("for arm", arm_n, "avg pick cycle:", self.avg_pick_cycle[arm_n], "% reached:", self.percent_reached[arm_n])
+
+    def overallResults(self):
+        '''Calculate the statistics for the system as a whole'''
+        for rows in range(self.num_row):
+            for count in range(self.num_arms):
+                # calculate how many fruit were picked overall
+                self.total_fruit_picked += self.arm_obj[rows,count].reached_goals
+
 
     def readJSON(self):
+        '''Read the JSON configuration file and set all the variables to the
+           correct values and settings'''
         ###### create JSON configuration file to read from #####
         # init function
         json_data = simulation_config()
