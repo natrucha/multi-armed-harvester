@@ -8,7 +8,7 @@ class drawRobot(object):
     def __init__(self):
         self.a = 0
 
-    def drawRect(self, q_curr, width_v, length_v):
+    def drawRect(self, ax, q_curr, width_v, length_v):
 
         xl  = q_curr[0] + width_v / 2  # left x coordinate
         xr  = q_curr[0] - width_v / 2  # right x coordinate
@@ -28,7 +28,7 @@ class drawRobot(object):
         ax.add_collection3d(poly, zs=[z_axis[0]] * len(verts), zdir='z')
 
 
-    def drawFrame(self, left_edge, back_edge, front_edge, z_edges_f):
+    def drawFrame(self, ax, left_edge, back_edge, front_edge, z_edges_f):
         xl  = left_edge  # back x coordinate
 
         yf  = front_edge # front y coordinate
@@ -48,6 +48,7 @@ class drawRobot(object):
         poly = Poly3DCollection(verts, closed = False, alpha=0.25)
         poly.set_facecolor("grey")  # the transparency setting (alpha) is overriden by facecolor otherwise
         ax.add_collection3d(poly, zs=[z_axis[0]] * len(verts), zdir='z')
+
 
     def drawArmCylinder(self, center_y, center_z, arm_start, arm_end):
         # see second answer https://stackoverflow.com/questions/26989131/add-cylinder-to-plot
