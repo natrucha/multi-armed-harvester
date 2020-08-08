@@ -118,6 +118,10 @@ class sim_loop(object):
         self.avg_pick_cycle     = [] # saves the average picking cycle for each individual arm
         self.percent_reached    = [] # saves the percent of fruit reached by each arm
         self.total_fruit_picked = 0  # by the whole system
+        self.tot_num_arms       = self.num_arms*self.num_row
+        self.all_PCT            = 0. # average PCT of the whole simulation
+        self.all_percent_reach  = 0. # average percent reached ofthe whole system
+        self.all_sec_per_fruit  = 0. # overall internal time over overall fruit reached
 
         # Lists
         self.arm_states  = []  # saves arm states for plotting and data processing
@@ -319,12 +323,6 @@ class sim_loop(object):
         # obtain the amount of time it took to run the simulator
         self.prog_time = time.time() - self.start_time
 
-        try:
-            print("program took: {0:.2f}".format(self.prog_time), "sec")
-        except NameError:
-            self.prog_time = time.time() - self.start_time
-            print("***prog_time, and thus the total time, maybe incorrect because the main loop terminated early***")
-
 
     def sysData(self):
         '''Print system values such as running time, number of fruit, internal simulator time, etc.'''
@@ -339,9 +337,72 @@ class sim_loop(object):
 
         print("total internal time: {0:.2f}".format(tot_internal_time), "sec")
         print("total vehicle distance moved: {0:.2f}".format(tot_vehicle_dist), "ft")
+        print()
         print("vehicle speed (if constant) in the y-axis:", self.v_v[1], "ft/s")
         print("max arm velocity:", self.arm_obj[0,0].v_max, "ft/s, max arm acceleration:", self.arm_obj[0,0].a_max, "ft/s^2")
         print("total number of fruit in CSV file:", len(self.fruit.x_fr)) # reality check
+
+
+    def results(self):
+        '''Compile all the results'''
+        sum_individual_PCT = 0.
+
+        # Rear arms are arm no. 0, bottom row is row no. 0
+        for rows in range(self.num_row):
+            for count in range(self.num_arms):
+                # Obtain individual picking cycle times
+                sum_individual_PCT += self.calcAvgPCT(rows, count)
+                # Obtain individual % fruit reached out of goals given by arm
+                self.calcPercentGoals(rows, count)
+                # calculate how many fruit were picked overall
+                self.total_fruit_picked += self.arm_obj[rows,count].reached_goals
+
+                ## NOTE: these lists need to be cleared at each run, or they blend into each other?
+
+        ### Calc totals ###
+        # calculate the total average PCT
+        self.all_PCT = sum_individual_PCT/(self.num_row * self.num_arms)
+        # calculate the overall average percent reached
+        self.all_percent_reach = sum(self.percent_reached)/(self.tot_num_arms)
+        # calculate the average sec/fruit
+        self.all_sec_per_fruit = self.t[-1] / self.total_fruit_picked
+
+
+    def calcAvgPCT(self, rows, count):
+        '''Calculate the individual arm and overall average picking cycle time values'''
+        # calculate picking cycle average for each arm
+        sum_individual_PCT = 0.
+
+        try:
+            avg_individual_PCT = sum(self.arm_obj[rows,count].pick_cycle)/len(self.arm_obj[rows,count].pick_cycle)
+            self.avg_pick_cycle.append(avg_individual_PCT)
+            # only add the individual PCT values that are not NaN
+            sum_individual_PCT += avg_individual_PCT
+        except ZeroDivisionError: # in case no fruit were picked by an arm
+            avg_individual_PCT = np.nan
+            self.avg_pick_cycle.append(avg_individual_PCT)
+            # don't really know how to deal with this.
+            # if avg_individual_PCT = 0, the average drops, but it shouldn't?
+            # if avg_individual_PCT = NaN, it makes arthmetic = NaN
+
+        # calculate the total average PCT
+        return sum_individual_PCT
+
+
+    def calcPercentGoals(self, rows, count):
+        '''
+           Obtain the data for percent reached fruit out of given goals per individual
+           arm and per the harvesting system as a whole.
+         '''
+        # calculate the percent reached goals for each arm
+        given = self.arm_obj[rows, count].goals_given
+        reached = self.arm_obj[rows, count].reached_goals
+        self.percent_reached.append((reached / given) * 100)
+
+
+    def calcPercentHarvested(self):
+        '''Calculate the percent reachable fruit harvested by the system'''
+        pass
 
 
     def armStateResults(self):
@@ -353,7 +414,7 @@ class sim_loop(object):
         '''
         # calculate how long each arm spent in each state
         state_step = 0     # used to save the state in the correct order
-        state_data = np.zeros((tot_num_arms, len(self.arm_states))) # used to separate the states based on the arm number
+        state_data = np.zeros((self.tot_num_arms, len(self.arm_states))) # used to separate the states based on the arm number
 
         # obtain the state for each arm at each time step of the simulation loop
         for time_step in self.arm_states:  # has all the arms' states at each loop of the main code
@@ -365,48 +426,8 @@ class sim_loop(object):
 
         # use where() on the state_data array to calculate all the individual or
         # total state percentages.
+        # see https://thispointer.com/find-the-index-of-a-value-in-numpy-array/
         return state_data
-
-
-    def perArmResults(self):
-        '''Calculate the statistics for each individual arm'''
-        total_fruit = len(self.fruit.x_fr)
-        tot_num_arms = self.num_arms*self.num_row
-
-        # lists to be added to self. lists in __init__
-
-        # print("Rear arms are arm no. 0, bottom row is row no. 0:")
-        for rows in range(self.num_row):
-            for count in range(self.num_arms):
-                # calculate picking cycle average for each arm
-                try:
-                    avg_PC = sum(self.arm_obj[rows,count].pick_cycle)/len(self.arm_obj[rows,count].pick_cycle)
-                    self.avg_pick_cycle.append(avg_PC)
-
-                except ZeroDivisionError: # in case no fruit were picked by an arm
-                    avg_PC = np.nan
-                    self.avg_pick_cycle.append(avg_PC)
-                # print("Total fruit reached for arm", self.arm_obj[rows,count].n,"in row", rows, "is", a[rows,count].reached_goals, "with an avg. picking cycle time {0:.2f}".format(avg_PC), "sec")
-
-                # calculate the percent reached goals for each arm
-                given = self.arm_obj[rows, count].goals_given
-                reached = self.arm_obj[rows, count].reached_goals
-                self.percent_reached.append((reached / given) * 100)
-                # print("For arm", count, "row", rows)
-                # print("Number of goals given:", given, "number of goals reached:", reached)
-                # print("Percent reached goals: {0:.2f}".format(percent_reached), "%")
-                # print("")
-
-        # print all the per arm statistics
-        # for arm_n in range(tot_num_arms):
-        #     print("for arm", arm_n, "avg pick cycle:", self.avg_pick_cycle[arm_n], "% reached:", self.percent_reached[arm_n])
-
-    def overallResults(self):
-        '''Calculate the statistics for the system as a whole'''
-        for rows in range(self.num_row):
-            for count in range(self.num_arms):
-                # calculate how many fruit were picked overall
-                self.total_fruit_picked += self.arm_obj[rows,count].reached_goals
 
 
     def readJSON(self):
