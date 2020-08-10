@@ -9,7 +9,7 @@ class Trajectory(object):
         self.a_max = am
         self.d_max = dm
         self.j_max = 250
-        
+
 #         self.v_max = 1  # Shared instance member :D
 #         self.a_max = 16
 #         self.d_max = 16
@@ -101,7 +101,7 @@ class Trajectory(object):
         self.v0 = v0
         self.qe = qe
 
-        print("start, end, start velocity:", self.q0, self.qe, self.v0)
+        # print("start, end, start velocity:", self.q0, self.qe, self.v0)
 
         sign = 1
 #         Dq_stop = self.v0**2 / (2 * self.d_max) # minimum stopping distance
@@ -149,7 +149,7 @@ class Trajectory(object):
 
         self.q0 = self.q0f
         self.v0 = self.v0f
-        
+
 #         self.q0 = self.q0f + self.delta_q
 #         self.v0 = self.v0f + self.delta_v
 

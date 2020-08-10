@@ -159,7 +159,8 @@ class scheduler(object):
                                 unpick.append(goal_new)
 
                         except ValueError:
-                            print("*** No value came up, broke out of the if statement ***")
+                            ## Error checking print statement:
+                            # print("*** No value came up, broke out of the if statement ***")
 #                             break
                             pass
 

@@ -318,8 +318,9 @@ class arm(object):
 
             else:
                 # maybe an error?
-                print("*** Is it just idle? ***")
-                print("*** BAD FLAG:", self.stateFLAG, " ***")
+                # print("*** Is it just idle? ***")
+                # print("*** BAD FLAG:", self.stateFLAG, " ***")
+                # idle flag every single time...
 
                 # keep in place?
                 self.v_a[0] = -v_v[0]
