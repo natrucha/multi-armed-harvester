@@ -29,8 +29,9 @@ class fruitTreeCreator(object):
         self.z_fr  = []
         self.exist = []  # will populate with 0 or 1 depending if the fruit is "real" or not
 
-        # list of total number of real fruit in each row
-        self.fruit_in_row = []
+        # fruit statistics
+        self.tot_fruit    = 0  # total number of real fruit created
+        self.fruit_in_row = [] # list of total number of real fruit in each row
 
         # y-limits for where the fruit can be added (x and z will depend on the robot configuration)
         self.y_lim = y_lim
@@ -120,6 +121,8 @@ class fruitTreeCreator(object):
                 y = np.random.default_rng(self.y_seed).uniform(y_sec_lim[0], y_sec_lim[1], numFruit)
                 # append number of real fruit into the lists
                 self.fruit_in_row.append(numFruit)
+                # add this row's fruit to the total number of created fruit
+                self.tot_fruit += numFruit
 
                 if dist == self.dist_UNIFORM:
                     z = np.random.default_rng(self.z_seed).uniform(z_lim[0], z_lim[1], numFruit)

@@ -116,12 +116,12 @@ class sim_loop(object):
 
         # variables to save and analyze final results
         self.avg_pick_cycle     = [] # saves the average picking cycle for each individual arm
-        self.percent_reached    = [] # saves the percent of fruit reached by each arm
+        self.percent_goal       = [] # saves the percent of fruit reached by each arm
         self.row_percent        = [] # saves the % harvestable harvested fruit by each row
         self.total_fruit_picked = 0  # by the whole system
         self.tot_num_arms       = self.num_arms*self.num_row
         self.all_PCT            = 0. # average PCT of the whole simulation
-        self.all_percent_reach  = 0. # average percent reached ofthe whole system
+        self.all_percent_goal   = 0. # average percent reached ofthe whole system
         self.all_sec_per_fruit  = 0. # overall internal time over overall fruit reached
 
         # Lists
@@ -365,11 +365,11 @@ class sim_loop(object):
         # calculate the total average PCT
         self.all_PCT = sum_individual_PCT/(self.num_row * self.num_arms)
         # calculate the overall average percent reached
-        self.all_percent_reach = sum(self.percent_reached)/(self.tot_num_arms)
+        self.all_percent_goal = sum(self.percent_goal)/(self.tot_num_arms)
         # calculate the average sec/fruit
         self.all_sec_per_fruit = self.t[-1] / self.total_fruit_picked
         # calculate average % reached harvestable fruit
-        self.all_percent_harvest = sum(self.row_percent) / self.num_row   
+        self.all_percent_harvest = self.total_fruit_picked / self.fruit.tot_fruit
 
 
     def calcPercentHarvested(self, rows):
@@ -380,7 +380,7 @@ class sim_loop(object):
         '''
         row_harvested = 0
         # obtain number of fruits reached by the arms in the row (goes one by one)
-        for i in range(self.num_arms-1):
+        for i in range(self.num_arms):
             row_harvested += self.arm_obj[rows, i].reached_goals
         # calculate the obtained reached goals per row vs the total fruit created in the row
         self.row_percent.append(row_harvested / self.fruit.fruit_in_row[rows])
@@ -415,7 +415,7 @@ class sim_loop(object):
         # calculate the percent reached goals for each arm
         given = self.arm_obj[rows, count].goals_given
         reached = self.arm_obj[rows, count].reached_goals
-        self.percent_reached.append((reached / given) * 100)
+        self.percent_goal.append((reached / given) * 100)
 
 
     def armStateResults(self):
@@ -523,5 +523,5 @@ class sim_loop(object):
         '''
         ## commented out lists
         self.avg_pick_cycle   = []
-        self.percent_reached  = []
+        self.percent_goal  = []
         self.row_percent      = []
