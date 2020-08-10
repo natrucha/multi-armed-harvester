@@ -24,10 +24,13 @@ class fruitTreeCreator(object):
 
         #################### CLASS VARIABLES ####################
         # fruit coordinate lists (for all the rows)
-        self.x_fr = []
-        self.y_fr = []
-        self.z_fr = []
+        self.x_fr  = []
+        self.y_fr  = []
+        self.z_fr  = []
         self.exist = []  # will populate with 0 or 1 depending if the fruit is "real" or not
+
+        # list of total number of real fruit in each row
+        self.fruit_in_row = []
 
         # y-limits for where the fruit can be added (x and z will depend on the robot configuration)
         self.y_lim = y_lim
@@ -115,13 +118,14 @@ class fruitTreeCreator(object):
             if isReal == self.fruit_REAL:
                 x = np.random.default_rng(self.x_seed).uniform(x_lim[0], x_lim[1], numFruit)
                 y = np.random.default_rng(self.y_seed).uniform(y_sec_lim[0], y_sec_lim[1], numFruit)
+                # append number of real fruit into the lists
+                self.fruit_in_row.append(numFruit)
 
                 if dist == self.dist_UNIFORM:
                     z = np.random.default_rng(self.z_seed).uniform(z_lim[0], z_lim[1], numFruit)
 
                 elif dist == self.dist_LINE:
                     z = np.full(len(x), height)
-
 
                 # add an existance flag to the 6th array set at 1 for real
                 add = np.ones(len(x))

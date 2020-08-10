@@ -117,6 +117,7 @@ class sim_loop(object):
         # variables to save and analyze final results
         self.avg_pick_cycle     = [] # saves the average picking cycle for each individual arm
         self.percent_reached    = [] # saves the percent of fruit reached by each arm
+        self.row_percent        = [] # saves the % harvestable harvested fruit by each row
         self.total_fruit_picked = 0  # by the whole system
         self.tot_num_arms       = self.num_arms*self.num_row
         self.all_PCT            = 0. # average PCT of the whole simulation
@@ -241,14 +242,9 @@ class sim_loop(object):
         self.sched_obj = scheduler(self.n_goals, self.num_row, self.num_arms, self.max_v, self.max_a)
         # make a scheduler function that sets n_goals only if it's synthetic data
 
-        # see if user wants to run main loop,
+        # run main loop
         self.simulationLoop()
-        # save = input('Would you like to run the simulator once? (y or n)')
-        # if save == "y":
-        #     print("running the loop")
-        #     self.simulationLoop()
-        # else:
-        #     print("not running the loop")
+
 
 
     def simulationLoop(self):
@@ -346,9 +342,15 @@ class sim_loop(object):
     def results(self):
         '''Compile all the results'''
         sum_individual_PCT = 0.
+        row_harvested      = 0
+        # if it runs more than one time, the lists double
+        self.listCleanup()
 
         # Rear arms are arm no. 0, bottom row is row no. 0
         for rows in range(self.num_row):
+            # calculate the % harvestable harvested fruit by each row
+            self.calcPercentHarvested(rows)
+
             for count in range(self.num_arms):
                 # Obtain individual picking cycle times
                 sum_individual_PCT += self.calcAvgPCT(rows, count)
@@ -366,6 +368,22 @@ class sim_loop(object):
         self.all_percent_reach = sum(self.percent_reached)/(self.tot_num_arms)
         # calculate the average sec/fruit
         self.all_sec_per_fruit = self.t[-1] / self.total_fruit_picked
+        # calculate average % reached harvestable fruit
+        self.all_percent_harvest = sum(self.row_percent) / self.num_row   
+
+
+    def calcPercentHarvested(self, rows):
+        '''
+            Calculate the percent reachable fruit harvested by the system
+
+            INPUT: row number
+        '''
+        row_harvested = 0
+        # obtain number of fruits reached by the arms in the row (goes one by one)
+        for i in range(self.num_arms-1):
+            row_harvested += self.arm_obj[rows, i].reached_goals
+        # calculate the obtained reached goals per row vs the total fruit created in the row
+        self.row_percent.append(row_harvested / self.fruit.fruit_in_row[rows])
 
 
     def calcAvgPCT(self, rows, count):
@@ -398,11 +416,6 @@ class sim_loop(object):
         given = self.arm_obj[rows, count].goals_given
         reached = self.arm_obj[rows, count].reached_goals
         self.percent_reached.append((reached / given) * 100)
-
-
-    def calcPercentHarvested(self):
-        '''Calculate the percent reachable fruit harvested by the system'''
-        pass
 
 
     def armStateResults(self):
@@ -480,10 +493,35 @@ class sim_loop(object):
 
 
     def step(self, t, dt):
+        '''
+           Step function for the time steps.
+
+           INPUT: last time value, t, and the time step size, dt
+
+           OUTPUT: new time value
+        '''
         t = t + self.dt
         return t
 
+
     def vehicleStep(self, q_curr, v, dt):
+        '''
+           Step function for the vehicle when the velocity is constant.
+
+           INPUT: last vehicle location, q_curr, vehicle velocity, and time step
+
+           OUTPUT: new vehicle location
+        '''
         # for now it's constant velocity
         q_new = np.array([q_curr[0] + v[0]*self.dt, q_curr[1] + v[1]*self.dt])
         return q_new
+
+
+    def listCleanup(self):
+        '''
+           Empties out result lists so that they don't keep growing if the results are calculated multiple times.
+        '''
+        ## commented out lists
+        self.avg_pick_cycle   = []
+        self.percent_reached  = []
+        self.row_percent      = []
