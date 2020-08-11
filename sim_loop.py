@@ -121,7 +121,7 @@ class sim_loop(object):
         self.percent_goal       = [] # saves the percent of fruit reached by each arm
         self.row_percent        = [] # saves the % harvestable harvested fruit by each row
         self.states_percent     = [] # multi-dimensional list that saves the amount of time each arm spent in each state
-        self.all_states_percent = []
+        self.mean_state_percent = [] # mean of percent time the arms spend in each state
         self.total_fruit_picked = 0  # by the whole system
         self.all_PCT            = 0. # average PCT of the whole simulation
         self.all_percent_goal   = 0. # average percent reached ofthe whole system
@@ -348,6 +348,10 @@ class sim_loop(object):
         # if it runs more than one time, the same list gets appended onto the first one
         self.listCleanup()
 
+        # compile arm state data and calculate the percent time each arm is in each state throughtout the
+        # simulation run
+        self.armStateResults()
+
         # Rear arms are arm no. 0, bottom row is row no. 0
         for rows in range(self.num_row):
             # calculate the % harvestable harvested fruit by each row
@@ -370,12 +374,14 @@ class sim_loop(object):
         self.all_sec_per_fruit = self.t[-1] / self.total_fruit_picked
         # calculate average % reached harvestable fruit
         self.all_percent_harvest = self.total_fruit_picked / self.fruit.tot_fruit
+        # calculate the mean percent of time the arms are in each states
+        self.meanStatePercent() # don't run unless armStateResults() already ran
 
 
     def armStateResults(self):
         '''
             Compiles the information of what state each arm is at at each time step in the main
-            loop.
+            loop. Results in the percent time each arm is in each state.
         '''
         # calculate how long each arm spent in each state
         state_step = 0     # used to save the state in the correct order matching the arm order
@@ -409,16 +415,21 @@ class sim_loop(object):
             arm_states = []
 
 
-    def totalStates(self):
-        '''Calculate the overall total percent amount of time *all* the arms are in each state'''
-        self.all_states_percent = []
+    def meanStatePercent(self):
+        '''
+           Calculate the mean of the percent time the arms are in each state.
+
+           Depends on results from armStateResults() which has to be run before
+           meanStatePercent() can be run.
+        '''
+        self.mean_state_percent = []
         state_tot = 0
 
         for states in range(6):
             for arms in self.states_percent:
                 state_tot += arms[states]
 
-            self.all_states_percent.append(state_tot/self.tot_num_arms)
+            self.mean_state_percent.append(state_tot/self.tot_num_arms)
             state_tot = 0
 
 
