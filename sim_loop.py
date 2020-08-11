@@ -107,25 +107,26 @@ class sim_loop(object):
 
         ##################### Other Variables #######################
         # Orchard row settings
-        self.t           = []        # 'global' time
-        self.t_step      = 0.
-        self.dt          = 0.01      # 'global' time step size
-        self.runs        = 0         # saves the number of loops in one simulation run
-        self.prog_time   = 0.        # how long the program takes to run
-        self.start_time  = 0.        # OS time at which the program started to calculate total running time
+        self.t            = []        # 'global' internal time list
+        self.t_step       = 0.
+        self.dt           = 0.01      # 'global' time step size
+        self.runs         = 0         # saves the number of loops in one simulation run
+        self.prog_time    = 0.        # how long the program takes to run
+        self.start_time   = 0.        # OS time at which the program started to calculate total running time
+        self.tot_num_arms = self.num_arms*self.num_row
 
         # variables to save and analyze final results
         self.avg_pick_cycle     = [] # saves the average picking cycle for each individual arm
         self.percent_goal       = [] # saves the percent of fruit reached by each arm
         self.row_percent        = [] # saves the % harvestable harvested fruit by each row
+        self.states             = [] # multi-dimensional list that saves the amount of time each arm spent in each state
         self.total_fruit_picked = 0  # by the whole system
-        self.tot_num_arms       = self.num_arms*self.num_row
         self.all_PCT            = 0. # average PCT of the whole simulation
         self.all_percent_goal   = 0. # average percent reached ofthe whole system
         self.all_sec_per_fruit  = 0. # overall internal time over overall fruit reached
 
         # Lists
-        self.arm_states  = []  # saves arm states for plotting and data processing
+        self.arm_states  = [] # saves the state of the arm at every loop of the simulation
         self.row_picture = [] # saves the fruit seen by the row
         # used to plot the vehicle
         self.qv0         = []
@@ -135,8 +136,6 @@ class sim_loop(object):
         self.right_edge  = []
         self.front_edge  = []
         self.back_edge   = []
-        # list to obtain individual state information on each arm
-        self.arm_list    = []
 
         ####### Vehicle Init Values for parameter setting #######
         # create the vehicle speed array
@@ -304,15 +303,17 @@ class sim_loop(object):
             self.back_edge.append(float(self.arm_obj[0,0].y_edges_f[1]))
 
             arm_index = 0
+            # list to save the state of all the arms during this loop
+            arm_list  = []
 
             # compile at which state each arm ends the loop to add to plot later
             for rows in range(self.num_row):
                 for arm2state in range(self.num_arms):
-                    self.arm_list.append([arm_index, self.arm_obj[rows, arm2state].stateFLAG])
+                    arm_list.append([arm_index, self.arm_obj[rows, arm2state].stateFLAG])
                     arm_index += 1
 
-            # save arm states
-            self.arm_states.append(self.arm_list)
+            # congregation of all the arm states at every loop
+            self.arm_states.append(arm_list)
             # add to the main loop counter
             self.runs+=1
 
@@ -342,8 +343,7 @@ class sim_loop(object):
     def results(self):
         '''Compile all the results'''
         sum_individual_PCT = 0.
-        row_harvested      = 0
-        # if it runs more than one time, the lists double
+        # if it runs more than one time, the same list gets appended onto the first one
         self.listCleanup()
 
         # Rear arms are arm no. 0, bottom row is row no. 0
@@ -352,14 +352,12 @@ class sim_loop(object):
             self.calcPercentHarvested(rows)
 
             for count in range(self.num_arms):
-                # Obtain individual picking cycle times
+                # Obtain individual arm picking cycle times
                 sum_individual_PCT += self.calcAvgPCT(rows, count)
-                # Obtain individual % fruit reached out of goals given by arm
+                # Obtain individual arm % fruit reached out of goals given by arm
                 self.calcPercentGoals(rows, count)
                 # calculate how many fruit were picked overall
                 self.total_fruit_picked += self.arm_obj[rows,count].reached_goals
-
-                ## NOTE: these lists need to be cleared at each run, or they blend into each other?
 
         ### Calc totals ###
         # calculate the total average PCT
@@ -370,6 +368,43 @@ class sim_loop(object):
         self.all_sec_per_fruit = self.t[-1] / self.total_fruit_picked
         # calculate average % reached harvestable fruit
         self.all_percent_harvest = self.total_fruit_picked / self.fruit.tot_fruit
+
+
+    def armStateResults(self):
+        '''
+            Compiles the information of what state each arm is at at each time step in the main
+            loop.
+
+            OUTPUT: tot_num_arms x len(self.arm_states) array
+        '''
+        # calculate how long each arm spent in each state
+        state_step = 0     # used to save the state in the correct order matching the arm order
+        state_data = np.zeros((self.tot_num_arms, len(self.arm_states))) # used to separate the states based on the arm number
+        # list that has the sum of loops during which the arm was in each state
+        arm_states = []
+
+        # obtain the state for each arm at each time step of the simulation loop
+        for time_step in self.arm_states:  # has all the arms' states at each loop of the main code
+            for arm_num in time_step:      # for each arm in that time step
+                # save the state values
+                state_data[arm_num[0],state_step] = arm_num[1]
+
+            state_step += 1
+
+        for arms in range(self.tot_num_arms):
+            for state in range(6): # number of states
+                loops_in_state = np.where(state_data[arms,:] == state)
+                sum_loops      = len(loops_in_state[0])
+                # print("Arm", arms, "was in state", state, "this many loops:", sum_loops)
+                arm_states.append(sum_loops)
+
+            self.states.append(arm_states)
+            arm_states = []
+
+        # use np.where() on the state_data array to calculate all the individual or
+        # total state percentages.
+        # see https://thispointer.com/find-the-index-of-a-value-in-numpy-array/
+        # return state_data
 
 
     def calcPercentHarvested(self, rows):
@@ -416,31 +451,6 @@ class sim_loop(object):
         given = self.arm_obj[rows, count].goals_given
         reached = self.arm_obj[rows, count].reached_goals
         self.percent_goal.append((reached / given) * 100)
-
-
-    def armStateResults(self):
-        '''
-            Compiles the information of what state each arm is at at each time step in the main
-            loop.
-
-            OUTPUT: tot_num_arms x len(self.arm_states) array
-        '''
-        # calculate how long each arm spent in each state
-        state_step = 0     # used to save the state in the correct order
-        state_data = np.zeros((self.tot_num_arms, len(self.arm_states))) # used to separate the states based on the arm number
-
-        # obtain the state for each arm at each time step of the simulation loop
-        for time_step in self.arm_states:  # has all the arms' states at each loop of the main code
-            for arm_num in time_step:      # for each arm in that time step
-                # save the state value
-                state_data[arm_num[0],state_step] = arm_num[1]
-
-            state_step += 1
-
-        # use where() on the state_data array to calculate all the individual or
-        # total state percentages.
-        # see https://thispointer.com/find-the-index-of-a-value-in-numpy-array/
-        return state_data
 
 
     def readJSON(self):
