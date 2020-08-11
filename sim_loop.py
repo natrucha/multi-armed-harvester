@@ -2,6 +2,7 @@
 import csv
 from enum import Enum
 import math
+# import copy                    # when copying lists, important to look at shallow and deep copies
 
 # Plotting
 from mpl_toolkits.mplot3d import Axes3D
@@ -119,7 +120,8 @@ class sim_loop(object):
         self.avg_pick_cycle     = [] # saves the average picking cycle for each individual arm
         self.percent_goal       = [] # saves the percent of fruit reached by each arm
         self.row_percent        = [] # saves the % harvestable harvested fruit by each row
-        self.states             = [] # multi-dimensional list that saves the amount of time each arm spent in each state
+        self.states_percent     = [] # multi-dimensional list that saves the amount of time each arm spent in each state
+        self.all_states_percent = []
         self.total_fruit_picked = 0  # by the whole system
         self.all_PCT            = 0. # average PCT of the whole simulation
         self.all_percent_goal   = 0. # average percent reached ofthe whole system
@@ -374,14 +376,13 @@ class sim_loop(object):
         '''
             Compiles the information of what state each arm is at at each time step in the main
             loop.
-
-            OUTPUT: tot_num_arms x len(self.arm_states) array
         '''
         # calculate how long each arm spent in each state
         state_step = 0     # used to save the state in the correct order matching the arm order
         state_data = np.zeros((self.tot_num_arms, len(self.arm_states))) # used to separate the states based on the arm number
         # list that has the sum of loops during which the arm was in each state
-        arm_states = []
+        arm_states          = []
+        self.states_percent = [] # in case this function is run more than one time during testing
 
         # obtain the state for each arm at each time step of the simulation loop
         for time_step in self.arm_states:  # has all the arms' states at each loop of the main code
@@ -392,19 +393,33 @@ class sim_loop(object):
             state_step += 1
 
         for arms in range(self.tot_num_arms):
+            # calculate the total amount of simulation loops (to get percentages)
+            total_loops = len(state_data[arms,:])
+
             for state in range(6): # number of states
                 loops_in_state = np.where(state_data[arms,:] == state)
                 sum_loops      = len(loops_in_state[0])
                 # print("Arm", arms, "was in state", state, "this many loops:", sum_loops)
                 arm_states.append(sum_loops)
 
-            self.states.append(arm_states)
+            total_loops    = sum(arm_states)
+            percent = [x / total_loops for x in arm_states]
+
+            self.states_percent.append(percent)
             arm_states = []
 
-        # use np.where() on the state_data array to calculate all the individual or
-        # total state percentages.
-        # see https://thispointer.com/find-the-index-of-a-value-in-numpy-array/
-        # return state_data
+
+    def totalStates(self):
+        '''Calculate the overall total percent amount of time *all* the arms are in each state'''
+        self.all_states_percent = []
+        state_tot = 0
+
+        for states in range(6):
+            for arms in self.states_percent:
+                state_tot += arms[states]
+
+            self.all_states_percent.append(state_tot/self.tot_num_arms)
+            state_tot = 0
 
 
     def calcPercentHarvested(self, rows):
