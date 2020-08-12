@@ -120,6 +120,8 @@ class sim_loop(object):
         self.avg_pick_cycle     = [] # saves the average picking cycle for each individual arm
         self.percent_goal       = [] # saves the percent of fruit reached by each arm
         self.row_percent        = [] # saves the % harvestable harvested fruit by each row
+        self.sec_per_fruit      = [] # saves the average sec per picked fruit for each arm
+        self.row_sec_per_fruit  = [] # saves the average sec per picked fruit for each row
         self.states_percent     = [] # multi-dimensional list that saves the amount of time each arm spent in each state
         self.mean_state_percent = [] # mean of percent time the arms spend in each state
         self.total_fruit_picked = 0  # by the whole system
@@ -345,6 +347,7 @@ class sim_loop(object):
     def results(self):
         '''Compile all the results'''
         sum_individual_PCT = 0.
+        # row_sec_per_fruit  = 0.
         # if it runs more than one time, the same list gets appended onto the first one
         self.listCleanup()
 
@@ -356,6 +359,7 @@ class sim_loop(object):
         for rows in range(self.num_row):
             # calculate the % harvestable harvested fruit by each row
             self.calcPercentHarvested(rows)
+            self.rowSecPerFruit(rows)
 
             for count in range(self.num_arms):
                 # Obtain individual arm picking cycle times
@@ -364,18 +368,40 @@ class sim_loop(object):
                 self.calcPercentGoals(rows, count)
                 # calculate how many fruit were picked overall
                 self.total_fruit_picked += self.arm_obj[rows,count].reached_goals
+                # calculate the average seconds per fruit for each arm
+                self.secPerFruit(rows, count)
 
-        ### Calc totals ###
-        # calculate the total average PCT
-        self.all_PCT = sum_individual_PCT/(self.num_row * self.num_arms)
+        ### Calc totals for overall system ###
+        # calculate the overall average PCT for the system
+        self.all_PCT = sum_individual_PCT / (self.num_row * self.num_arms)
         # calculate the overall average percent reached
-        self.all_percent_goal = sum(self.percent_goal)/(self.tot_num_arms)
-        # calculate the average sec/fruit
+        self.all_percent_goal = sum(self.percent_goal) / self.tot_num_arms
+        # calculate the overall average sec/fruit
         self.all_sec_per_fruit = self.t[-1] / self.total_fruit_picked
         # calculate average % reached harvestable fruit
         self.all_percent_harvest = self.total_fruit_picked / self.fruit.tot_fruit
         # calculate the mean percent of time the arms are in each states
         self.meanStatePercent() # don't run unless armStateResults() already ran
+
+
+    def secPerFruit(self, rows, count):
+        '''Calculate the average amount of seconds an arm takes to pick a fruit'''
+        numPicked         = self.arm_obj[rows, count].reached_goals
+        tot_internal_time = self.t[-1]
+
+        self.sec_per_fruit.append(tot_internal_time / numPicked)
+
+
+
+    def rowSecPerFruit(self, rows):
+        '''Calculate the average amount of seconds per picked fruit for each row of arms'''
+        picked = 0
+        tot_internal_time = self.t[-1]
+
+        for arms in range(self.num_arms):
+            picked += self.arm_obj[rows, arms].reached_goals
+
+        self.row_sec_per_fruit.append(tot_internal_time / picked)
 
 
     def armStateResults(self):
@@ -558,6 +584,8 @@ class sim_loop(object):
            Empties out result lists so that they don't keep growing if the results are calculated multiple times.
         '''
         ## commented out lists
-        self.avg_pick_cycle   = []
-        self.percent_goal  = []
-        self.row_percent      = []
+        self.avg_pick_cycle    = []
+        self.percent_goal      = []
+        self.row_percent       = []
+        self.sec_per_fruit     = []
+        self.row_sec_per_fruit = []
