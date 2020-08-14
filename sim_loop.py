@@ -1,36 +1,36 @@
 #!/usr/bin/env python
-import csv
+# import csv
 from enum import Enum
-import math
+# import math
 # import copy                    # when copying lists, important to look at shallow and deep copies
 
 # Plotting
-from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
+# from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+# import matplotlib.pyplot as plt
 # from matplotlib.collections import Poly3DCollection # https://stackoverflow.com/questions/10599942/drawing-a-rectangle-or-bar-between-two-points-in-a-3d-scatter-plot-in-python-and
 # and https://stackoverflow.com/questions/37585340/plotting-3d-polygons-in-python-3
 
 import numpy as np
-from numpy.random import PCG64
-import time
+# from numpy.random import PCG64  # random number seed generator based on PCG64
+import time                     # use OS clock
 
 # import my own libraries
 from arm import *               # import the arm state library
 from camera import *            # import the simulated vision system
+from drawRobot import *         # import code that plots the vehicle and arm extension
 from fruitTreeCreator import *  # import the library that creates the array with fruit location + other info
 from scheduler import *         # import the scheduler functions
-from simulation_config import * # import the JSON creation file so that it can be read back to set parameters
+# from simulation_config import * # import the JSON creation file so that it can be read back to set parameters
 from trajectory import *        # import the trajectory generation "library" that I'm writing
-from drawRobot import *         # import code that plots the vehicle and arm extension
 
-import json # configuration file encode and decode
+import json                     # configuration json file encode and decode
 # see https://realpython.com/python-json/#decoding-custom-types
 
 # Testing and Debugging
 # Example: https://stackoverflow.com/questions/40172281/unit-tests-for-functions-in-a-jupyter-notebook
-import unittest             # docs https://docs.python.org/3/library/unittest.html
-import pdb #; pdb.set_trace() # docs https://docs.python.org/3/library/pdb.html
+# import unittest             # docs https://docs.python.org/3/library/unittest.html
+# import pdb #; pdb.set_trace() # docs https://docs.python.org/3/library/pdb.html
 
 # interesting/useful websites
 # talks about implementing robot simulator: https://www.toptal.com/robotics/programming-a-robot-an-introductory-tutorial
@@ -103,7 +103,14 @@ class sim_loop(object):
         # decide if noise should be added and the distribution
         self.noise_level    = noiseMaker.TURN_OFF
 
-        # Read and set new variable settings
+        ###### create JSON configuration file to read from #####
+        # The simulator file should not be the one that inits the JSON file,
+        # it should be the wrapper script that does that.
+        # init function
+        # self.json_data = simulation_config()
+        # creates the data file based on
+
+        # Read and set new variable settings based on existing JSON file
         self.readJSON()
 
         ##################### Other Variables #######################
@@ -510,9 +517,9 @@ class sim_loop(object):
            correct values and settings'''
         ###### create JSON configuration file to read from #####
         # init function
-        json_data = simulation_config()
+        # json_data = simulation_config()
         # creates the data file based on default values
-        json_data.convertJSON()
+        # self.json_data.convertJSON()
         # load the json file
         data = json.load(open("data.json"))
 

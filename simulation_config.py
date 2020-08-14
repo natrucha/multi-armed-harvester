@@ -82,6 +82,20 @@ class simulation_config(object):
         # decide if noise should be added and the distribution
         self.noise_level = noiseMaker.TURN_OFF
 
+        ## create the initial default JSON file (good as a check)
+        self.convertJSON()
+
+
+    def changeV_v(self, newV_v):
+        '''
+           Placeholder function used to test changes to the vehicle velocity.
+
+           INPUT: new y-coordinate vehicle velocity
+        '''
+        self.v_vy = newV_v
+        self.convertJSON()
+
+
     def monteCarlo(self):
         '''
            Function to run Monte Carlo simulation where a value is changes per parameter and a
@@ -129,26 +143,27 @@ class simulation_config(object):
         with open('data.json', 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4, sort_keys=True)
 
-        save = input('Would you like to save the JSON configurations in seperate file? (y or n)')      # If you use Python 3
-
-        if save == "y":
-            timestr   = time.strftime("%Y%m%d")
-            timestr_f = time.strftime("%Y%m%d-%H%M%S")
-
-            # create file path to document the parameters used
-            path = 'json_files' + timestr
-
-            if not os.path.exists(path):
-                os.makedirs(path)
-
-            filename = 'data-in-'+timestr_f+'.json'
-
-            # create a json file that gets saved
-            with open(os.path.join(path, filename), 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=4, sort_keys=True)
-
-        elif save == "n":
-            print("File was not saved. Thank you for using our services!")
-
-        else:
-            print("Invalid answer, default set to not save the file.")
+        ##### ALLOWS SAVING THE CONFIGURATION FILE (add later)
+        # save = input('Would you like to save the JSON configurations in seperate file? (y or n)')      # If you use Python 3
+        #
+        # if save == "y":
+        #     timestr   = time.strftime("%Y%m%d")
+        #     timestr_f = time.strftime("%Y%m%d-%H%M%S")
+        #
+        #     # create file path to document the parameters used
+        #     path = 'json_files' + timestr
+        #
+        #     if not os.path.exists(path):
+        #         os.makedirs(path)
+        #
+        #     filename = 'data-in-'+timestr_f+'.json'
+        #
+        #     # create a json file that gets saved
+        #     with open(os.path.join(path, filename), 'w', encoding='utf-8') as f:
+        #         json.dump(data, f, ensure_ascii=False, indent=4, sort_keys=True)
+        #
+        # elif save == "n":
+        #     print("File was not saved. Thank you for using our services!")
+        #
+        # else:
+        #     print("Invalid answer, default set to not save the file.")
