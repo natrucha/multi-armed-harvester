@@ -155,8 +155,8 @@ class sim_loop(object):
         elif self.space_config == spaceConf.SHARED:
             frame_width  = 3.
         #     frame_width  = 1.9
-        width_v  = 1.                    # vehicle width (x-dir, parallel to arms going into canopy) (only for plotting)
-        length_v = frame_width*self.num_arms  # vehicle length (y-dir parallel to row of trees)
+        self.width_v  = 1.                         # max arm extension (x-dir, parallel to arms going into canopy) (only for plotting)
+        self.length_v = frame_width*self.num_arms  # vehicle length (y-dir parallel to row of trees)
 
         ##################### Based on Flags #####################
         # initializes required variables based on the distribution creation method
@@ -209,20 +209,20 @@ class sim_loop(object):
 
         ##################### init environment #####################
         # end of the row (when the back of vehicle reaches this point it should stop)
-        self.end_row = self.fruit_row_end + width_v
+        self.end_row = self.fruit_row_end + self.width_v
         # used to plot basic outlines of the robot for better visualization
         self.dr = drawRobot()
 
         ######################## init camera #######################
         for rows in range(self.num_row): # one "camera" object per row on vehicle
-            self.pic = camera(length_v, rows, frame_height)
+            self.pic = camera(self.length_v, rows, frame_height)
             self.row_picture.append(self.pic)
 
         ######################### init arms ########################
         # array of arm object setup
         self.arm_obj = np.ndarray((self.num_row,self.num_arms), dtype=object)
         # setup for arm initialization
-        arm0start_y = self.q_v[1] - (length_v - frame_width)/2  # arm starting position in the y-dir
+        arm0start_y = self.q_v[1] - (self.length_v - frame_width)/2  # arm starting position in the y-dir
         q_a_new = np.array([0.,0.,0.])                     # used as a temporary value while calculating arm init positions
 
         # initialize the arm objects in a matrix set for each row and for the number of arms in  said row
