@@ -239,7 +239,7 @@ class sim_loop(object):
                 # if fruit's in a diagonal, get the bottom arms closer to the fruit
                 # the 0.3 is the zero starting point since it will never be exactly zero if they're extending cylinders
                 q_a_new[0] = self.q_v[0] + 0.3 + ((self.num_row-1)*arm_offset - arm_offset*rows)
-                q_a_new[1] = arm0start_y + frame_width*count # places the arms either in their space or far from each other
+                q_a_new[1] = arm0start_y + frame_width*count/2 # places the arms either in their space or far from each other
                 q_a_new[2] = self.row_picture[rows].row_mid   # place it in the already calculated middle of the row
                 # last one this makes sure it matches the "camera" object's z-location
                 # initialize the new arm
@@ -310,7 +310,7 @@ class sim_loop(object):
             self.qv1.append(float(self.q_v[1]))
 
             self.left_edge.append(float(self.q_v[0]))  # set at the center of the vehicle in case the arm is set as diagonal to rach farther fruit
-            self.front_edge.append(float(self.arm_obj[0,0].y_edges_f[0]))
+            self.front_edge.append(float(self.arm_obj[0,self.num_arms-1].y_edges_f[0]))
             self.back_edge.append(float(self.arm_obj[0,0].y_edges_f[1]))
 
             arm_index = 0
@@ -346,7 +346,7 @@ class sim_loop(object):
         print("total internal time: {0:.2f}".format(tot_internal_time), "sec")
         print("total vehicle distance moved: {0:.2f}".format(tot_vehicle_dist), "ft")
         print()
-        print("vehicle speed (if constant) in the y-axis:", self.v_v[1], "ft/s")
+        print("vehicle speed (if constant) in the y-axis: {0:.2f}".format(self.v_v[1]), "ft/s")
         print("max arm velocity:", self.arm_obj[0,0].v_max, "ft/s, max arm acceleration:", self.arm_obj[0,0].a_max, "ft/s^2")
         print("total number of fruit in CSV file:", len(self.fruit.x_fr)) # reality check
 

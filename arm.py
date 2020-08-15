@@ -68,8 +68,7 @@ class arm(object):
         self.width_c       = column_width # width of the columns supporting the arms
 
         if self.row_conf == self.conf_SHARED:
-            self.width_f  *= self.num_arms # if it's shared space the width is much larger
-
+            self.width_f  = frame_width*self.num_arms # if it's shared space the width is much larger and based on how many arms
 
         # frame center coordinates
         self.q_f           = np.array([q[0],q_v[1],q[2]])  # frame's center at row and vehicle's center
@@ -671,13 +670,13 @@ class arm(object):
                    the row is in the shared configuration, and the global time step size
         '''
         # x-values are not affected by the other arms (yet?)
-        x_coor       = self.q_f[0]           # center of the x-direction in the frame
-        self.q_f[0]  = x_coor + v_v[0]*dt # move the center point as the vehicle moves
+        x_coor       = self.q_f[0]           # center position of the arm in x-axis
+        self.q_f[0]  = x_coor + v_v[0]*dt    # move the center point as the vehicle moves (if it does in x-dir)
 
-        retract_edge = self.x_edges_f[0]
-        extend_edge  = self.x_edges_f[1]
+        retract_edge = self.x_edges_f[0]     # at frame
+        extend_edge  = self.x_edges_f[1]     # at furthest extension
 
-        # move x-dir the edges
+        # move x-dir the edges if vehicle has x-axis velocity
         self.x_edges_f[0] = retract_edge + v_v[0]*dt
         self.x_edges_f[1] = extend_edge + v_v[0]*dt
 
@@ -687,20 +686,20 @@ class arm(object):
             y_coor      = self.q_f[1]        # center of the y-direction in the frame
             self.q_f[1] = y_coor + v_v[1]*dt # move the center point as the vehicle moves
 
-            # set the value for the edges
-            front_edge  = self.y_edges_f[0]
+            # save the old location values of the edges, don't have to add column width cause it was added at the frame init
             back_edge   = self.y_edges_f[1]
+            front_edge  = self.y_edges_f[0]
 
         elif self.row_conf == self.conf_SHARED:
             # set the value for the edges
-            # got a truncated version of *a* that only has the other arms in that row
+            # got a version of *arm_obj* that has the other arms in only that row
 
             self.y_edge_end += v_v[1]*dt # move the ends with the vehicle
 
             if self.n == 0:
-                # backmost arm doesn't deal with arms behind it
+                # backmost arm doesn't deal with arms behind it, so the edge is the frame minus half the column width
                 back_edge   = self.y_edges_f[1]
-                front_edge  = a[self.n+1].q_a[1] - self.width_c + a[self.n+1].v_a[1]*dt
+                front_edge  = a[self.n+1].q_a[1] - self.width_c + a[self.n+1].v_a[1]*dt # next arm forwards' location
 
             elif self.n == self.num_arms-1:
                 # frontmost arm doesn't deal with arms in front of it
@@ -722,6 +721,8 @@ class arm(object):
         self.y_edges_f[0] = front_edge + v_v[1]*dt
         self.y_edges_f[1] = back_edge + v_v[1]*dt
 
+        ############ NOTE: ARM Y-EDGES ARE FINE (ADD column_width), STANDARDIZE THE FRAME EDGES ############
+
 
     def initFrame(self):
         '''
@@ -741,13 +742,13 @@ class arm(object):
             # front
             self.y_edges_f[0] = self.q_f[1] + self.width_f / 2 - self.width_c/2
             # back
-            self.y_edges_f[1] = self.q_f[1] - self.width_f / 2 - self.width_c/2
+            self.y_edges_f[1] = self.q_f[1] - self.width_f / 2 + self.width_c/2
 
         if self.row_conf == self.conf_SHARED:
             # the y-dir edge are initialized as the whole row minus some space for the other arms
             # front
             self.y_edges_f[0] = self.q_f[1] + self.width_f / 2 - (self.num_arms - self.n+1)*self.width_c
             # back
-            self.y_edges_f[1] = self.q_f[1] - self.width_f / 2 - self.n*self.width_c
-
+            self.y_edges_f[1] = self.q_f[1] - self.width_f / 2 + self.n*self.width_c
+            # saves the edges of the frame, not individual arms
             self.y_edge_end = np.copy(self.y_edges_f)
