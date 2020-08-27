@@ -11,7 +11,6 @@ class arm(object):
         ## next level would be for them to be seperate threads with access to the global clock -Stavros
 
         ######################### FLAGS #########################
-        # until I can figure out Enum
         self.pickFLAG        = 0     # checks if the fruit has been picked
         self.goalFLAG        = 0     # checks if there is no goal available
         self.stateFLAG       = 0
@@ -62,9 +61,9 @@ class arm(object):
         self.time_of_picking = []
 
         # frame size
-        self.length_f      = 2.5          # how far can it go into trees, in ft
-        self.width_f       = frame_width  # size of enclosing frame, width in ft -> when shared this includes the shared space
-        self.height_f      = frame_height # size of enclosing frame, height in ft
+        self.length_f      = 1.           # how far can it go into trees, in m
+        self.width_f       = frame_width  # size of enclosing frame, width in m -> when shared this includes the shared space
+        self.height_f      = frame_height # size of enclosing frame, height in m
         self.width_c       = column_width # width of the columns supporting the arms
 
         if self.row_conf == self.conf_SHARED:
@@ -548,9 +547,9 @@ class arm(object):
            Adds up the number of coordinates where the arm is within the goal location +/- epsilon.
            Returns the number of successes, up to 3
         '''
-        x = self.accuraccyCheck(self.q_a[0],self.goal[0])
-        y = self.accuraccyCheck(self.q_a[1],self.goal[1])
-        z = self.accuraccyCheck(self.q_a[2],self.goal[2])
+        x = self.accuracyCheck(self.q_a[0],self.goal[0])
+        y = self.accuracyCheck(self.q_a[1],self.goal[1])
+        z = self.accuracyCheck(self.q_a[2],self.goal[2])
         return x + y + z
 
 
@@ -559,12 +558,12 @@ class arm(object):
            Adds up the number of coordinates, but only for Y, Z, where the arm
            is within the goal location +/- epsilon. Returns the number of successes, up to 2
         '''
-        y = self.accuraccyCheck(self.q_a[1],self.goal[1])
-        z = self.accuraccyCheck(self.q_a[2],self.goal[2])
+        y = self.accuracyCheck(self.q_a[1],self.goal[1])
+        z = self.accuracyCheck(self.q_a[2],self.goal[2])
         return y + z
 
 
-    def accuraccyCheck(self, arm, goal):
+    def accuracyCheck(self, arm, goal):
         '''
            Checks if the arm's location is located near enough to the given goal to pick the fruit.
            Based on an allowable error set as epsilon. Returns a zero if too far, one if successful.
@@ -722,6 +721,9 @@ class arm(object):
         self.y_edges_f[1] = back_edge + v_v[1]*dt
 
         ############ NOTE: ARM Y-EDGES ARE FINE (ADD column_width), STANDARDIZE THE FRAME EDGES ############
+        # print("Arm ", self.n, "back edge {0:.2f}".format(self.y_edges_f[1]), "front edge {0:.2f}".format(self.y_edges_f[0]))
+        # print("Arm location{0:.2f}".format(self.q_a[1]))
+        # print("Frame based on arm ", self.n, "back edge {0:.2f}".format(self.y_edge_end[1]), "front edge {0:.2f}".format(self.y_edge_end[0]))
 
 
     def initFrame(self):

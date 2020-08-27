@@ -66,31 +66,31 @@ class reality(Enum):
 class sim_loop(object):
     def __init__(self):
         ################ Default Variable Values ###################
-        # fruit row depth, in ft  -- x-axis
-        self.fruit_row_ed   = 0.3
-        self.fruit_row_tk   = 1.3
-        # fruit row length, in ft -- y-axis
+        # fruit row depth, in m  -- x-axis
+        self.fruit_row_ed   = 0.
+        self.fruit_row_tk   = 0.7
+        # fruit row length, in m -- y-axis
         self.fruit_row_st   = 0.
-        self.fruit_row_end  = 25.
-        # fruit row height, in ft -- z-axis
+        self.fruit_row_end  = 5.
+        # fruit row height, in m -- z-axis
         self.fruit_row_bt   = 0.
-        self.fruit_row_tp   = 9.
+        self.fruit_row_tp   = 2.7
         # values for fruit density (currently supports only one value overall)
-        self.rho_real       = 1.
+        self.rho_real       = 5.
         self.rho_fake       = 0.3
         # decide on the number of arms and rows
         self.num_arms       = 3
         self.num_row        = 3
-        # arm's max velocity and acceleration values apparently in ft/s
-        self.max_v          = 1.
-        self.max_a          = 10.
-        # vehicle's velocity (constant), in ft/s
+        # arm's max velocity and acceleration values apparently in m/s
+        self.max_v          = 0.3
+        self.max_a          = 3.
+        # vehicle's velocity (constant), in m/s
         self.v_vx           = 0.
         self.v_vy           = 0.05
         # number of goals the semionline scheduler will look for
         self.n_goals        = 20
         # when working with the fruit ribbon, how high above the conveyors will the ribbon be
-        self.ribbon_z       = 1.
+        self.ribbon_z       = 0.3
         # Configuration parameter DEFAULTS
         # decide if the arms are in individual or shared spaces
         self.space_config   = spaceConf.SHARED
@@ -152,23 +152,23 @@ class sim_loop(object):
         # create the vehicle speed array
         self.v_v = np.array([self.v_vx, self.v_vy])  # in ft, constant velocity only in y-axis
         # make the arm take up space within the space (slowly added)
-        column_width = 0.2               # width of column holding the arm in place
+        column_width = 0.06     # width of column holding the arm in place
         # calculate the height of the frame based on number of rows, height of orchard, and add column width to make sure all
         # fruit can be reached
         frame_height = (self.fruit_row_tp - self.fruit_row_bt + 2*column_width) / self.num_row # if the rows are evenly spaced
         # configure the arm's space, length added to vehicle per arm in the y-direction
         if self.space_config == spaceConf.INDIVIDUAL:
-            frame_width  = 3.
+            frame_width  = 1.5
         elif self.space_config == spaceConf.SHARED:
-            frame_width  = 3.
+            frame_width  = 1.5
         #     frame_width  = 1.9
-        self.width_v  = 1.                         # max arm extension (x-dir, parallel to arms going into canopy) (only for plotting)
+        self.arm_ext  = 1.                         # max arm extension (x-dir, parallel to arms going into canopy) (only for plotting)
         self.length_v = frame_width*self.num_arms  # vehicle length (y-dir parallel to row of trees)
 
         ##################### Based on Flags #####################
         # initializes required variables based on the distribution creation method
         if self.data_config != treeCreation.CSV_RAJ:
-            self.q_v = np.array([self.fruit_row_ed-1.0/2-0.3, self.fruit_row_st])
+            self.q_v = np.array([self.fruit_row_ed-0.3/2-0.09, self.fruit_row_st])
             # init a z-coordinate list of where a fruit ribbon will be placed on each row
             fruit_lines = []
             # if using the line distribution, this will set the z height for each line
@@ -216,7 +216,7 @@ class sim_loop(object):
 
         ##################### init environment #####################
         # end of the row (when the back of vehicle reaches this point it should stop)
-        self.end_row = self.fruit_row_end + self.width_v
+        self.end_row = self.fruit_row_end + self.arm_ext
         # used to plot basic outlines of the robot for better visualization
         self.dr = drawRobot()
 
@@ -238,7 +238,7 @@ class sim_loop(object):
                 # calculate where each new arm should go
                 # if fruit's in a diagonal, get the bottom arms closer to the fruit
                 # the 0.3 is the zero starting point since it will never be exactly zero if they're extending cylinders
-                q_a_new[0] = self.q_v[0] + 0.3 + ((self.num_row-1)*arm_offset - arm_offset*rows)
+                q_a_new[0] = self.q_v[0] + 0.09 + ((self.num_row-1)*arm_offset - arm_offset*rows)
                 q_a_new[1] = arm0start_y + frame_width*count/2 # places the arms either in their space or far from each other
                 q_a_new[2] = self.row_picture[rows].row_mid   # place it in the already calculated middle of the row
                 # last one this makes sure it matches the "camera" object's z-location
@@ -344,10 +344,10 @@ class sim_loop(object):
             print("***prog_time, and thus the total time, maybe incorrect because the main loop terminated early***")
 
         print("total internal time: {0:.2f}".format(tot_internal_time), "sec")
-        print("total vehicle distance moved: {0:.2f}".format(tot_vehicle_dist), "ft")
+        print("total vehicle distance moved: {0:.2f}".format(tot_vehicle_dist), "m")
         print()
-        print("vehicle speed (if constant) in the y-axis: {0:.2f}".format(self.v_v[1]), "ft/s")
-        print("max arm velocity:", self.arm_obj[0,0].v_max, "ft/s, max arm acceleration:", self.arm_obj[0,0].a_max, "ft/s^2")
+        print("vehicle speed (if constant) in the y-axis: {0:.2f}".format(self.v_v[1]), "m/s")
+        print("max arm velocity:", self.arm_obj[0,0].v_max, "m/s, max arm acceleration:", self.arm_obj[0,0].a_max, "m/s^2")
         print("total number of fruit in CSV file:", len(self.fruit.x_fr)) # reality check
 
 
@@ -396,7 +396,13 @@ class sim_loop(object):
         numPicked         = self.arm_obj[rows, count].reached_goals
         tot_internal_time = self.t[-1]
 
-        self.sec_per_fruit.append(tot_internal_time / numPicked)
+        try:
+            self.sec_per_fruit.append(tot_internal_time / numPicked)
+
+        except ZeroDivisionError as e:
+            self.sec_per_fruit.append(0 )
+            # raise
+
 
 
 
@@ -509,7 +515,12 @@ class sim_loop(object):
         # calculate the percent reached goals for each arm
         given = self.arm_obj[rows, count].goals_given
         reached = self.arm_obj[rows, count].reached_goals
-        self.percent_goal.append((reached / given) * 100)
+        try:
+            self.percent_goal.append((reached / given) * 100)
+        except ZeroDivisionError as e0:
+            self.percent_goal.append(0)
+
+
 
 
     def readJSON(self):
@@ -524,13 +535,13 @@ class sim_loop(object):
         data = json.load(open("data.json"))
 
         ###### Parameter settings from the JSON configuration file ######
-        # fruit row depth, in ft  -- x-axis
+        # fruit row depth, in m  -- x-axis
         self.fruit_row_ed   = data['orchard']['x']['start']  # how far the vehicle will be from the edges of the tree
         self.fruit_row_tk   = data['orchard']['x']['end']    # how far the arms can reach into the canopy/ where the trunk is
-        # fruit row length, in ft -- y-axis
+        # fruit row length, in m -- y-axis
         self.fruit_row_st   = data['orchard']['y']['start']
         self.fruit_row_end  = data['orchard']['y']['end']
-        # fruit row height, in ft -- z-axis
+        # fruit row height, in m -- z-axis
         self.fruit_row_bt   = data['orchard']['z']['start']
         self.fruit_row_tp   = data['orchard']['z']['end']
         # values for fruit density (currently supports only one value overall)
@@ -539,10 +550,10 @@ class sim_loop(object):
         # decide on the number of arms and rows
         self.num_arms       = data['vehicle']['num_arms']      # set number of arms on robot, will determine the length of the robot (for now)
         self.num_row        = data['vehicle']['num_rows']      # set the number of rows of arms
-        # arm's max velocity and acceleration values apparently in ft/s
+        # arm's max velocity and acceleration values apparently in m/s
         self.max_v          = data['arms']['max_v']
         self.max_a          = data['arms']['max_a']
-        # vehicle's velocity (constant), in ft/s
+        # vehicle's velocity (constant), in m/s
         self.v_vx           = data['vehicle']['v_vx']
         self.v_vy           = data['vehicle']['v_vy']
         # number of goals the semionline scheduler will look for
@@ -583,6 +594,11 @@ class sim_loop(object):
         '''
         # for now it's constant velocity
         q_new = np.array([q_curr[0] + v[0]*self.dt, q_curr[1] + v[1]*self.dt])
+
+        # update the vehicle edges
+        # self.vehicle_back  = q_new - self.length_v/2
+        # self.vehicle_front = q_new + self.length_v/2
+
         return q_new
 
 

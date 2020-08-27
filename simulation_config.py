@@ -40,36 +40,30 @@ class simulation_config(object):
         '''
         ###### Parameter settings, will later become a configuration file ######
         # fruit row depth, in ft  -- x-axis
-        self.fruit_row_ed   = 0.3 # how far the vehicle will be from the edges of the tree
-        self.fruit_row_tk   = 1.3 # how far the arms can reach into the canopy
-        # fruit row length, in ft -- y-axis
+        self.fruit_row_ed   = 0.
+        self.fruit_row_tk   = 0.7
+        # fruit row length, in m -- y-axis
         self.fruit_row_st   = 0.
-        self.fruit_row_end  = 25.
-        # fruit row height, in ft -- z-axis
+        self.fruit_row_end  = 10.
+        # fruit row height, in m -- z-axis
         self.fruit_row_bt   = 0.
-        self.fruit_row_tp   = 9.
-        # fruit density
-        self.rho_real       = 1.
-        # fake fruit density
-        self.rho_fake       = 0.3
-
+        self.fruit_row_tp   = 2.7
+        # values for fruit density (currently supports only one value overall)
+        self.rho_real       = 1. 
+        self.rho_fake       = 1.5
         # decide on the number of arms and rows
-        self.num_arms     = 3           # set number of arms on robot, will determine the length of the robot (for now)
-        self.num_row      = 3           # set the number of rows of arms
-
-        # arm's max velocity and acceleration values apparently in ft/s
-        self.max_v = 1.
-        self.max_a = 10.
-
-        # vehicle velocity, in ft/s
-        self.v_vx = 0.0
-        self.v_vy = 0.05
-
-        # if semionline:
-        self.n_goals = 20       # number of goals the semionline scheduler will look for
-
+        self.num_arms       = 3
+        self.num_row        = 3
+        # arm's max velocity and acceleration values apparently in m/s
+        self.max_v          = 0.3
+        self.max_a          = 3.
+        # vehicle's velocity (constant), in m/s
+        self.v_vx           = 0.
+        self.v_vy           = 0.015
+        # number of goals the semionline scheduler will look for
+        self.n_goals        = 20
         # when working with the fruit ribbon, how high above the conveyors will the ribbon be
-        self.ribbon_z = 1.
+        self.ribbon_z       = 0.3
 
         # decide if the arms are in individual or shared spaces
         self.space_config = spaceConf.SHARED
@@ -94,14 +88,6 @@ class simulation_config(object):
         '''
         self.v_vy = newV_v
         self.convertJSON()
-
-
-    def monteCarlo(self):
-        '''
-           Function to run Monte Carlo simulation where a value is changes per parameter and a
-           JSON file exported to be used by the simulation code
-        '''
-        print("Functionality not added yet")
 
 
     def convertJSON(self):

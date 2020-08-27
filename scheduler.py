@@ -23,7 +23,7 @@ class scheduler(object):
         total_arms = self.num_rows * self.num_arms_row
 
         # arm mounting frame width, since arms aren't just points in space
-        self.mounting_width = 0.2 # should match the cylinder drawn by the draw class
+        self.mounting_width = 0.06 # in m, should match the cylinder drawn by the draw class
 
         # variables for the goals
         self.n_goals = n_goals # number of goals the greedy scheduler will find
@@ -240,5 +240,5 @@ class scheduler(object):
                             a[rows,arm_free].setGoal(fruit.sortedFruit[0:3,goal_new], t_step)
 
                     except ValueError:
-                        print("*** No value came up, broke out of the if statement ***")
+                        # print("*** No value came up, broke out of the if statement ***")
                         break

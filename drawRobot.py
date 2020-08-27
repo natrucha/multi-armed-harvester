@@ -8,10 +8,10 @@ class drawRobot(object):
     def __init__(self):
         self.a = 0
 
-    def drawRect(self, ax, q_curr, width_v, length_v):
+    def drawRect(self, ax, q_curr, arm_ext, length_v):
 
-        xl  = q_curr[0] + width_v / 2  # left x coordinate
-        xr  = q_curr[0] - width_v / 2  # right x coordinate
+        xl  = q_curr[0] + arm_ext / 2  # left x coordinate
+        xr  = q_curr[0] - arm_ext / 2  # right x coordinate
 
         yf  = q_curr[1] - length_v / 2 # front
         yb  = q_curr[1] + length_v / 2 # back
