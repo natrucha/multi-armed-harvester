@@ -49,8 +49,8 @@ class simulation_config(object):
         self.fruit_row_bt   = 0.
         self.fruit_row_tp   = 2.7
         # values for fruit density (currently supports only one value overall)
-        self.rho_real       = 1. 
-        self.rho_fake       = 1.5
+        self.rho_real       = 1.
+        self.rho_fake       = 0.5
         # decide on the number of arms and rows
         self.num_arms       = 3
         self.num_row        = 3

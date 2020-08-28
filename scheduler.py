@@ -237,7 +237,7 @@ class scheduler(object):
                             # give the arm the index so that it can set it back to 0 if it does not reach it
                             a[rows,arm_free].goal_index = goal_new
                             # set the new goal
-                            a[rows,arm_free].setGoal(fruit.sortedFruit[0:3,goal_new], t_step)
+                            a[rows,arm_free].setGoal(fruit.sortedFruit[0:3,goal_new], t_step, fruit.sortedFruit[3,index])
 
                     except ValueError:
                         # print("*** No value came up, broke out of the if statement ***")

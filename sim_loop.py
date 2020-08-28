@@ -268,12 +268,18 @@ class sim_loop(object):
             self.t_step = self.step(self.t_step, self.dt)
             self.t.append(float(self.t_step))
 
+            # checking why this fruit gets picked multiple times
+            # print("Beginning of loop fruit state", self.fruit.sortedFruit[3,1])
+
             # vehicle.step
             self.q_v = self.vehicleStep(self.q_v, self.v_v, self.dt) # calculate "instantaneous" location
 
             # Have the camera take a new "picture" at new location ##FLASH!##
             for rows in range(self.num_row):
                 self.row_picture[rows].cameraStep(self.end_row, self.q_v[1], self.fruit.sortedFruit) # resulting in a B-Tree of index/coordinates in world frame
+
+            # checking why this fruit gets picked multiple times
+            # print("After camera fruit state", self.fruit.sortedFruit[3,1])
 
             if (self.noise_level == noiseMaker.TURN_ON):
                 # add some noissse! (to the fruit locations)
@@ -297,13 +303,17 @@ class sim_loop(object):
                                     # give the arm the index so that it can set it back to 0 if it does not reach it
                                     self.arm_obj[rows,arm_free].goal_index = goal_new
                                     # set the new goal
-                                    self.arm_obj[rows,arm_free].setGoal(self.fruit.sortedFruit[0:3,goal_new], self.t_step)
+                                    self.arm_obj[rows,arm_free].setGoal(self.fruit.sortedFruit[0:3,goal_new], self.t_step, self.fruit.sortedFruit[3,goal_new])
+
+            # print("After scheduler fruit state", self.fruit.sortedFruit[3,1])
 
 
             # have each arm take a step
             for rows in range(self.num_row):
                 for arm2step in range(self.num_arms):
                     q_a = self.arm_obj[rows,arm2step].armStep(self.v_v, self.arm_obj[rows,:], self.dt, self.t_step, self.fruit, self.row_picture)
+
+            # print("After arm step fruit state", self.fruit.sortedFruit[3,1])
 
             # save plotting data
             self.qv0.append(float(self.q_v[0]))
@@ -384,15 +394,25 @@ class sim_loop(object):
         # calculate the overall average percent reached
         self.all_percent_goal = sum(self.percent_goal) / self.tot_num_arms
         # calculate the overall average sec/fruit
-        self.all_sec_per_fruit = self.t[-1] / self.total_fruit_picked
+        try:
+            self.all_sec_per_fruit = self.t[-1] / self.total_fruit_picked
+        except ZeroDivisionError as e3:
+             self.all_sec_per_fruit = 0
         # calculate average % reached harvestable fruit
-        self.all_percent_harvest = self.total_fruit_picked / self.fruit.tot_fruit
+        print("total fruit picked", self.total_fruit_picked, "total created fruit:", self.fruit.tot_fruit)
+        try:
+            self.all_percent_harvest = self.total_fruit_picked / self.fruit.tot_fruit
+        except Exception as e4:
+            self.all_percent_harvest = 0
         # calculate the mean percent of time the arms are in each states
         self.meanStatePercent() # don't run unless armStateResults() already ran
 
 
     def secPerFruit(self, rows, count):
-        '''Calculate the average amount of seconds an arm takes to pick a fruit'''
+        '''
+           Calculate the average amount of seconds an individual arm took to pick
+           sequential fruit
+        '''
         numPicked         = self.arm_obj[rows, count].reached_goals
         tot_internal_time = self.t[-1]
 
@@ -404,8 +424,6 @@ class sim_loop(object):
             # raise
 
 
-
-
     def rowSecPerFruit(self, rows):
         '''Calculate the average amount of seconds per picked fruit for each row of arms'''
         picked = 0
@@ -414,7 +432,11 @@ class sim_loop(object):
         for arms in range(self.num_arms):
             picked += self.arm_obj[rows, arms].reached_goals
 
-        self.row_sec_per_fruit.append(tot_internal_time / picked)
+        try:
+            self.row_sec_per_fruit.append(tot_internal_time / picked)
+
+        except ZeroDivisionError as e2:
+            self.row_sec_per_fruit.append(0)
 
 
     def armStateResults(self):
@@ -468,13 +490,18 @@ class sim_loop(object):
             for arms in self.states_percent:
                 state_tot += arms[states]
 
-            self.mean_state_percent.append(state_tot/self.tot_num_arms)
+            try:
+                self.mean_state_percent.append(state_tot/self.tot_num_arms)
+            except Exception as e5:
+                self.mean_state_percent.append(0)
+
             state_tot = 0
 
 
     def calcPercentHarvested(self, rows):
         '''
-            Calculate the percent reachable fruit harvested by the system
+            Calculate the percent reachable fruit harvested by the system in each
+            arm row.
 
             INPUT: row number
         '''

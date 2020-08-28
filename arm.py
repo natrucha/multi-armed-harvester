@@ -93,6 +93,7 @@ class arm(object):
         self.goal          = np.array([0.,0.,0.])
         self.reached_goals = 0     # how many goals were successfully reached
         self.goal_index    = 0     # what index did the goal come from
+        self.goal_list     = []    # list the index of each goal reached (check if goals were repeated somewhere)
         self.goals_given   = 0     # how many goals were given to the arm (to check against how many it reached)
         self.numMissed     = 0     # will follow how many times one goal is missed and cancels that goal once too many misses have happened
 
@@ -123,7 +124,7 @@ class arm(object):
 
         epsilon    = 0.001             # allowable error when reaching fruit
         t2Grab     = 0.2               # amount of time it takes to grab a fruit during GRABBING
-        can_miss   = 2                 # number of allowed misses before looking for new goal
+        can_miss   = 1                 # number of allowed misses before looking for new goal
 
         goal_time  = t - self.t        # time since the x, y, or z self timer was started
 
@@ -156,6 +157,7 @@ class arm(object):
                 self.resetFlags()
                 # remove the picking flag from the fruit scheduler so it can be scheduled again later
                 fruit.sortedFruit[3,self.goal_index] = 0.
+                # print("Reseting goal index, can't reach", self.goal_index)
 
             # start going through the states
             if self.stateFLAG == self.state_PICKYZ:
@@ -186,6 +188,7 @@ class arm(object):
                         self.resetFlags()
                         # remove the picking flag from the fruit scheduler so it can be scheduled again later
                         fruit.sortedFruit[3,self.goal_index] = 0.
+                        # print("Reseting goal index, pickyz", self.goal_index)
 
                 self.calcLocation(q_curr, v_v, dt)
 
@@ -197,7 +200,7 @@ class arm(object):
 
                 if goal_r[0] == 1:
                     # once again check that the arm is within the goal's location +/- epsilon
-                    check = self.accCheckXYZ()
+                    check = self.accCheckXYZ(fruit)
 
                     if check == 3:
                         # if all 3 goal coordinates successfully reached move to grabbing the fruit
@@ -217,6 +220,7 @@ class arm(object):
                         self.resetFlags()
                         # remove the picking flag from the fruit scheduler so it can be scheduled again later
                         fruit.sortedFruit[3,self.goal_index] = 0.
+                        # print("Reseting goal index, pickx", self.goal_index)
 
                 self.calcLocation(q_curr, v_v, dt)
 
@@ -231,7 +235,8 @@ class arm(object):
 
                 if self.t_grab >= t2Grab:
                     # need to check that the arm is in the correct location
-                    check = self.accCheckXYZ()
+                    check = self.accCheckXYZ(fruit)
+
 
                     if check == 3:
                         # successful harvest and the fruit has been grabbed
@@ -243,6 +248,7 @@ class arm(object):
                         goal_time = 0.
                         # add to reached goals and remove fruit from schedulable set
                         self.reached_goals += 1
+                        self.goal_list.append(self.goal_index)
                         fruit.sortedFruit[3,self.goal_index] = 2. # set environment fruit as picked
                         # "pick" the fruit and remove it from the vision system's b-tree
                         row_picture[self.row_n].fruitPicked(self.q_a, t)
@@ -262,6 +268,7 @@ class arm(object):
                         self.resetFlags()
                         # remove the picking flag from the fruit scheduler so it can be scheduled again later
                         fruit.sortedFruit[3,self.goal_index] = 0.
+                        # print("Reseting goal index, grab", self.goal_index)
 
                 self.calcLocation(q_curr, v_v, dt)
 
@@ -315,10 +322,9 @@ class arm(object):
 #                         print("")
 
             else:
-                # maybe an error?
+                # maybe an error, though usually it's that the arm is idle
                 # print("*** Is it just idle? ***")
                 # print("*** BAD FLAG:", self.stateFLAG, " ***")
-                # idle flag every single time...
 
                 # keep in place?
                 self.v_a[0] = -v_v[0]
@@ -359,7 +365,6 @@ class arm(object):
 
         # fix any edge constraints of the arms trying to go past their frame/other arms
         self.edgeConstraintCheck()
-
         # update the location history (for plotting :) )
         self.qax.append(float(self.q_a[0]))
         self.qay.append(float(self.q_a[1]))
@@ -387,11 +392,11 @@ class arm(object):
            Resets all the flags so as to restart the process of getting a goal.
         '''
         # end of the picking cycle, reset the state, goal, and fruit flags
-        self.stateFLAG  = self.state_IDLE
-        self.goalFLAG   = self.goal_FALSE
-        self.pickFLAG   = self.fruit_UNPICKED
+        self.stateFLAG    = self.state_IDLE
+        self.goalFLAG     = self.goal_FALSE
+        self.pickFLAG     = self.fruit_UNPICKED
         # set arm as free so that the scheduler can see it
-        self.free       = 1
+        self.free         = 1
 
 
     def unload(self, t):
@@ -512,7 +517,6 @@ class arm(object):
         self.x.noJerkProfile(self.q_a[0], self.q_f[0], self.x.v0, self.v_max, self.a_max, self.d_max)
         # restart the timer
         self.t = t
-
 #         if self.q_a[0] < self.q_f[0]-0.001:
 #             print(" ")
 #             print("RETRACTING")
@@ -542,7 +546,7 @@ class arm(object):
             return 0
 
 
-    def accCheckXYZ(self):
+    def accCheckXYZ(self, fruit):
         '''
            Adds up the number of coordinates where the arm is within the goal location +/- epsilon.
            Returns the number of successes, up to 3
@@ -550,6 +554,13 @@ class arm(object):
         x = self.accuracyCheck(self.q_a[0],self.goal[0])
         y = self.accuracyCheck(self.q_a[1],self.goal[1])
         z = self.accuracyCheck(self.q_a[2],self.goal[2])
+        # check that the fruit has not been picked
+        if fruit.sortedFruit[3,self.goal_index] != 1:
+            self.numMissed = 10
+            x = 0
+            y = 0
+            z = 0
+
         return x + y + z
 
 
@@ -602,7 +613,7 @@ class arm(object):
             self.q_a[1] = self.y_edges_f[0]
 
 
-    def setGoal(self, goal, t):
+    def setGoal(self, goal, t, check):
         '''
            Function to give arm a new goal. Initializes movement for each axis and calculates the required
            trapezoidal times to go from a current location to the goal.
@@ -615,16 +626,16 @@ class arm(object):
 #             print("Goal Index:", self.goal_index)
 #             print("Has the fruit been picked?", fruit.sortedFruit[3,self.goal_index])
 #             print("")
+        if check == 1.:
+            self.free     = 0              # global setting that makes arm's busy state visible to other functions
+            self.goal     = goal
+            self.goalFLAG = self.goal_TRUE
 
-        self.free     = 0              # global setting that makes arm's busy state visible to other functions
-        self.goal     = goal
-        self.goalFLAG = self.goal_TRUE
-
-        self.startTrap(t)
-        # increase goals given counter
-        self.goals_given += 1
-        # start picking cycle time measurement here
-        self.pick_cycle_s = t
+            self.startTrap(t)
+            # increase goals given counter
+            self.goals_given += 1
+            # start picking cycle time measurement here
+            self.pick_cycle_s = t
 
 
     def startTrap(self, t):

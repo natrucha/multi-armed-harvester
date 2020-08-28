@@ -75,11 +75,10 @@ class camera(object):
 
 
     def fruitPicked(self, pointCoord, t):
+        '''Saves the coordinates and time at which a fruit was picked for plotting'''
         self.x.append(float(pointCoord[0]))
         self.y.append(float(pointCoord[1]))
         self.z.append(float(pointCoord[2]))
-
-        # use bernoulli distribution to
         self.time.append(float(t))
 
 
