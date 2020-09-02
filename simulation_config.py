@@ -55,8 +55,8 @@ class simulation_config(object):
         self.num_arms       = 3
         self.num_row        = 3
         # arm's max velocity and acceleration values apparently in m/s
-        self.max_v          = 0.3
-        self.max_a          = 3.
+        self.max_v          = 0.31
+        self.max_a          = 3.1
         # vehicle's velocity (constant), in m/s
         self.v_vx           = 0.
         self.v_vy           = 0.015
@@ -68,7 +68,7 @@ class simulation_config(object):
         # decide if the arms are in individual or shared spaces
         self.space_config = spaceConf.SHARED
         # decide on the type of scheduler
-        self.appointment = calendar.EDF
+        self.appointment = calendar.SINGLE_FRUIT
         # decide what fruit distribution to use to create fruit coordinates
         self.data_config  = treeCreation.UNIFORM
         # decide if fake fruit will be added
@@ -87,6 +87,16 @@ class simulation_config(object):
            INPUT: new y-coordinate vehicle velocity
         '''
         self.v_vy = newV_v
+        self.convertJSON()
+
+
+    def changeA_v(self, newA_v):
+        '''
+           Placeholder function used to test changes to the vehicle velocity.
+
+           INPUT: new y-coordinate vehicle velocity
+        '''
+        self.max_v = newA_v
         self.convertJSON()
 
 

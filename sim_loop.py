@@ -64,7 +64,7 @@ class reality(Enum):
     DENSITY   = 1
 
 class sim_loop(object):
-    def __init__(self):
+    def __init__(self, seeds):
         ################ Default Variable Values ###################
         # fruit row depth, in m  -- x-axis
         self.fruit_row_ed   = 0.
@@ -175,7 +175,7 @@ class sim_loop(object):
             for n in range(self.num_row):
                 fruit_lines.append(n*frame_height + self.ribbon_z) # in ft
             # initialize the synthetic fruit distribution creator
-            self.fruit = fruitTreeCreator([self.fruit_row_st,self.fruit_row_end])
+            self.fruit = fruitTreeCreator([self.fruit_row_st,self.fruit_row_end], seeds)
             # settings for an angle offset if the tree data has the fruit set at a diagonal
             arm_offset = 0.
             # create list for fruit and fake fruit, only needed when not using digitized fruit
@@ -399,7 +399,7 @@ class sim_loop(object):
         except ZeroDivisionError as e3:
              self.all_sec_per_fruit = 0
         # calculate average % reached harvestable fruit
-        print("total fruit picked", self.total_fruit_picked, "total created fruit:", self.fruit.tot_fruit)
+        # print("total fruit picked", self.total_fruit_picked, "total created fruit:", self.fruit.tot_fruit)
         try:
             self.all_percent_harvest = self.total_fruit_picked / self.fruit.tot_fruit
         except Exception as e4:

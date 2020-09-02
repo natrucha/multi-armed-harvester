@@ -2,7 +2,7 @@ import numpy as np
 from numpy.random import PCG64
 
 class fruitTreeCreator(object):
-    def __init__(self, y_lim):
+    def __init__(self, y_lim, seeds):
         '''
            Class that can create synthetic distributions to populate a 6D matrix of coordinates for the
            simulator. Uses inputted densities to create desired fruit rows/robot arm rows .
@@ -37,13 +37,22 @@ class fruitTreeCreator(object):
         self.y_lim = y_lim
 
         # rng seeds created through numpy SeedSequence()
-        self.x_seed = PCG64(37428395352013185889194479428694397783)
-        self.y_seed = PCG64(13250124924871709375127216220749555998)
-        self.z_seed = PCG64(165440185943501291848242755689690423219)
+        self.x_seed = PCG64(int(seeds[0]))
+        self.y_seed = PCG64(int(seeds[1]))
+        self.z_seed = PCG64(int(seeds[2]))
         # seeds for the fake fruit
-        self.xf_seed = PCG64(264090507119924891834746017829286837587)
-        self.yf_seed = PCG64(307175982666302731017951161793326853810)
-        self.zf_seed = PCG64(202459549346992037879433717317760015805)
+        self.xf_seed = PCG64(int(seeds[3]))
+        self.yf_seed = PCG64(int(seeds[4]))
+        self.zf_seed = PCG64(int(seeds[5]))
+
+        # # rng seeds created through numpy SeedSequence()
+        # self.x_seed = PCG64(37428395352013185889194479428694397783)
+        # self.y_seed = PCG64(13250124924871709375127216220749555998)
+        # self.z_seed = PCG64(165440185943501291848242755689690423219)
+        # # seeds for the fake fruit
+        # self.xf_seed = PCG64(264090507119924891834746017829286837587)
+        # self.yf_seed = PCG64(307175982666302731017951161793326853810)
+        # self.zf_seed = PCG64(202459549346992037879433717317760015805)
 
 
     def fruitLine(self, num_rows, row_fruit_density, x_lim, z, fake_density):
