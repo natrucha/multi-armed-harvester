@@ -81,8 +81,8 @@ class monteCarlo(object):
         ax[1].set_ylabel("Throughput [fruit/sec]")
 
         #         ax[rows].set_title("No. of fruit picked versus time")
-        ax[0].legend(loc='upper right', ncol=1)
-        ax[1].legend(loc='upper right', ncol=1)
+        ax[0].legend(bbox_to_anchor=(1.2, 1), loc='upper right', ncol=1)
+        ax[1].legend(bbox_to_anchor=(1.2, 1), loc='upper right', ncol=1)
 
         fig.subplots_adjust(bottom=0.05, top=0.95, right=0.8)
 
@@ -115,12 +115,77 @@ class monteCarlo(object):
         ax[0].errorbar(self.indep_var, mean_fpe, std_fpe, marker='o', capsize=3, label="Fruit Picking Efficiency mean over "+str(self.N)+" runs")
         ax[1].errorbar(self.indep_var, mean_fpt, std_fpt, marker='o', capsize=3, label="Fruit Picking Throughput mean over "+str(self.N)+" runs")
 
-        ax[0].legend(loc='upper right', ncol=1)
-        ax[1].legend(loc='upper right', ncol=1)
+        ax[0].legend(bbox_to_anchor=(1, 1.2) ,loc='upper right', ncol=1)
+        ax[1].legend(bbox_to_anchor=(1, 1.2) ,loc='upper right', ncol=1)
 
         plt.show()
 
 
+    def runVariableArms(self, N):
+        '''
+           Run the simulation over N number of different uniform fruit
+           distributions over a set list of number of arms per arm row.
+
+           Clears fpt and fpe from previous runs.
+        '''
+        self.N    = N
+        # clear previously obtained results
+        self.fpe = []
+        self.fpt = []
+        # set any non-default values for scheduling
+        self.json_data.appointment = calendar.SINGLE_FRUIT
+        seeds     = [] # saves the rng seed list used for each run
+        tot_time  = 0.
+        # To print the number of runs done
+        r         = 1
+
+        # run the simulation
+        for n in range(self.N):
+            # init or clear the lists this fruit distributions' results
+            fpe_semi = []
+            fpt_semi = []
+            running_time_semi = []
+
+            # set up the seeds needed for this run
+            seeds = self.seed_list[n]
+            # arn velocities to be tested
+            self.indep_var = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] # in number of arms
+            if n == 0:
+                print("Total number of runs for completion:", N)
+                print("----------------------------------------")
+
+            for v in self.indep_var:
+                # run the simulation, each time changing the velocity and calculating the results
+                self.json_data.changeNumArms(v)
+                # re-init sim_loop
+                sim = sim_loop(seeds)
+            #     print()
+            #     sim.sysData()
+                # print()
+                sim.results() # just calculates all the results, doesn't print anything out.
+                fpe_semi.append(sim.all_percent_harvest*100)
+                try:
+                    fpt_semi.append(1/sim.all_sec_per_fruit)
+
+                except ZeroDivisionError as e0:
+                    fpt_semi.append(0)
+
+                running_time_semi.append(sim.prog_time)
+                tot_time += sim.prog_time
+        #         print("Done with:", v, "number of arms")
+        #         print("Took", sim.prog_time, "sec to run")
+
+            # save this fruit distributions's results to be compared with the other distributions.
+            self.fpe.append(fpe_semi)
+            self.fpt.append(fpt_semi)
+            self.running_time.append(running_time_semi)
+
+            print("Done with run:", r)
+            print("System time passed up to now {0:.2f}".format(tot_time/60), "min")
+            print()
+            r += 1
+
+        print("Total system time to run {0:.2f}".format(tot_time/60), "min")
 
 
     def runVariableV_a(self, N):
@@ -128,7 +193,7 @@ class monteCarlo(object):
            Run the simulation over N number of different uniform fruit
            distributions over a set list of arm maximum velocities.
 
-            Clears previous fpt and fpe from previous runs.
+           Clears fpt and fpe from previous runs.
         '''
 
         self.N    = N
@@ -154,12 +219,12 @@ class monteCarlo(object):
             # arn velocities to be tested
             self.indep_var = [0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1., 1.2, 1.4] # in m
             if n == 0:
-                print("Total number of runs for completion:", len(self.indep_var))
+                print("Total number of runs for completion:", N)
                 print("----------------------------------------")
 
             for v in self.indep_var:
                 # run the simulation, each time changing the velocity and calculating the results
-                self.json_data.changeA_v(v)
+                self.json_data.changeV_a(v)
                 # re-init sim_loop
                 sim = sim_loop(seeds)
             #     print()
@@ -196,7 +261,7 @@ class monteCarlo(object):
            Run the simulation over N number of different uniform fruit
            distributions over a set list of vehicle velocities.
 
-           Clears previous fpt and fpe from previous runs.
+           Clears fpt and fpe from previous runs.
         '''
         self.N    = N
         # clear previously obtained results
@@ -223,7 +288,7 @@ class monteCarlo(object):
             # vehicle velocities to be tested
             self.indep_var = [0.01, 0.015, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.15, 0.2, 0.3, 0.5] # in m
             if n == 0:
-                print("Total number of runs for completion:", len(self.indep_var))
+                print("Total number of runs for completion:", N)
                 print("----------------------------------------")
 
             for v in self.indep_var:

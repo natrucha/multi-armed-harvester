@@ -58,8 +58,8 @@ class simulation_config(object):
         self.max_v          = 0.8
         self.max_a          = 3.1
         # vehicle's velocity (constant), in m/s
-        self.v_vx           = 0.2
-        self.v_vy           = 0.1
+        self.v_vx           = 0.
+        self.v_vy           = 0.2
         # number of goals the semionline scheduler will look for
         self.n_goals        = 20
         # when working with the fruit ribbon, how high above the conveyors will the ribbon be
@@ -90,13 +90,23 @@ class simulation_config(object):
         self.convertJSON()
 
 
-    def changeA_v(self, newA_v):
+    def changeNumArms(self, newNumArms):
+        '''
+           Placeholder function used to test changes to the number of arms per row.
+
+           INPUT: new number of arms
+        '''
+        self.num_arms = newNumArms
+        self.convertJSON()
+
+
+    def changeV_a(self, newV_a):
         '''
            Placeholder function used to test changes to the vehicle velocity.
 
-           INPUT: new y-coordinate vehicle velocity
+           INPUT: new arm maximum velocity
         '''
-        self.max_v = newA_v
+        self.max_v = newV_a
         self.convertJSON()
 
 

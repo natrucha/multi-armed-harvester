@@ -706,7 +706,12 @@ class arm(object):
 
             self.y_edge_end += v_v[1]*dt # move the ends with the vehicle
 
-            if self.n == 0:
+            if self.num_arms == 1:
+                # if there is just one arm, the frame is the edge
+                back_edge   = self.y_edges_f[1]
+                front_edge  = self.y_edges_f[0]
+
+            elif self.n == 0:
                 # backmost arm doesn't deal with arms behind it, so the edge is the frame minus half the column width
                 back_edge   = self.y_edges_f[1]
                 front_edge  = a[self.n+1].q_a[1] - self.width_c + a[self.n+1].v_a[1]*dt # next arm forwards' location
