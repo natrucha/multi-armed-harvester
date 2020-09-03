@@ -4,13 +4,6 @@ from enum import Enum
 # import math
 # import copy                    # when copying lists, important to look at shallow and deep copies
 
-# Plotting
-# from mpl_toolkits.mplot3d import Axes3D
-# from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-# import matplotlib.pyplot as plt
-# from matplotlib.collections import Poly3DCollection # https://stackoverflow.com/questions/10599942/drawing-a-rectangle-or-bar-between-two-points-in-a-3d-scatter-plot-in-python-and
-# and https://stackoverflow.com/questions/37585340/plotting-3d-polygons-in-python-3
-
 import numpy as np
 # from numpy.random import PCG64  # random number seed generator based on PCG64
 import time                     # use OS clock
@@ -21,7 +14,6 @@ from camera import *            # import the simulated vision system
 from drawRobot import *         # import code that plots the vehicle and arm extension
 from fruitTreeCreator import *  # import the library that creates the array with fruit location + other info
 from scheduler import *         # import the scheduler functions
-# from simulation_config import * # import the JSON creation file so that it can be read back to set parameters
 from trajectory import *        # import the trajectory generation "library" that I'm writing
 
 import json                     # configuration json file encode and decode

@@ -55,11 +55,11 @@ class simulation_config(object):
         self.num_arms       = 3
         self.num_row        = 3
         # arm's max velocity and acceleration values apparently in m/s
-        self.max_v          = 0.31
+        self.max_v          = 0.8
         self.max_a          = 3.1
         # vehicle's velocity (constant), in m/s
-        self.v_vx           = 0.
-        self.v_vy           = 0.015
+        self.v_vx           = 0.2
+        self.v_vy           = 0.1
         # number of goals the semionline scheduler will look for
         self.n_goals        = 20
         # when working with the fruit ribbon, how high above the conveyors will the ribbon be
