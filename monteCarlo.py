@@ -60,7 +60,7 @@ class monteCarlo(object):
         self.getRNGSeedList()
 
 
-    def plotAll(self):
+    def plotAll(self, xLabel):
         '''
             Plot FPE and FPT results for all distributions vs. set of
             parameter Values.
@@ -68,16 +68,25 @@ class monteCarlo(object):
         # Plot time versus number of fruit picked per arm
         fig, ax = plt.subplots(2, figsize=(7, 11))
 
+        # change y-label depending on variable tested
+        if xLabel == 'v_v':
+            label = "Vehicle Velocity [m/sec]"
+        elif xLabel == 'v_a':
+            label = "Arm Max Velocity [m/sec]"
+        elif xLabel == 'arm':
+            label = "No. of Arms per Row"
+
         for i in range(self.N):
             ax[0].plot(self.indep_var, self.fpe[i], alpha=0.9, label="run "+str(i))
         # ax[0].plot(vel, fpe_semi, alpha=0.9, label="look ahead 20")
-        ax[0].set_xlabel("Vehicle Velocity [m/sec]")
+        # ax[0].set_xlabel("Vehicle Velocity [m/sec]")
+        ax[0].set_xlabel(label)
         ax[0].set_ylabel("Percent Fruit Picked [%]")
 
         for i in range(self.N):
             ax[1].plot(self.indep_var, self.fpt[i], alpha=0.9, label="run "+str(i))
         # ax[1].plot(vel, fpt_semi, alpha=0.9, label="look ahead 20")
-        ax[1].set_xlabel("Vehicle Velocity [m/sec]")
+        ax[1].set_xlabel(label)
         ax[1].set_ylabel("Throughput [fruit/sec]")
 
         #         ax[rows].set_title("No. of fruit picked versus time")
@@ -88,9 +97,18 @@ class monteCarlo(object):
 
         plt.show()
 
-    def plotMean(self):
+
+    def plotMean(self, xLabel):
         '''Plot the mean and std of the fpt and fp results'''
         fig, ax = plt.subplots(2, figsize=(7, 11))
+
+        # change y-label depending on variable tested
+        if xLabel == 'v_v':
+            label = "Vehicle Velocity [m/sec]"
+        elif xLabel == 'v_a':
+            label = "Arm Max Velocity [m/sec]"
+        elif xLabel == 'arm':
+            label = "No. of Arms per Row"
 
         mean_fpt = []
         std_fpt  = []
@@ -115,8 +133,14 @@ class monteCarlo(object):
         ax[0].errorbar(self.indep_var, mean_fpe, std_fpe, marker='o', capsize=3, label="Fruit Picking Efficiency mean over "+str(self.N)+" runs")
         ax[1].errorbar(self.indep_var, mean_fpt, std_fpt, marker='o', capsize=3, label="Fruit Picking Throughput mean over "+str(self.N)+" runs")
 
-        ax[0].legend(bbox_to_anchor=(1, 1.2) ,loc='upper right', ncol=1)
-        ax[1].legend(bbox_to_anchor=(1, 1.2) ,loc='upper right', ncol=1)
+        ax[0].set_xlabel(label)
+        ax[0].set_ylabel("Percent Fruit Picked [%]")
+
+        ax[1].set_xlabel(label)
+        ax[1].set_ylabel("Throughput [fruit/sec]")
+
+        ax[0].legend(bbox_to_anchor=(1, 1.1) ,loc='upper right', ncol=1)
+        ax[1].legend(bbox_to_anchor=(1, 1.1) ,loc='upper right', ncol=1)
 
         plt.show()
 
