@@ -36,45 +36,41 @@ class plotStates(object):
     def plot(self):
         # stacked bar plot x-labels
         # add no. arms and no. of cells to manipulate the plot x-labels
-        # data = {'rear':0,
-        #         'mid':1,
-        #         'front':2
+
+        # data = {'Bottom':
+        #            {'rear':0,
+        #             'mid':1,
+        #             'front':2,
+        #             'who knows':3
+        #            }
         #         }
 
         data = {'Bottom':
                    {'rear':0,
                     'mid':1,
-                    'front':2,
-                    'who knows':3
-                   }
-                }
-
-        # data = {'Bottom':
-        #            {'rear':0,
-        #             'mid':1,
-        #             'front':2
-        #            },
-        #         'Middle Bt':
-        #            {'rear':0,
-        #             'mid':1,
-        #             'front':2
-        #            },
-        #         'Middle Top':
-        #            {'rear':0,
-        #             'mid':1,
-        #             'front':2
-        #            },
-                # 'Middle':
+                    'front':2
+                   },
+                # 'Middle Bt':
                 #    {'rear':0,
                 #     'mid':1,
                 #     'front':2
                 #    },
-                # 'Top':
+                # 'Middle Top':
                 #    {'rear':0,
                 #     'mid':1,
                 #     'front':2
                 #    },
-            #    }
+                'Middle':
+                   {'rear':0,
+                    'mid':1,
+                    'front':2
+                   },
+                'Top':
+                   {'rear':0,
+                    'mid':1,
+                    'front':2
+                   },
+               }
 
         # Create a figure with a single subplot
         f, ax = plt.subplots(1, figsize=(10,5))
@@ -212,7 +208,7 @@ class plotStates(object):
         ax.set_ylabel("Percentage [%]")
 
         # grouping x-axis values
-        # self.label_group_bar(ax, data)
+        self.label_group_bar(ax, data)
         f.subplots_adjust(bottom=0.3, top=0.9, right=0.8)
         # f.subplots_adjust()
 
@@ -265,7 +261,13 @@ class plotStates(object):
         xy = groups.pop()
         x, y = zip(*xy)
         ly = len(y)
-        xticks = range(1, ly + 2)
+        # xticks = range(1, ly + 2)
+        xticks = range(1, ly+1) ## these values seem to change, not sure why. ##
+
+        # print('what is y?', y)
+        # print('what is ly?', ly)
+        # print('giving me issues: x', x)
+        # print('number of x ticks?', xticks)
 
         ax.set_xticks(xticks)
         ax.set_xticklabels(x)
