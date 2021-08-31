@@ -15,7 +15,7 @@ from plotStates_updated import *          # import module to plot % time each ar
 
 
 class IG_scheduling(object):
-    def __init__(self):
+    def __init__(self, n_arm, n_cell):
 
         '''
             Interval graph scheduling algorithm for automated orchard fruit picking based on automated 
@@ -35,8 +35,8 @@ class IG_scheduling(object):
         density = 10
 
         ### robot constants
-        self.n_arm  = 1   # K in melon paper
-        self.n_cell = 1   # keeping it simple for now
+        self.n_arm  = n_arm    # K in melon paper
+        self.n_cell = n_cell   # keeping it simple for now
         self.total_arms = self.n_arm*self.n_cell
 
         # vehicle speed
@@ -164,15 +164,15 @@ class IG_scheduling(object):
             k_pool = k % self.n_arm
             if k_pool == 0:
                 n += 1
-            print('n:', n, 'k_pool:', k_pool)
+            # print('n:', n, 'k_pool:', k_pool)
             
             # node array's index will go from k = 0, 1, ... , self.total_arms (all the 0th values for each arm)
             self.node_array[k] = fruitNode(0, 0, k_pool, n, 0)
             self.IG.add_node(self.node_array[k])
             
         # self.IG.nodes(data=True) # show the attributes for each node (maybe not necessary)
-        print('did the dummy node for k=0 get created?', self.IG.has_node(self.node_array[0]))
-        print('k value for dummy node for k=0 (should be = 0):', self.node_array[0].k)
+        # print('did the dummy node for k=0 get created?', self.IG.has_node(self.node_array[0]))
+        # print('k value for dummy node for k=0 (should be = 0):', self.node_array[0].k)
 
         # set all fruit as unpicked
         for i in range(self.numFruit):
@@ -182,8 +182,8 @@ class IG_scheduling(object):
         #     self.IG.add_node(self.node_array[i+self.self.n_arm])
             self.IG.add_node(self.node_array[i+self.total_arms])
             
-        print('number of fruit:', self.numFruit)    
-        print('number of nodes after adding all zero nodes for the arms:', len(self.IG.nodes()))
+        # print('number of fruit:', self.numFruit)    
+        # print('number of nodes after adding all zero nodes for the arms:', len(self.IG.nodes()))
 
 
     def initBaseTimeIntervals(self):
@@ -306,8 +306,8 @@ class IG_scheduling(object):
                     start_y = prev + veh_move      
                     start_z = self.row_bot_edge[n]   # ends at the bottom of horizontal row to drop off the fruit
 
-                    print('y_(i-1):', prev, 'y_i:', self.sortedFruit[1,i])
-                    print('new y(i-1):', start_y, 'since vehicle moves:', veh_move)
+                    # print('y_(i-1):', prev, 'y_i:', self.sortedFruit[1,i])
+                    # print('new y(i-1):', start_y, 'since vehicle moves:', veh_move)
 
                     # new fruit's location
                     fruit_y = self.sortedFruit[1,i]
@@ -321,15 +321,15 @@ class IG_scheduling(object):
                     # careful with reference, the return should actually be ((u,v), begin, end)
                     # https://dynetworkx.readthedocs.io/en/latest/reference/classes/generated/dynetworkx.IntervalGraph.edges.html#dynetworkx.IntervalGraph.edges              
                     n_interval = self.IG.edges(begin=start_time, end=e[k+1][2]) # check if there are edges that lie between the new edges?
-                    print('number of intervals that fall within the current calculated edges',len(n_interval))
+                    # print('number of intervals that fall within the current calculated edges',len(n_interval))
 
                     is_busy    = self.IG.edges(v=last_i[n,k], begin=start_time, end=e[k+1][2])
-                    print('is arm', k, 'in pool', n, 'already busy for this interval?', len(is_busy))
+                    # print('is arm', k, 'in pool', n, 'already busy for this interval?', len(is_busy))
 
         #             if len(n_interval) < n_arm and len(is_busy) < 1: 
                     if len(is_busy) < 1: 
                         # add an edge between the last node and this node with interval edge U
-                        print('      add edge')
+                        # print('      add edge')
             #             self.IG.add_edge(last_i[k], node_array[i+n_arm], e[k+1][1], e[k+1][2])
                         self.IG.add_edge(last_i[n,k], self.node_array[i+self.total_arms], start_time, e[k+1][2])
 
@@ -346,17 +346,23 @@ class IG_scheduling(object):
                         self.curr_j[n,k] = self.node_array[i+self.total_arms].j # maybe don't need to save this array, just use last_i
 
                         # skip this fruit for the rest of the arms
-                        print()
+                        # print()
                         break
 
 
-    def printResults(self):
-        '''Print basic results like total picked fruit, FPE, FPT, etc.'''
+    def calcResults(self):
+        '''Calculate and print basic results like total picked fruit, FPE, FPT, etc.'''
+        self.FPE = np.sum(self.curr_j)/self.numFruit
+        self.FPT = np.sum(self.curr_j) / ((self.y_lim[1] - self.y_lim[0]) / self.v)
+
         print('Total number of fruit:', self.numFruit)
         print('Vehicle velocity:', self.v, 'm/s')
+        print('Number of rows:', self.n_cell)
+        print('Number of arms in row:', self.n_arm)
         print()
-        print('Total harvested fruit:', np.sum(self.curr_j), 'or', np.sum(self.curr_j)/self.numFruit)
-        print('Total fruit / total vehicle run time:', np.sum(self.curr_j) / ((self.y_lim[1] - self.y_lim[0]) / self.v), 'fruit/sec')
+        print('Total harvested fruit:', np.sum(self.curr_j))
+        print('FPE = fruit picked / total fruit:          ', self.FPE)
+        print('FPT = total fruit / total vehicle run time:', self.FPT, 'fruit/sec')
         print()
 
         for n in range(self.n_cell):
