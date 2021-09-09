@@ -10,12 +10,13 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D   # plot in 3D
 
 ######## IMPORT MY OWN MODULES ########
-from trajectory import *          # import the simulator loop 
-from plotStates_updated import *          # import module to plot % time each arm is in each state
+from trajectory import *          # import the trajectory time calc (bang-bang) 
+from plotStates_updated import *  # import module to plot % time each arm is in each state
+from fruit_distribution import *  # import module to create the various desired fruit distributions
 
 
 class IG_scheduling(object):
-    def __init__(self, n_arm, n_cell):
+    def __init__(self, v_v, n_arm, n_cell):
 
         '''
             Interval graph scheduling algorithm for automated orchard fruit picking based on automated 
@@ -40,7 +41,7 @@ class IG_scheduling(object):
         self.total_arms = self.n_arm*self.n_cell
 
         # vehicle speed
-        self.v = 0.08   # in m/s 
+        self.v = v_v   # in m/s 
 
         # arm settings, also in calcTd function
         self.v_max = 0.8
@@ -72,24 +73,10 @@ class IG_scheduling(object):
         # print('each bottom frame z-val:', row_bot_edge)
         # print('each top frame z-val:', row_top_edge)
 
-        ## Create fruit data set
-        len_x = x_lim[1] - x_lim[0]            
-        len_y = self.y_lim[1] - self.y_lim[0]  
-        len_z = z_lim[1] - z_lim[0]
+        fruitD = fruitDistribution(x_lim, self.y_lim, z_lim)
+        [self.numFruit, self.sortedFruit] = fruitD.column(self.v, self.v_max, self.a_max, self.t_grab, self.n_cell, self.n_arm, self.cell_h, z_seed)
 
-        self.numFruit = int(density * (len_y*len_x*len_z))  
-
-        x = np.random.default_rng(x_seed).uniform(x_lim[0], x_lim[1], self.numFruit)
-        y = np.random.default_rng(y_seed).uniform(self.y_lim[0], self.y_lim[1], self.numFruit)
-        z = np.random.default_rng(z_seed).uniform(z_lim[0], z_lim[1], self.numFruit)
-
-        # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
-        fruit = np.stack([x, y, z])
-
-        axis_to_sort = np.argsort(y) # sort based on y-axis
-        self.sortedFruit = fruit[:,axis_to_sort]
-
-        # print(self.sortedFruit)
+        # [self.numFruit, self.sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
 
         # create an array (or list if it'll need to be dynamic later) for node objects
         # node_array  = np.ndarray(self.numFruit+self.n_arm, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
@@ -356,6 +343,7 @@ class IG_scheduling(object):
         self.FPT = np.sum(self.curr_j) / ((self.y_lim[1] - self.y_lim[0]) / self.v)
 
         print('Total number of fruit:', self.numFruit)
+        print('Total time:', (self.y_lim[1] - self.y_lim[0]) / self.v, 'sec')
         print('Vehicle velocity:', self.v, 'm/s')
         print('Number of rows:', self.n_cell)
         print('Number of arms in row:', self.n_arm)
@@ -447,33 +435,46 @@ class IG_scheduling(object):
         '''Plot the path of the schedule in 2D based on y and z axes'''
         fig, ax = plt.subplots()
 
-        line_type = ['--', '-.', '-', '.']
-        color     = ['c', 'r', 'b', 'g']
+        # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/linestyles.html
+        # https://matplotlib.org/stable/tutorials/colors/colors.html
+        # https://thispointer.com/matplotlib-line-plot-with-markers/
+
+        line_type = ['--', '-.', '-', (0, (1, 1)), (0, (3, 1, 1, 1, 1, 1)), (0, (5, 10))]
+        color     = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink']
 
 
         for n in range(self.n_cell):
             for k in range(self.n_arm+1):
                 # add modulo later so it works with n and k > 3 
                 if k == self.n_arm:
-                    line = 'oy'
-                    arm_label = 'row ' + str(n) + ', unpicked'
+                    line_color = 'gold'
+                    linestyle = ''
+                    arm_label = 'unpicked'
                 elif k == 0:
-                    line = 'o' + line_type[n] + color[k]
-                    arm_label = 'row ' + str(n) + ', back arm'
-                elif k == n_arm-1:
-                    line = 'o' + line_type[n] + color[k]
-                    arm_label = 'row ' + str(n) + ', front arm'
+                    line_color = str(color[k])
+                    linestyle = line_type[n]
+                    arm_label = 'back arm'
+                elif k == self.n_arm-1:
+                    line_color = str(color[k])
+                    linestyle = line_type[n]
+                    arm_label = 'front arm'
                 else:
-                    line = 'o' + line_type[n] + color[k]
-                    arm_label = 'row ' + str(n) + ', middle arm ' + str(k)
-                    
-                plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-                        self.sortedFruit[2][fruit_picked_by[n][k]], line, label=arm_label)
+                    line_color = str(color[k])
+                    linestyle = line_type[n]
+                    arm_label = 'middle arm ' + str(k)
+
+                if n == 0:
+                    # limit the labels for the legend
+                    plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+                            self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
+                else:
+                    plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+                            self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o')
 
         plt.xlabel('Distance along orchard row (m)')
         plt.ylabel('Height from ground (m)')
 
-        legend = ax.legend(loc='upper right')
+        legend = ax.legend(bbox_to_anchor=(1.1, 1),loc='upper right')
                         
         plt.show()
 
