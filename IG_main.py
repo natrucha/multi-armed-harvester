@@ -36,31 +36,34 @@ def calcDensity(q_vy, v_v, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit)
     #  should I calculate R per horizontal row of arms?
 
     d = np.zeros([n_row, n_arm])  # total number of cells
-    # starting position in the y_axis (front-back on robot)
-    col_y = q_vy
+    # starting position on the z-axis (up-down on robot)
+    row_z = 0.
 
     for n in range(n_row):
-        # starting position on the z-axis (up-down on robot)
-        row_z = 0.
+        # starting position in the y_axis (front-back on robot)
+        col_y = q_vy
+        
         for k in range(n_arm):
+            # print('col', n, 'row', k)
+            # print('back', col_y, 'front', col_y + cell_l)
+            # print('bottom', row_z, 'top', row_z + cell_h)
             index = np.where((sortedFruit[1,:] >= col_y) & (sortedFruit[1,:] < col_y + cell_l) & 
                         (sortedFruit[2,:] >= row_z) & (sortedFruit[2,:] < row_z + cell_h))
             # save the number of fruit in this cell
             d[n,k] = len(index[0])
-            print(d)
-            # move up to the next cell on this column
-            row_z += cell_h
-
-        # move to the next column of cells
-        col_y += cell_l
+            # print(d)
+            # move to the next column of cells
+            col_y += cell_l
+            
+        # move up to the next cell on this column
+        row_z += cell_h
 
     # before calculating the true density, check total number of fruit
-    print('which sums to', np.sum(d))
-
+    # print('which sums to', np.sum(d))   # has to be equal to numer of fruit
     # divide all the values by the volume of space in front of each cell 
     d = d / (arm_reach * cell_l * cell_h)
 
-    print('fruit density in each cell:')
+    print('fruit density in each cell [fruit/m^3]:')
     print(d)
 
     return(d)
