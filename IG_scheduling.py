@@ -16,24 +16,23 @@ from fruit_distribution import *  # import module to create the various desired 
 
 
 class IG_scheduling(object):
-    def __init__(self, v_v, n_arm, n_cell):
+    def __init__(self, v_v, n_arm, n_cell, cell_l, y_lim, z_lim):
 
         '''
             Interval graph scheduling algorithm for automated orchard fruit picking based on automated 
             melon picking (insert citation) paper. 
         '''
         ### environment constants
-        x_lim         = [0.2, 0.9]
-        self.y_lim    = [0., 10.]
-        z_lim         = [0., 2.7]
+        # x_lim         = [0.2, 0.9]
+        # self.y_lim    = [0., 10.]
+        # z_lim         = [0., 2.7]
+
+        self.y_lim = y_lim
 
         # for the fruit distribution, want to keep it the same for these tests
-        x_seed = PCG64(37428395352013185889194479428694397783)
-        y_seed = PCG64(13250124924871709375127216220749555998)
-        z_seed = PCG64(165440185943501291848242755689690423219)
-
-        # density of "fruit" in the orchard
-        density = 10
+        # x_seed = PCG64(37428395352013185889194479428694397783)
+        # y_seed = PCG64(13250124924871709375127216220749555998)
+        # z_seed = PCG64(165440185943501291848242755689690423219)
 
         ### robot constants
         self.n_arm  = n_arm    # K in melon paper
@@ -52,7 +51,7 @@ class IG_scheduling(object):
 
         # cell width/height (perpendicular to movement) and length (parallel to movement)
         self.cell_h = (z_lim[1] - z_lim[0]) / self.n_cell  # w in paper
-        self.cell_l = 0.3                  # length of individual arm cell 
+        self.cell_l = cell_l                  # length of individual arm cell 
 
         # arm starting locations
         arm_location = np.zeros([self.n_cell, self.n_arm, 3])
@@ -73,14 +72,15 @@ class IG_scheduling(object):
         # print('each bottom frame z-val:', row_bot_edge)
         # print('each top frame z-val:', row_top_edge)
 
-        fruitD = fruitDistribution(x_lim, self.y_lim, z_lim)
-        [self.numFruit, self.sortedFruit] = fruitD.column(self.v, self.v_max, self.a_max, self.t_grab, self.n_cell, self.n_arm, self.cell_h, z_seed)
-
+        ################# Modulers and Libraries #################
+        # Create Fruit distribution
+        # fruitD = fruitDistribution(x_lim, self.y_lim, z_lim)
+        # # [self.numFruit, self.sortedFruit] = fruitD.column(self.v, self.v_max, self.a_max, self.t_grab, self.n_cell, self.n_arm, self.cell_h, z_seed)
         # [self.numFruit, self.sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
-
-        # create an array (or list if it'll need to be dynamic later) for node objects
-        # node_array  = np.ndarray(self.numFruit+self.n_arm, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
-        self.node_array  = np.ndarray(self.numFruit+self.total_arms, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
+        
+        # # create an array (or list if it'll need to be dynamic later) for node objects
+        # # node_array  = np.ndarray(self.numFruit+self.n_arm, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
+        # self.node_array  = np.ndarray(self.numFruit+self.total_arms, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
 
         ## Initialize the interval graph
         self.IG = dnx.IntervalGraph()
@@ -89,9 +89,19 @@ class IG_scheduling(object):
         self.traj_calc = Trajectory(self.v_max, self.a_max, self.d_max)
 
 
+    def setFruitData(self, numFruit, sortedFruit):
+        '''Gives the current total fruit and all the fruit locations, can't run without it'''
+        self.numFruit    = numFruit
+        self.sortedFruit = sortedFruit
+
+        # create an array (or list if it'll need to be dynamic later) for node objects
+        # node_array  = np.ndarray(self.numFruit+self.n_arm, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
+        self.node_array  = np.ndarray(self.numFruit+self.total_arms, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
+
+
     def calcTm(self, traj_calc, start_y, start_z, fruit_y, fruit_z):
         '''
-        Calculate Tm (moving time -> move in y,z to next fruit) for node i for arm k.
+           Calculate Tm (moving time -> move in y,z to next fruit) for node i for arm k.
         '''      
         # calculate move in y-axis
         traj_calc.adjInit(start_y, 0.) # start moving from zero speed
@@ -113,8 +123,8 @@ class IG_scheduling(object):
 
     def calcTw(self, traj_calc, fruit_x, fruit_z, bottom_z):
         '''
-        Calculate handling time -> extension + pick time + retraction + conveyor drop off 
-        for node i. Seperated into two values, before picking (Td0) and after picking (Td1) 
+           Calculate handling time -> extension + pick time + retraction + conveyor drop off 
+           for node i. Seperated into two values, before picking (Td0) and after picking (Td1) 
         '''      
         # calculate extension (retraction)
         traj_calc.adjInit(0., 0.)      # starts at zero for x each time (extend to fruit)
@@ -467,9 +477,12 @@ class IG_scheduling(object):
                     # limit the labels for the legend
                     plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
                             self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
+
                 else:
+                    # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+                    #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o')
                     plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-                            self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o')
+                            self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
 
         plt.xlabel('Distance along orchard row (m)')
         plt.ylabel('Height from ground (m)')
