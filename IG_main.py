@@ -71,7 +71,10 @@ def calcDensity(q_vy, v_v, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit)
 
 def calcR(d, v_v):
     '''Calculate the R value given a speed and density'''
-
+    R = d * v_v # in fruit / (m^2 * s)
+    print('Fruit incoming rate for each cell [fruit/(m^2 s)]:')
+    print(R)
+    return(R)
 
 
 
@@ -88,7 +91,8 @@ def main(args=None):
     z_seed = PCG64(165440185943501291848242755689690423219)
 
     # density of "fruit" in the orchard
-    density = 10     # fruit/m^3
+    density = 10      # fruit/m^3, average density of whole orchard
+    fruit_in_cell = 3 # num of fruit in front of cell if using (equalCellDensity())
 
     ### robot constants and variables
     n_cell = 4       # total number of horizonatal rows s
@@ -103,13 +107,21 @@ def main(args=None):
     v_v    = 0.13      # in m/s vehicle velocity
     q_vy   = y_lim[0]  # in m, vehicle's current position (backmost part) 
 
+    # arm settings, also in calcTd function
+    v_max = 0.8
+    a_max = 3.1
+    d_max = a_max
+
+    t_grab = 0.1  # in sec
+
     # init IG scheduler module
     sched = IG_scheduling(v_v, n_arm, n_cell, cell_l, y_lim, z_lim)
 
     # Create Fruit distribution
     fruitD = fruitDistribution(x_lim, y_lim, z_lim)
-    # [self.numFruit, self.sortedFruit] = fruitD.column(self.v, self.v_max, self.a_max, self.t_grab, self.n_cell, self.n_arm, self.cell_h, z_seed)
-    [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
+    # [numFruit, sortedFruit] = fruitD.column(v_v, v_max, a_max, t_grab, n_cell, n_arm, cell_h, z_seed)
+    # [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
+    [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
 
     # loop until the vehicle has reached the end of the row
     while q_vy < y_lim[1]:
@@ -122,12 +134,13 @@ def main(args=None):
         ## calculate multiple R and v_v values based on multiple slices of the current view
         # return a list of fruit densities in each cell
         d = calcDensity(q_vy, v_v, n_cell, n_arm, cell_l, cell_h, arm_reach, sliced_sortedFruit)
+        print()
         ## I wonder if calculating the max number of fruit in a bunch would help...
 
         ## using the fruit densities, determine the vehicle speed to set a specific R value?
         # currently, the R value would be 
-
-
+        R = calcR(d, v_v)
+        
 
         # sched.setFruitData(numFruit, sortedFruit)
         sched.setFruitData(sliced_numFruit, sliced_sortedFruit)

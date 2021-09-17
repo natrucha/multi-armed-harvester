@@ -24,7 +24,7 @@ class fruitDistribution(object):
 
     def uniformRandom(self, density, x_seed, y_seed, z_seed):
         '''
-           Fruit distribution set uniform random along x, y, and z given x, y, and z limits, seeds, 
+           Fruit distribution set uniform random along total x, y, and z given x, y, and z limits, seeds, 
            and desired density
         '''
         numFruit = int(density * (self.len_y*self.len_x*self.len_z))  
@@ -40,7 +40,65 @@ class fruitDistribution(object):
         sortedFruit = fruit[:,axis_to_sort]
 
         # return numFruit and the sortedFruit
+        return([numFruit, sortedFruit])
 
+
+    def equalCellDensity(self, n_row, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed):
+        '''
+           Fruit distribution set uniform random within each cell, making sure that the density in every 
+           cell is the same. Fruit coordinates in all three axis are randomly chosen. 
+        '''
+        # calculate the density of fruit within every cell
+        
+        cell_density = fruit_in_cell / (cell_h*cell_l*arm_reach)
+        print('cell density:', cell_density, 'num of fruit in each cell', fruit_in_cell)
+        print()
+
+        total_cells = n_row * n_arm
+
+        num_snapshots = int(self.len_y / (cell_l * n_arm)) + 1 # won't get the total otherwise...
+        # print('total snapshots to get to the end of the orchard row:', num_snapshots)
+
+        numFruit = fruit_in_cell*total_cells * num_snapshots
+        # print('number of fruit in front of vehicle', numFruit)
+
+        x = np.random.default_rng(x_seed).uniform(self.x_lim[0], self.x_lim[1], numFruit) # independent of cell
+
+        # not independent of cell
+        y = np.zeros(numFruit)
+        z = np.zeros(numFruit)
+
+        i = 0
+
+        for o in range(num_snapshots):
+            # set initial cell z-axis values
+            z_cell_lim = np.array([self.z_lim[0], self.z_lim[0] + cell_h])
+
+            for n in range(n_row):
+                # set initial cell y-axis values, at each snapshot moving a vehicle length forward 
+                y_cell_lim = np.array([self.y_lim[0] + o*cell_l*n_arm, self.y_lim[0] + cell_l + o*cell_l*n_arm])
+
+                for k in range(n_arm):
+                    i_end = i + fruit_in_cell
+
+                    y[i:i_end] = np.random.default_rng(y_seed).uniform(y_cell_lim[0], y_cell_lim[1], fruit_in_cell)
+                    z[i:i_end] = np.random.default_rng(z_seed).uniform(z_cell_lim[0], z_cell_lim[1], fruit_in_cell)
+
+                    y_cell_lim = y_cell_lim + cell_l
+
+                    i += fruit_in_cell
+
+                z_cell_lim = z_cell_lim + cell_h
+
+        # print('length of x', len(x), 'y', len(y), 'z', len(z))  # should match numFruit
+
+        # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
+        fruit = np.stack([x, y, z])
+
+        axis_to_sort = np.argsort(y) # sort based on y-axis
+        sortedFruit = fruit[:,axis_to_sort]
+
+        # return numFruit and the sortedFruit
         return([numFruit, sortedFruit])
 
 
@@ -50,7 +108,7 @@ class fruitDistribution(object):
            for the arms. Distance between columns determined by vehicle speed, extension amount(?), and 
            max arm speed. 
         '''
-        total_arms = n_cell*n_arm # how many total fruit in a column
+        # total_arms = n_cell*n_arm # how many total fruit in a column
 
         d_a_max = a_a_max
         self.traj_calc = Trajectory(v_a_max, a_a_max, d_a_max)
