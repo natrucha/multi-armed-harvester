@@ -8,7 +8,6 @@ from trajectory import *          # import the trajectory time calc (bang-bang)
 
 class fruitDistribution(object):
     def __init__(self, x_lim, y_lim, z_lim):
-
         '''
             Module to create the various fruit distributions used in testing the orchard fruit harvester
         '''
@@ -22,6 +21,71 @@ class fruitDistribution(object):
         self.z_lim = z_lim
 
 
+    def sortNstack(self, x, y, z):
+        '''
+            Sorts x, y, and z fruit coordinate arrays based on the y-coordinates and stacks them into a matrix
+        '''
+        # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
+        fruit = np.stack([x, y, z])
+
+        axis_to_sort = np.argsort(y) # sort based on y-axis
+        sortedFruit = fruit[:,axis_to_sort]
+
+        return(sortedFruit)
+
+
+    def csvFile(self, file_name, is_meter):
+        '''
+            Import fruit coordinates from given CSV file, where each fruit is a row, columns are x, y, z
+            coordinates. 
+
+            file_name has to be string with '...' 
+
+            is_meter = 0 means ft, 1 is meter (other values for other measurements?).
+        '''
+        x_list = list()
+        y_list = list()
+        z_list = list()
+
+        numFruit = 0
+
+        with open(file_name) as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+            for row in reader:
+                # need to check that x, y, z, coordinates match my definition of x, y, z -> apples 2015 do
+                x_list.append(row[0])
+                y_list.append(row[1])
+                z_list.append(row[2])
+
+                numFruit += 1
+
+        # convert list to array
+        x = np.array(x_list)
+        y = np.array(y_list)
+        z = np.array(z_list) 
+
+        if is_meter == 0:
+            # if is_meter is zero, convert from feet to meters
+            x = x * 0.3048
+            y = y * 0.3048
+            z = z * 0.3048
+
+        # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
+        # something like 0.2 m away in the x-direction
+        x_translate = np.amin(x) + 0.2 # in m
+        x = x - x_translate
+        # something like 0 m long in the y-direction
+        y_translate = np.amin(y)
+        y = y - y_translate
+        # something like 0 m high in the z-direction
+        z_translate = np.amin(z)
+        z = z - z_translate
+
+        sortedFruit = self.sortNstack(x, y, z)
+
+        return([numFruit, sortedFruit])        
+
+
     def uniformRandom(self, density, x_seed, y_seed, z_seed):
         '''
            Fruit distribution set uniform random along total x, y, and z given x, y, and z limits, seeds, 
@@ -33,11 +97,13 @@ class fruitDistribution(object):
         y = np.random.default_rng(y_seed).uniform(self.y_lim[0], self.y_lim[1], numFruit)
         z = np.random.default_rng(z_seed).uniform(self.z_lim[0], self.z_lim[1], numFruit)
 
-        # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
-        fruit = np.stack([x, y, z])
+        # # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
+        # fruit = np.stack([x, y, z])
 
-        axis_to_sort = np.argsort(y) # sort based on y-axis
-        sortedFruit = fruit[:,axis_to_sort]
+        # axis_to_sort = np.argsort(y) # sort based on y-axis
+        # sortedFruit = fruit[:,axis_to_sort]
+
+        sortedFruit = self.sortNstack(x, y, z)
 
         # return numFruit and the sortedFruit
         return([numFruit, sortedFruit])
@@ -92,11 +158,13 @@ class fruitDistribution(object):
 
         # print('length of x', len(x), 'y', len(y), 'z', len(z))  # should match numFruit
 
-        # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
-        fruit = np.stack([x, y, z])
+        # # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
+        # fruit = np.stack([x, y, z])
 
-        axis_to_sort = np.argsort(y) # sort based on y-axis
-        sortedFruit = fruit[:,axis_to_sort]
+        # axis_to_sort = np.argsort(y) # sort based on y-axis
+        # sortedFruit = fruit[:,axis_to_sort]
+
+        sortedFruit = self.sortNstack(x, y, z)
 
         # return numFruit and the sortedFruit
         return([numFruit, sortedFruit])
@@ -155,15 +223,16 @@ class fruitDistribution(object):
         
         # print('y:')
         # print(y)
-
         # print('Z with size:', np.size(z))
         # print(z)
         
-        # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
-        fruit = np.stack([x, y, z])
+        # # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
+        # fruit = np.stack([x, y, z])
 
-        axis_to_sort = np.argsort(y) # sort based on y-axis
-        sortedFruit = fruit[:,axis_to_sort]
+        # axis_to_sort = np.argsort(y) # sort based on y-axis
+        # sortedFruit = fruit[:,axis_to_sort]
+
+        sortedFruit = self.sortNstack(x, y, z)
 
         # return numFruit and the sortedFruit
         # print()
