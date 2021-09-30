@@ -74,7 +74,8 @@ class fruitDistribution(object):
         # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
         # something like 0.2 m away in the x-direction
         x_translate = np.amin(x) # in m
-        x = x - (x_translate + 0.2)
+        print('x smallest value, in m', x_translate)
+        x = x - x_translate + 0.2
         # something like 0 m long in the y-direction
         y_translate = np.amin(y)
         y = y - y_translate
@@ -91,6 +92,10 @@ class fruitDistribution(object):
 
         self.z_lim[0] = np.amin(z)
         self.z_lim[1] = np.amax(z)
+
+        print('New x limits', self.x_lim)
+        print('New y limits', self.y_lim)
+        print('New z limits', self.z_lim)
 
         sortedFruit = self.sortNstack(x, y, z)
 

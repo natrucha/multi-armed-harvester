@@ -15,9 +15,9 @@ def vehicleStep(q_vy, distance):
 
 def whatIsInFront(sortedFruit, q_vy, vehicle_l):
     '''Get the number of fruit in front of vehicle and their coordinates for scheduling'''
-    vehicle_front = q_vy + vehicle_l
+    vehicle_front   = q_vy + vehicle_l
 
-    fruit_index = np.where((sortedFruit[1,:] >= q_vy) & (sortedFruit[1,:] < vehicle_front))
+    fruit_index     = np.where((sortedFruit[1,:] >= q_vy) & (sortedFruit[1,:] < vehicle_front))
     new_numFruit    = len(fruit_index[0])
 
     new_sortedFruit = np.copy(sortedFruit[:,fruit_index[0]]) 
@@ -77,6 +77,10 @@ def calcR(d, v_v):
     return(R)
 
 
+def combineData(snapshot_list, snapshot_cell):
+    '''Takes the various snapshots and combines the values to get overall results (FPT and FPE, etc.)'''
+
+
 
 def main(args=None):
     # create fruit distribution(s)
@@ -104,24 +108,48 @@ def main(args=None):
 
     arm_reach = x_lim[1] - x_lim[0]
 
-    v_v    = 0.13      # in m/s vehicle velocity
+    v_v    = 0.08      # in m/s vehicle velocity -> max 0.9 m/s
     q_vy   = y_lim[0]  # in m, vehicle's current position (backmost part) 
 
     # arm settings, also in calcTd function
-    v_max = 0.8
-    a_max = 3.1
+    v_max = 0.5     # in m/s, Oriental Motor Co. value
+    a_max = 1.      # in m/s^2, Oriental Motor Co. value
     d_max = a_max
 
     t_grab = 0.1  # in sec
 
-    # init IG scheduler module
-    sched = IG_scheduling(v_v, n_arm, n_cell, cell_l, y_lim, z_lim)
-
-    # Create Fruit distribution
+    ### Create Fruit Distribution ###
     fruitD = fruitDistribution(x_lim, y_lim, z_lim)
+
+    ##### IF USING CSV ##### -> needs to be cleaned up...
+    csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
+    [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
+    # CSV file creates new limits for x, y, and z
+    x_lim = fruitD.x_lim
+    y_lim = fruitD.y_lim
+    z_lim = fruitD.z_lim
+    # recalculate cell values
+    cell_h = (z_lim[1] - z_lim[0]) / n_cell # in m, height of each hor. row
+    arm_reach = x_lim[1] - x_lim[0]
+
     # [numFruit, sortedFruit] = fruitD.column(v_v, v_max, a_max, t_grab, n_cell, n_arm, cell_h, z_seed)
     # [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
-    [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
+    # [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
+
+
+    # ### init IG scheduler module ###
+    # sched = IG_scheduling(v_v, n_arm, n_cell, cell_l, y_lim, z_lim)
+    ## create list to save each snapshot's schedule and data
+    snapshot_list = list()
+    snapshot_cell = list()
+
+    n_snapshots = 0
+    # FPT_snap = list()
+    # FPE_snap = list()
+
+    step_length = vehicle_l
+
+    snapshot_y_lim = np.zeros(2)
 
     # loop until the vehicle has reached the end of the row
     while q_vy < y_lim[1]:
@@ -130,6 +158,12 @@ def main(args=None):
         # changes numFruit and sortedFruit to match 
         [sliced_numFruit, sliced_sortedFruit] = whatIsInFront(sortedFruit, q_vy, vehicle_l)
         print()
+
+        snapshot_y_lim[0] = q_vy
+        snapshot_y_lim[1] = q_vy + vehicle_l
+
+        ### init/reset IG scheduler module for this snapshot ###
+        sched = IG_scheduling(v_v, v_max, a_max, n_arm, n_cell, cell_l, x_lim, snapshot_y_lim, z_lim)
 
         ## calculate multiple R and v_v values based on multiple slices of the current view
         # return a list of fruit densities in each cell
@@ -141,20 +175,37 @@ def main(args=None):
         # currently, the R value would be 
         R = calcR(d, v_v)
         
-
         # sched.setFruitData(numFruit, sortedFruit)
         sched.setFruitData(sliced_numFruit, sliced_sortedFruit)
         # schedule the current view
         sched.initDummyNodes()
         sched.initBaseTimeIntervals()
         sched.chooseArm4Fruit()
+        # snapshot_fruit_picked_by = sched.chooseArm4Fruit()
         print()
         sched.calcResults()
-        print()
-        # combine results
+        # sched.calcResults(step_length)
+        snapshot_fruit_picked_by = sched.fruitPickedBy(sliced_numFruit)
+
+        sched.calcPCT(snapshot_fruit_picked_by)
+        # # combine results
+        # FPT_snap.append(sched.FPT)
+        # FPE_snap.append(sched.FPE)
 
         # vehicle takes a step (as big or small as desired)
-        q_vy = vehicleStep(q_vy, vehicle_l)
+        q_vy = vehicleStep(q_vy, step_length)
+
+        # save snapshot
+        snapshot_list.append(sched)
+        print('NUMBER OF SCHEDULED SNAPSHOTS:', len(snapshot_list))
+        print()
+        # save the snapshot's cell by cell density and R values
+        snapshot_cell.append([density, R])
+
+        n_snapshots += 1
+
+    # combine the results based on the various snapshots taken
+    ## remember this is just the scheduling, so it's the theoretically best results (no missed scheduled fruit, etc.)
     
 
 

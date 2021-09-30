@@ -16,7 +16,7 @@ from fruit_distribution import *  # import module to create the various desired 
 
 
 class IG_scheduling(object):
-    def __init__(self, v_v, n_arm, n_cell, cell_l, y_lim, z_lim):
+    def __init__(self, v_v, v_max, a_max, n_arm, n_cell, cell_l, x_lim, y_lim, z_lim):
 
         '''
             Interval graph scheduling algorithm for automated orchard fruit picking based on automated 
@@ -27,7 +27,9 @@ class IG_scheduling(object):
         # self.y_lim    = [0., 10.]
         # z_lim         = [0., 2.7]
 
+        self.x_lim = x_lim
         self.y_lim = y_lim
+        self.z_lim = z_lim
 
         # for the fruit distribution, want to keep it the same for these tests
         # x_seed = PCG64(37428395352013185889194479428694397783)
@@ -39,18 +41,20 @@ class IG_scheduling(object):
         self.n_cell = n_cell   # keeping it simple for now
         self.total_arms = self.n_arm*self.n_cell
 
+        self.n_fruit_row = np.zeros([n_cell]) # for now, this is the number of horizonatal rows
+
         # vehicle speed
         self.v = v_v   # in m/s 
 
         # arm settings, also in calcTd function
-        self.v_max = 0.8
-        self.a_max = 3.1
+        self.v_max = v_max
+        self.a_max = a_max
         self.d_max = self.a_max
 
         self.t_grab = 0.1
 
         # cell width/height (perpendicular to movement) and length (parallel to movement)
-        self.cell_h = (z_lim[1] - z_lim[0]) / self.n_cell  # w in paper
+        self.cell_h = (self.z_lim[1] - self.z_lim[0]) / self.n_cell  # w in paper, not true once we know dimensions
         self.cell_l = cell_l                  # length of individual arm cell 
 
         # arm starting locations
@@ -194,6 +198,8 @@ class IG_scheduling(object):
         k_edges   = list()
         self.Tw_values = list() # the same value for every arm, separated into Tw0 (extend+grab) and Tw1 (retract+drop off)
 
+        self.n_fruit_row[:] = 0. # zero it out per run
+
         for n in range(self.n_cell):
             self.edge_list.append([])
         #     Tw_values.append([]) 
@@ -204,6 +210,10 @@ class IG_scheduling(object):
             ## calculate pool/horizontal, n, row value by comparing zi vs cell height 
             n = math.floor(self.sortedFruit[2,index] / self.cell_h)
         #     print(n)
+
+            # fruit could be located higher than the arms can go... 
+            if n < self.n_cell:
+                self.n_fruit_row[n] += 1
 
             ## can set fruit node's pool value here:
             self.node_array[index+self.total_arms].n = n
@@ -260,14 +270,18 @@ class IG_scheduling(object):
         # save Tm values for state % plot
         self.Tm_values = list()
 
+        # fruit_picked_by = list()
+
         last_i = np.ndarray([self.n_cell, self.n_arm], dtype=object)
         self.curr_j = np.ndarray([self.n_cell, self.n_arm], dtype=object)
 
         for n in range(self.n_cell):
             self.Tm_values.append([])
+            # fruit_picked_by.append([])
             
             for k in range(self.n_arm):
                 self.Tm_values[n].append([])
+                # fruit_picked_by[n].append([])
         #         print('should be 0, 1, 2, ...., total arms:', k+(n*3))
                 real_index = k + (n*self.n_arm)
                 # saves the fruit id of the fruit last picked by the kth arm in pool n
@@ -338,6 +352,9 @@ class IG_scheduling(object):
                         # save the Tm value for state plot
                         self.Tm_values[n][k].append(Tm)
 
+                        # save that this fruit was picked by this arm
+                        # fruit_picked_by[n][k].append(i)
+
                         # update all the saved prev node data
                         last_i[n,k] = self.node_array[i+self.total_arms]
                         self.curr_j[n,k] = self.node_array[i+self.total_arms].j # maybe don't need to save this array, just use last_i
@@ -345,15 +362,24 @@ class IG_scheduling(object):
                         # skip this fruit for the rest of the arms
                         # print()
                         break
+        
+        # return(fruit_picked_by)
 
 
     def calcResults(self):
+    # def calcResults(self, total_distance):
         '''Calculate and print basic results like total picked fruit, FPE, FPT, etc.'''
+        total_distance = self.y_lim[1] - self.y_lim[0]
+
         self.FPE = np.sum(self.curr_j)/self.numFruit
-        self.FPT = np.sum(self.curr_j) / ((self.y_lim[1] - self.y_lim[0]) / self.v)
+        self.FPT = np.sum(self.curr_j) / (total_distance / self.v)
+
+        self.FPE_row = list()
+        self.FPT_row = list()
 
         print('Total number of fruit:', self.numFruit)
-        print('Total time:', (self.y_lim[1] - self.y_lim[0]) / self.v, 'sec')
+        # print('Total time:', (self.y_lim[1] - self.y_lim[0]) / self.v, 'sec')
+        print('Total time:', total_distance / self.v, 'sec')
         print('Vehicle velocity:', self.v, 'm/s')
         print('Number of rows:', self.n_cell)
         print('Number of arms in row:', self.n_arm)
@@ -365,13 +391,21 @@ class IG_scheduling(object):
 
         for n in range(self.n_cell):
             arm_string = ''
+            # calculate the row's FPE and FPT
+            self.FPT_row.append(np.sum(self.curr_j[n,:]) / (total_distance / self.v))
+            self.FPE_row.append(np.sum(self.curr_j[n,:]) / self.n_fruit_row[n])
+
             for k in range(self.n_arm):
                 arm_string += ' arm ' + str(k) + ': ' + str(self.curr_j[n,k]) + ' '
                 
+                
             print('Number of fruit picked by row/pool', n, arm_string)
+
+            print('Row FPE', self.FPE_row[n], 'and FPT', self.FPT_row[n], 'fruit/sec')
+            print()
         
 
-    def fruitPickedBy(self):
+    def fruitPickedBy(self, numFruit):
         '''Separates fruit index by which arm is set to pick that fruit'''
         self.IG.edges()
 
@@ -385,13 +419,42 @@ class IG_scheduling(object):
         #     print('row number:', node_array[i].n, 'arm number:', node_array[i].k)
             fruit_picked_by[self.node_array[i].n][self.node_array[i].k].append(self.node_array[i].i)
 
-        print(fruit_picked_by)
+        # print(fruit_picked_by)
         return(fruit_picked_by)
 
 
+    def calcPCT(self, fruit_picked_by):
+        '''Calculate average PCT for each arm for a run -- snapshot or total'''
+        # matrix to save each arms's PCT
+        self.avg_PCT = np.zeros([self.n_cell, self.n_arm])
+
+        # PCT is composed of move_yz, extend, grab, retract, move_z -> remove all idle time
+        # this is the sum of T_m and T_w values divided by total fruit picked
+        for n in range(self.n_cell):
+            for k in range(self.n_arm):
+
+                for tm in self.Tm_values[n][k]:
+                    # add in move_yz 
+                    self.avg_PCT[n,k] += tm
+
+                for i in fruit_picked_by[n][k]:
+                    # Tw was saved for every possible fruit for each possible arm. Only use the ones used. 
+                    self.avg_PCT[n,k] +=  self.Tw_values[i][0] + self.Tw_values[i][1] # add in retract and unload
+
+                # divide the calculated total time by number of fruit picked to get sec/fruit
+                self.avg_PCT[n,k] = self.avg_PCT[n,k] / len(fruit_picked_by[n][k])
+        
+        print('Average PCT for this snapshot [sec/fruit]')
+        print(self.avg_PCT)
+        print()
+
+
     def calculateStateTimePercent(self, fruit_picked_by):
+    # def calculateStateTimePercent(self, fruit_picked_by, total_distance):
         '''Calculates the percent time each arm is in each state so that it can plotState can plot the data'''
-        total_time = (self.y_lim[1] - self.y_lim[0]) / self.v
+        total_distance = self.y_lim[1] - self.y_lim[0]
+
+        total_time = total_distance / self.v  # for snapshots? -> I'm deleting Tm and Tw data at each snapshot, problem
 
         ## states: idle, pick_yz, pick_x, grab, retract_x, move_z/unload
         state_percent = np.zeros([self.total_arms, 6]) # save each arm's percent time in each of the six states 
