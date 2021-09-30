@@ -83,19 +83,26 @@ class fruitDistribution(object):
         z_translate = np.amin(z)
         z = z - z_translate
 
-        # obtain the min and max of each axis, and ue that to set new limits
-        self.x_lim[0] = np.amin(x)
-        self.x_lim[1] = np.amax(x)
+        # remove any fruit that is outside of the robot's max limits
+        index_out_of_x_bounds = np.where(x >= self.x_lim[1])
+        index_out_of_y_bounds = np.where(y >= self.y_lim[1])
+        index_out_of_z_bounds = np.where(z >= self.z_lim[1])
+        # print('out of z bounds (before):')
+        # print(index_out_of_z_bounds[0])
 
-        self.y_lim[0] = np.amin(y)
-        self.y_lim[1] = np.amax(y)
-
-        self.z_lim[0] = np.amin(z)
-        self.z_lim[1] = np.amax(z)
-
-        print('New x limits', self.x_lim)
-        print('New y limits', self.y_lim)
-        print('New z limits', self.z_lim)
+        out_of_bounds = np.concatenate((index_out_of_x_bounds[0], index_out_of_y_bounds[0], index_out_of_z_bounds[0]), axis=None)
+        u = np.unique(out_of_bounds) # make sure there are no dulplicates, see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
+        # print('indexes to be deleted:',u, 'with size', len(u))
+        x = np.delete(x, u)
+        y = np.delete(y, u)
+        z = np.delete(z, u)
+        # ## check if it worked
+        # # remove any fruit that is outside of the robot's max limits
+        # index_out_of_x_bounds = np.where(x >= self.x_lim[1])
+        # index_out_of_y_bounds = np.where(y >= self.y_lim[1])
+        # index_out_of_z_bounds = np.where(z >= self.z_lim[1])
+        # print('out of z bounds (after):')
+        # print(index_out_of_z_bounds[0])
 
         sortedFruit = self.sortNstack(x, y, z)
 
