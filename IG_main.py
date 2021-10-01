@@ -194,6 +194,9 @@ def main(args=None):
     results.avgFPTandFPE()
     results.plotValuesOverDistance()
 
+    snapshot_schedules_2_plot = range(n_snapshots)
+    results.plot2DSchedule(snapshot_schedules_2_plot)
+
 
 if __name__ == '__main__':
     main()

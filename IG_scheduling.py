@@ -409,18 +409,18 @@ class IG_scheduling(object):
         '''Separates fruit index by which arm is set to pick that fruit'''
         self.IG.edges()
 
-        fruit_picked_by = list()
+        self.fruit_picked_by = list()
         for n in range(self.n_cell):
-            fruit_picked_by.append([])
+            self.fruit_picked_by.append([])
             for k in range(self.n_arm+1):
-                fruit_picked_by[n].append([])
+                self.fruit_picked_by[n].append([])
 
         for i in range(self.total_arms, self.numFruit+self.total_arms):
         #     print('row number:', node_array[i].n, 'arm number:', node_array[i].k)
-            fruit_picked_by[self.node_array[i].n][self.node_array[i].k].append(self.node_array[i].i)
+            self.fruit_picked_by[self.node_array[i].n][self.node_array[i].k].append(self.node_array[i].i)
 
         # print(fruit_picked_by)
-        return(fruit_picked_by)
+        return(self.fruit_picked_by)
 
 
     def calcPCT(self, fruit_picked_by):
