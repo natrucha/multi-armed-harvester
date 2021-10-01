@@ -6,6 +6,7 @@ from trajectory import *          # import the trajectory time calc (bang-bang)
 from plotStates_updated import *  # import module to plot % time each arm is in each state
 from fruit_distribution import *  # import module to create the various desired fruit distributions
 from IG_scheduling import *       # import module to perform interval graph scheduling similar to melon paper
+from IG_data_analysis import *    # import module to analyze the data from the snapshots
 
 def vehicleStep(q_vy, distance):
     '''Moves the vehicle a given distance'''
@@ -74,29 +75,20 @@ def calcR(d, v_v):
     R = d * v_v # in fruit / (m^2 * s)
     print('Fruit incoming rate for each cell [fruit/(m^2 s)]:')
     print(R)
-    return(R)
-
-
-def combineData(snapshot_list, snapshot_cell):
-    '''Takes the various snapshots and combines the values to get overall results (FPT and FPE, etc.)'''
-
+    return(R)    
 
 
 def main(args=None):
     # create fruit distribution(s)
     ### environment constants
-    x_lim = [0.2, 0.9]
-    y_lim = [0., 10.]
-    z_lim = [0., 2.7]
+    x_lim = [0.2, 1.2]  # -> now know physically, arm can extend 1 m in length
+    y_lim = [0., 12.]
+    z_lim = [0., 3.]
 
     # for the fruit distribution, want to keep it the same for these tests
     x_seed = PCG64(37428395352013185889194479428694397783)
     y_seed = PCG64(13250124924871709375127216220749555998)
     z_seed = PCG64(165440185943501291848242755689690423219)
-
-    # density of "fruit" in the orchard
-    density = 10      # fruit/m^3, average density of whole orchard
-    fruit_in_cell = 3 # num of fruit in front of cell if using (equalCellDensity())
 
     ### robot constants and variables
     n_cell = 4       # total number of horizonatal rows s
@@ -121,21 +113,15 @@ def main(args=None):
     ### Create Fruit Distribution ###
     fruitD = fruitDistribution(x_lim, y_lim, z_lim)
 
-    ##### IF USING CSV ##### -> needs to be cleaned up...
+    # settings/variables for the various allowed distributions
+    density = 10      # fruit/m^3, average density of whole orchard
+    fruit_in_cell = 3 # num of fruit in front of cell if using (equalCellDensity())
     csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
-    [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
-    # CSV file creates new limits for x, y, and z
-    x_lim = fruitD.x_lim
-    y_lim = fruitD.y_lim
-    z_lim = fruitD.z_lim
-    # recalculate cell values
-    cell_h = (z_lim[1] - z_lim[0]) / n_cell # in m, height of each hor. row
-    arm_reach = x_lim[1] - x_lim[0]
 
+    # [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
     # [numFruit, sortedFruit] = fruitD.column(v_v, v_max, a_max, t_grab, n_cell, n_arm, cell_h, z_seed)
     # [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
-    # [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
-
+    [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
 
     # ### init IG scheduler module ###
     # sched = IG_scheduling(v_v, n_arm, n_cell, cell_l, y_lim, z_lim)
@@ -144,11 +130,9 @@ def main(args=None):
     snapshot_cell = list()
 
     n_snapshots = 0
-    # FPT_snap = list()
+    # FPT_snap = list() -> uneccessary if saving each scheduling object successfully
     # FPE_snap = list()
-
     step_length = vehicle_l
-
     snapshot_y_lim = np.zeros(2)
 
     # loop until the vehicle has reached the end of the row
@@ -192,21 +176,23 @@ def main(args=None):
         # FPT_snap.append(sched.FPT)
         # FPE_snap.append(sched.FPE)
 
-        # vehicle takes a step (as big or small as desired)
-        q_vy = vehicleStep(q_vy, step_length)
-
         # save snapshot
         snapshot_list.append(sched)
         print('NUMBER OF SCHEDULED SNAPSHOTS:', len(snapshot_list))
         print()
         # save the snapshot's cell by cell density and R values
-        snapshot_cell.append([density, R])
+        snapshot_cell.append([d, R])
 
         n_snapshots += 1
 
+        # vehicle takes a step (as big or small as desired)
+        q_vy = vehicleStep(q_vy, step_length)
+
     # combine the results based on the various snapshots taken
     ## remember this is just the scheduling, so it's the theoretically best results (no missed scheduled fruit, etc.)
-    
+    results = IG_data_analysis(snapshot_list, snapshot_cell)
+    results.avgFPTandFPE()
+    results.plotValuesOverDistance()
 
 
 if __name__ == '__main__':
