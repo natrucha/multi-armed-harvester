@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # https://stackoverflow.com/questions/37288421/how-to-plot-a-chart-in-the-terminal
 
 class plotStates(object):
-    def __init__(self, states_percent):
+    def __init__(self, states_percent, file_name):
         '''
            Plot the percent time each arm spends in each of the six given
            states: idle, pick in yz, pick in x, grab, retract, drop off.
@@ -20,6 +20,8 @@ class plotStates(object):
         self.grab_plot   = []
         self.retr_plot   = []
         self.unlo_plot   = []
+
+        self.file_name = file_name
 
         # arm state lists lists the % time the arm is in each state
         for arm_state_lists in states_percent:
@@ -47,28 +49,38 @@ class plotStates(object):
 
         data = {'Bottom':
                    {'rear':0,
-                    'mid':1,
-                    'front':2
+                    'mid0':1,
+                    'mid1':2,
+                    'mid2':3,
+                    'front':4
                    },
-                # 'Middle Bt':
-                #    {'rear':0,
-                #     'mid':1,
-                #     'front':2
-                #    },
-                # 'Middle Top':
-                #    {'rear':0,
-                #     'mid':1,
-                #     'front':2
-                #    },
-                'Middle':
+                'Middle Bt':
                    {'rear':0,
-                    'mid':1,
-                    'front':2
+                    'mid0':1,
+                    'mid1':2,
+                    'mid2':3,
+                    'front':4
                    },
+                'Middle Top':
+                   {'rear':0,
+                    'mid0':1,
+                    'mid1':2,
+                    'mid2':3,
+                    'front':4
+                   },
+                # 'Middle':
+                #    {'rear':0,
+                    # 'mid0':1,
+                    # 'mid1':2,
+                    # 'mid2':3,
+                    # 'front':4
+                #    },
                 'Top':
                    {'rear':0,
-                    'mid':1,
-                    'front':2
+                    'mid0':1,
+                    'mid1':2,
+                    'mid2':3,
+                    'front':4
                    },
                }
 
@@ -220,7 +232,7 @@ class plotStates(object):
         ax.legend(bbox_to_anchor=(1.2, 1), loc='upper right', ncol=1)
 
         # save the plot in high resolution
-        plt.savefig("test0.png",dpi=300)
+        plt.savefig(self.file_name,dpi=300)
         # shot plot
         plt.show()
 
