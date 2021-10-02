@@ -30,20 +30,22 @@ class IG_data_analysis(object):
 
         self.n_arm  = 0
         self.n_cell = 0
+        self.total_arms = 0
 
         ### values/lists saved as lists for easier access ###
         # will save each snapshot's schedule as a list of lists
         self.fruit_picked_by = list()    # only available if IG_sched function fruitPickedByFunction() called 
         self.fruit_list      = list()    # sorted fruit in slices -> since that's closer to what will actually exist
+        self.density         = list()
+        self.R               = list()
+        self.PCT             = list()
+        self.state_percent   = list()    # list of arrays with the % of time each arm spent in each state during snapshot
         
         ### values saved as arrays for easier manipulation/calculations ###
         self.v_vy       = np.zeros(len(self.schedule_data))
         self.y0         = np.zeros(len(self.schedule_data))  # snapshot's y 0th coordinate
         self.FPE        = np.zeros(len(self.schedule_data))
         self.FPT        = np.zeros(len(self.schedule_data))
-        # self.density    = np.zeros(len(self.schedule_data))
-        # self.R          = np.zeros(len(self.schedule_data))
-        # self.PCT        = np.zeros(len(self.schedule_data))
         self.tot_fruit  = np.zeros(len(self.schedule_data)) # total fruit available in snapshot
 
         # extract individual pieces of information from the master lists
@@ -58,22 +60,24 @@ class IG_data_analysis(object):
                 # obtain constant values of the whole run
                 self.n_arm  = snapshot.n_arm
                 self.n_cell = snapshot.n_cell
+                self.total_arms = self.n_arm * self.n_cell
 
             # extract scheduling data per snapshot
             self.v_vy[index]      = snapshot.v
             self.FPE[index]       = snapshot.FPE
             self.FPT[index]       = snapshot.FPT
-            # self.PCT[index]       = snapshot.avg_PCT
             self.y0[index]        = snapshot.y_lim[0]
             self.tot_fruit[index] = snapshot.numFruit
 
+            self.PCT.append(snapshot.avg_PCT)
+            self.state_percent.append(snapshot.state_percent)
             self.fruit_picked_by.append(snapshot.fruit_picked_by)
             self.fruit_list.append(snapshot.sortedFruit)
 
-        # for snapshot in self.fruit_per_cell_data:
-        #     # extract cell fruit data per snapshot
-        #     self.density = snapshot[0]
-        #     self.R       = snapshot[1]
+        for snapshot in self.fruit_per_cell_data:
+            # extract cell fruit data per snapshot
+            self.density.append(snapshot[0])
+            self.R.append(snapshot[1])
 
 
     def plotValuesOverDistance(self):
@@ -82,7 +86,7 @@ class IG_data_analysis(object):
 
         x = np.arange(len(self.schedule_data))  # snapshot number, can change later
 
-        fig, axs = plt.subplots(4, 1)
+        fig, axs = plt.subplots(5, 1)
         # want subplots to stack in columns so they can be compared, see
         # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/cohere.html#sphx-glr-gallery-lines-bars-and-markers-cohere-py
         axs[0].plot(x, self.FPE*100, color='r')
@@ -93,25 +97,61 @@ class IG_data_analysis(object):
         axs[1].plot(x, self.FPT, color='c')
         axs[1].set_ylabel('FPT [fruit/s]')
 
-        axs[2].plot(x, self.v_vy, color='g')
-        axs[2].set_ylabel('vehicle velocity [m/s]')
+        x_pct = list()
 
-        axs[3].plot(x, self.tot_fruit, color='k')
-        axs[3].set_ylabel('available fruit')
+        for n in range(self.n_cell):
+            for k in range(self.n_arm):
+                y = list()
 
-        axs[3].set_xlabel('Snapshot No.')
+                for i in range(len(self.schedule_data)):
+                    y.append(self.PCT[i][n][k])
+
+                axs[2].plot(x, y)
+
+        axs[2].set_ylabel('PCT [s/fruit]')
+
+        axs[3].plot(x, self.v_vy, color='g')
+        axs[3].set_ylabel('vehicle velocity [m/s]')
+
+        axs[4].plot(x, self.tot_fruit, color='k')
+        axs[4].set_ylabel('available fruit')
+
+        axs[4].set_xlabel('Snapshot No.')
 
         fig.tight_layout()
 
         # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
         #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
 
-        plotName = './plots/test0.png'
-
-        print('Saving plot of FPT and FPE vs snapshot number in', plotName)
-        plt.savefig(plotName,dpi=300)
-       
+        file_name = './plots/test0.png'
+        print('Saving plot of FPT and FPE vs snapshot number in', file_name)
+        plt.savefig(file_name,dpi=300)
         # plt.show()
+
+
+    def plotMeanStatePercent(self):
+        '''Takes the average percent time each arm spent in each of the six states'''
+
+        self.state_percent_avg = np.zeros([self.total_arms, 6])
+
+        for snapshot_percent in self.state_percent:
+            self.state_percent_avg = self.state_percent_avg + snapshot_percent
+        
+        # average it over number of snapshots
+        self.state_percent_avg = self.state_percent_avg / len(self.schedule_data)
+
+        print('Overall average percent amount of time each arm spent in each state:')
+        print(self.state_percent_avg)
+        print()
+
+        file_name = './plots/state_percent.png'
+
+        print('Saving plot of the mean state percent of each arm in', file_name)
+
+        # Create and save the plot
+        state_percent_list = self.state_percent_avg.tolist()
+        # print(state_percent_list)
+        plot_states = plotStates(state_percent_list, file_name)
 
 
     def avgFPTandFPE(self):
@@ -122,6 +162,19 @@ class IG_data_analysis(object):
         print('Based on known pickable fruit by system:')
         print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
         print("Average final FPE {0:.2f}".format(avg_FPE*100), "%")
+
+
+    def avgPCT(self):
+        '''Calculates each arm's average PCT over all the snapshots'''
+        avg_PCT = np.zeros([self.n_cell, self.n_arm])
+
+        for snapshot_PCT in self.PCT:
+            avg_PCT = avg_PCT + snapshot_PCT
+
+        avg_PCT = avg_PCT / len(self.schedule_data)
+        print('Average PCT for each arm over the whole run:')
+        print(avg_PCT)
+
 
 
     def plot2DSchedule(self, snapshot_list):
@@ -178,13 +231,14 @@ class IG_data_analysis(object):
         plt.ylabel('Height from ground (m)')
 
         legend = ax.legend(bbox_to_anchor=(1.1, 1),loc='upper right')
+        ax.grid(True)
 
-        plotName = './plots/2dschedule.png'
+        file_name = './plots/2dschedule.png'
 
-        print('Saving 2D plot of the schedule', plotName)
-        plt.savefig(plotName,dpi=300)
+        print('Saving 2D plot of the schedule', file_name)
+        plt.savefig(file_name,dpi=300)
                         
-        plt.show()
+        # plt.show()
 
     
     # def plot3DSchedule(self, fruit_picked_by): 

@@ -457,35 +457,35 @@ class IG_scheduling(object):
         total_time = total_distance / self.v  # for snapshots? -> I'm deleting Tm and Tw data at each snapshot, problem
 
         ## states: idle, pick_yz, pick_x, grab, retract_x, move_z/unload
-        state_percent = np.zeros([self.total_arms, 6]) # save each arm's percent time in each of the six states 
+        self.state_percent = np.zeros([self.total_arms, 6]) # save each arm's percent time in each of the six states 
 
         for n in range(self.n_cell):
             for k in range(self.n_arm):
                 tot_arm_index = k + (n*self.n_arm)
                 # calculate arm's move_yz using Tm
                 for tm in self.Tm_values[n][k]:
-                    state_percent[tot_arm_index,1] += tm
+                    self.state_percent[tot_arm_index,1] += tm
 
                 for i in fruit_picked_by[n][k]:  
         #             print(Tw_values[i])
 
                     # calculate extend from Tw0 and final j for each arm k       
                     move_x = self.Tw_values[i][0] - self.t_grab
-                    state_percent[tot_arm_index,2] += move_x
+                    self.state_percent[tot_arm_index,2] += move_x
 
                     # calculate grab from Tw and final j for each arm k
-                    state_percent[tot_arm_index,3] += self.t_grab
+                    self.state_percent[tot_arm_index,3] += self.t_grab
 
                     # calculate unload from Tw1 and final j for each arm k
-                    state_percent[tot_arm_index,5] += self.Tw_values[i][1] - move_x
+                    self.state_percent[tot_arm_index,5] += self.Tw_values[i][1] - move_x
 
                 # since this is ideal, retract == extend
-                state_percent[tot_arm_index,4] = state_percent[tot_arm_index,2]
+                self.state_percent[tot_arm_index,4] = self.state_percent[tot_arm_index,2]
 
                 # calculate idle by subtracting all before by total time: length_row / v
-                state_percent[tot_arm_index,0] = total_time - np.sum(state_percent[tot_arm_index,:])
+                self.state_percent[tot_arm_index,0] = total_time - np.sum(self.state_percent[tot_arm_index,:])
 
-                state_percent[tot_arm_index,:] = (state_percent[tot_arm_index,:] / total_time) * 100
+                self.state_percent[tot_arm_index,:] = (self.state_percent[tot_arm_index,:] / total_time) * 100
 
         #         print('For arm', tot_arm_index,)
         #         print('idle:', state_percent[tot_arm_index,0], 'pick_yz:', state_percent[tot_arm_index,1], 
@@ -493,101 +493,100 @@ class IG_scheduling(object):
         #               state_percent[tot_arm_index,4], 'unload:', state_percent[tot_arm_index,5])
 
                 # does each k's state % add up to 100%?
-                percent_sum = np.sum(state_percent[tot_arm_index,:])
+                percent_sum = np.sum(self.state_percent[tot_arm_index,:])
         #         print('Sum total of all percentages', percent_sum)
         #         print()
 
-        state_percent_transpose = state_percent
-            
-        state_percent_list = state_percent_transpose.tolist()
-        # print(state_percent_list)
-        plot_states = plotStates(state_percent_list)
+        # state_percent_transpose = self.state_percent
+        # state_percent_list = state_percent_transpose.tolist()
+        # # print(state_percent_list)
+        # plot_states = plotStates(state_percent_list)
 
 
-    def plot2DSchedule(self, fruit_picked_by):
-        '''Plot the path of the schedule in 2D based on y and z axes'''
-        fig, ax = plt.subplots()
+    # def plot2DSchedule(self, fruit_picked_by):
+    #     '''Plot the path of the schedule in 2D based on y and z axes'''
+    #     fig, ax = plt.subplots()
 
-        # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/linestyles.html
-        # https://matplotlib.org/stable/tutorials/colors/colors.html
-        # https://thispointer.com/matplotlib-line-plot-with-markers/
+    #     # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/linestyles.html
+    #     # https://matplotlib.org/stable/tutorials/colors/colors.html
+    #     # https://thispointer.com/matplotlib-line-plot-with-markers/
 
-        line_type = ['--', '-.', '-', (0, (1, 1)), (0, (3, 1, 1, 1, 1, 1)), (0, (5, 10))]
-        color     = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink']
+    #     line_type = ['--', '-.', '-', (0, (1, 1)), (0, (3, 1, 1, 1, 1, 1)), (0, (5, 10))]
+    #     color     = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink']
 
 
-        for n in range(self.n_cell):
-            for k in range(self.n_arm+1):
-                # add modulo later so it works with n and k > 3 
-                if k == self.n_arm:
-                    line_color = 'gold'
-                    linestyle = ''
-                    arm_label = 'unpicked'
-                elif k == 0:
-                    line_color = str(color[k])
-                    linestyle = line_type[n]
-                    arm_label = 'back arm'
-                elif k == self.n_arm-1:
-                    line_color = str(color[k])
-                    linestyle = line_type[n]
-                    arm_label = 'front arm'
-                else:
-                    line_color = str(color[k])
-                    linestyle = line_type[n]
-                    arm_label = 'middle arm ' + str(k)
+    #     for n in range(self.n_cell):
+    #         for k in range(self.n_arm+1):
+    #             # add modulo later so it works with n and k > 3 
+    #             if k == self.n_arm:
+    #                 line_color = 'gold'
+    #                 linestyle = ''
+    #                 arm_label = 'unpicked'
+    #             elif k == 0:
+    #                 line_color = str(color[k])
+    #                 linestyle = line_type[n]
+    #                 arm_label = 'back arm'
+    #             elif k == self.n_arm-1:
+    #                 line_color = str(color[k])
+    #                 linestyle = line_type[n]
+    #                 arm_label = 'front arm'
+    #             else:
+    #                 line_color = str(color[k])
+    #                 linestyle = line_type[n]
+    #                 arm_label = 'middle arm ' + str(k)
 
-                if n == 0:
-                    # limit the labels for the legend
-                    plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-                            self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
+    #             if n == 0:
+    #                 # limit the labels for the legend
+    #                 plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+    #                         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
 
-                else:
-                    # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-                    #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o')
-                    plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-                            self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
+    #             else:
+    #                 # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+    #                 #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o')
+    #                 plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+    #                         self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
 
-        plt.xlabel('Distance along orchard row (m)')
-        plt.ylabel('Height from ground (m)')
+    #     plt.xlabel('Distance along orchard row (m)')
+    #     plt.ylabel('Height from ground (m)')
 
-        legend = ax.legend(bbox_to_anchor=(1.1, 1),loc='upper right')
+    #     legend = ax.legend(bbox_to_anchor=(1.1, 1),loc='upper right')
                         
-        plt.show()
+    #     plt.show()
 
     
-    def plot3DSchedule(self, fruit_picked_by): 
-        '''Plot the path of the schedule in 3D alongside the fruit'''
-        fig = plt.figure()
-        ax = plt.axes(projection ='3d')
+    # def plot3DSchedule(self, fruit_picked_by): 
+    #     '''Plot the path of the schedule in 3D alongside the fruit'''
+    #     fig = plt.figure()
+    #     ax = plt.axes(projection ='3d')
 
-        line_type = ['--', '-.', '-', '.']
-        color     = ['c', 'r', 'b', 'g']
+    #     line_type = ['--', '-.', '-', '.']
+    #     color     = ['c', 'r', 'b', 'g']
 
-        for n in range(self.n_cell):
-            for k in range(self.n_arm+1):
-                # add modulo later so it works with n and k > 3 
-                if k == self.n_arm:
-                    line = 'oy'
-                    arm_label = 'row ' + str(n) + ', unpicked'
-                elif k == 0:
-                    line = 'o' + line_type[n] + color[k]
-                    arm_label = 'row ' + str(n) + ', back arm'
-                elif k == n_arm-1:
-                    line = 'o' + line_type[n] + color[k]
-                    arm_label = 'row ' + str(n) + ', front arm'
-                else:
-                    line = 'o' + line_type[n] + color[k]
-                    arm_label = 'row ' + str(n) + ', middle arm ' + str(k)
+    #     for n in range(self.n_cell):
+    #         for k in range(self.n_arm+1):
+    #             # add modulo later so it works with n and k > 3 
+    #             if k == self.n_arm:
+    #                 line = 'oy'
+    #                 arm_label = 'row ' + str(n) + ', unpicked'
+    #             elif k == 0:
+    #                 line = 'o' + line_type[n] + color[k]
+    #                 arm_label = 'row ' + str(n) + ', back arm'
+    #             elif k == n_arm-1:
+    #                 line = 'o' + line_type[n] + color[k]
+    #                 arm_label = 'row ' + str(n) + ', front arm'
+    #             else:
+    #                 line = 'o' + line_type[n] + color[k]
+    #                 arm_label = 'row ' + str(n) + ', middle arm ' + str(k)
                     
-                plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-                        self.sortedFruit[0][fruit_picked_by[n][k]],
-                        self.sortedFruit[2][fruit_picked_by[n][k]], line, label=arm_label)
+    #             plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+    #                     self.sortedFruit[0][fruit_picked_by[n][k]],
+    #                     self.sortedFruit[2][fruit_picked_by[n][k]], line, label=arm_label)
 
-        ax.set_xlabel('Distance along orchard row (m)')
-        ax.set_ylabel('Distance into tree crown (m)')
-        ax.set_zlabel('Height from ground (m)')
+    #     ax.set_xlabel('Distance along orchard row (m)')
+    #     ax.set_ylabel('Distance into tree crown (m)')
+    #     ax.set_zlabel('Height from ground (m)')
 
-        plt.show()
+    #     plt.show()
 
 
 

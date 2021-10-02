@@ -118,10 +118,10 @@ def main(args=None):
     fruit_in_cell = 3 # num of fruit in front of cell if using (equalCellDensity())
     csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
 
-    # [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
+    [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
     # [numFruit, sortedFruit] = fruitD.column(v_v, v_max, a_max, t_grab, n_cell, n_arm, cell_h, z_seed)
     # [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
-    [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
+    # [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
 
     # ### init IG scheduler module ###
     # sched = IG_scheduling(v_v, n_arm, n_cell, cell_l, y_lim, z_lim)
@@ -172,6 +172,7 @@ def main(args=None):
         snapshot_fruit_picked_by = sched.fruitPickedBy(sliced_numFruit)
 
         sched.calcPCT(snapshot_fruit_picked_by)
+        sched.calculateStateTimePercent(snapshot_fruit_picked_by)
         # # combine results
         # FPT_snap.append(sched.FPT)
         # FPE_snap.append(sched.FPE)
@@ -192,9 +193,12 @@ def main(args=None):
     ## remember this is just the scheduling, so it's the theoretically best results (no missed scheduled fruit, etc.)
     results = IG_data_analysis(snapshot_list, snapshot_cell)
     results.avgFPTandFPE()
+    results.avgPCT()
+    print()
     results.plotValuesOverDistance()
+    results.plotMeanStatePercent()
 
-    snapshot_schedules_2_plot = range(n_snapshots)
+    snapshot_schedules_2_plot = range(n_snapshots)  
     results.plot2DSchedule(snapshot_schedules_2_plot)
 
 
