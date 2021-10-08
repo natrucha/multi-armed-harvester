@@ -51,7 +51,8 @@ class IG_scheduling(object):
         self.a_max = a_max
         self.d_max = self.a_max
 
-        self.t_grab = 0.1
+        self.t_grab   = 0.1
+        self.t_unload = 0.   # if we assume arm moves to the side frame to unload, unloading becomes constant
 
         # cell width/height (perpendicular to movement) and length (parallel to movement)
         self.cell_h = (self.z_lim[1] - self.z_lim[0]) / self.n_cell  # w in paper, not true once we know dimensions
@@ -113,7 +114,7 @@ class IG_scheduling(object):
         
         t_y = traj_calc.Ta + traj_calc.Tv + traj_calc.Td 
         
-        # calculate conveyor drop off
+        # calculate move in z-axis
         traj_calc.adjInit(start_z, 0.) 
         traj_calc.noJerkProfile(traj_calc.q0, fruit_z, traj_calc.v0, self.v_max, self.a_max, self.d_max)
         
@@ -137,10 +138,14 @@ class IG_scheduling(object):
         t_x = traj_calc.Ta + traj_calc.Tv + traj_calc.Td 
         
         # calculate conveyor drop off
-        traj_calc.adjInit(fruit_z, 0.) # starts at fruit's location (move to conveyor from fruit)
-        traj_calc.noJerkProfile(traj_calc.q0, bottom_z, traj_calc.v0, self.v_max, self.a_max, self.d_max)
-        
-        t_z = traj_calc.Ta + traj_calc.Tv + traj_calc.Td 
+        # traj_calc.adjInit(fruit_z, 0.) # starts at fruit's location (move to conveyor from fruit)
+        # traj_calc.noJerkProfile(traj_calc.q0, bottom_z, traj_calc.v0, self.v_max, self.a_max, self.d_max)
+
+        # t_z = traj_calc.Ta + traj_calc.Tv + traj_calc.Td 
+
+        ## if conveyor is to the side, we plan to finish Tw at the back frame where unloading happens 
+        # so t_z is "cancelled out"
+        t_z = 0.
         
         # add them together to get before picking and after picking
         Td0 = self.t_grab + t_x
@@ -226,6 +231,8 @@ class IG_scheduling(object):
             ## Tw based on fruit i, and it will be based on which horizontal row it fits in (row_bot_edge[n]) but 
             #   not saved by row (n)
 
+            Tw1 += self.t_unload # if the arm moves to the side frame to unload, unloading is constant
+
             Tw = Tw0 + Tw1
 
             # values of fruit location at the start and end, as well as the handling time
@@ -289,11 +296,6 @@ class IG_scheduling(object):
                 # saves the current number of picked fruit by the kth arm in pool n
                 self.curr_j[n,k] = self.node_array[real_index].j
 
-        # update this for when there are more/less than three arms
-        # last_i = np.array([node_array[0], node_array[1], node_array[2]]) # saves the fruit id of the fruit last picked by the arm k 
-        # self.curr_j = np.array([node_array[0].j, node_array[1].j, node_array[2].j]) # saves the number of fruit being picked by 
-        # the kth arm
-
         for n in range(self.n_cell):
                 # the edge list has been separated by pool/row already
             for e in self.edge_list[n]:
@@ -305,27 +307,39 @@ class IG_scheduling(object):
             #         print('arm number', k)
             #         print('start:', e[k+1][1], 'end:', e[k+1][2]) 
 
-                    # take the previously chosen i for arm k and add in the move time to new i
-                    prev = self.sortedFruit[1, last_i[n,k].i] 
-                    # calculate how far the vehicle moves between the interval end of y_(i-1) and interval start of y_i
-                    # also removes the Td/Tw after picking value (won't move in y after that)
-                    veh_move = (e[k+1][1] - (last_i[n,k].t - self.Tw_values[i][1]))*self.v  
-
+                    # new fruit's location
+                    fruit_y = self.sortedFruit[1,i]
+                    fruit_z = self.sortedFruit[2,i]
+                    
+                    # get total Tw value for the fruit
+                    Tw = self.Tw_values[i][0] + self.Tw_values[i][1]
+                    # to calculate where the edge of the cell's frame is at that time
+                    # q_cy_t_m_end = fruit_y - Tw * self.v
+                    
+                    # # calculate how far the vehicle moves between the interval end of y_(i-1) and interval start of y_i
+                    # # also removes the Td/Tw after picking value (won't move in y after that)
+                    # veh_move = (e[k+1][1] - (last_i[n,k].t - self.Tw_values[i][1])) * self.v  
                     # move to new location arrived when moving to get the next fruit
                     # ends in line with previous fruit plus the distance the vehicle moves between the end time of last fruit
                     # and the beginning time of this one
-                    start_y = prev + veh_move      
-                    start_z = self.row_bot_edge[n]   # ends at the bottom of horizontal row to drop off the fruit
+                    # start_y = prev + veh_move <- recalculate....
+
+                    # if unloading at the back of the cell, in the y-axis we only care about the distance travelled
+                    # since we know the arm ends at the back of the cell
+                    start_y = 0.
+                    dist_y  = Tw*self.v 
+                    
+                    # if unloading is done at the back of the cell:   
+                    start_z = self.sortedFruit[2, last_i[n,k].i]  # uses the last fruit's z-axis value
+                    # # if unloading is done at bottom of the cell:   
+                    # start_z = self.row_bot_edge[n]   # ends at the bottom of horizontal row to drop off the fruit
 
                     # print('y_(i-1):', prev, 'y_i:', self.sortedFruit[1,i])
                     # print('new y(i-1):', start_y, 'since vehicle moves:', veh_move)
 
-                    # new fruit's location
-                    fruit_y = self.sortedFruit[1,i]
-                    fruit_z = self.sortedFruit[2,i]
-
                     # calculate how long it would take to reach new fruit
-                    Tm = self.calcTm(self.traj_calc, start_y, start_z, fruit_y, fruit_z)
+                    # Tm = self.calcTm(self.traj_calc, start_y, start_z, fruit_y, fruit_z)
+                    Tm = self.calcTm(self.traj_calc, start_y, start_z, dist_y, fruit_z)
 
                     start_time = e[k+1][1] - Tm # add movement into work before handling to get the true total time interval
 
@@ -449,7 +463,7 @@ class IG_scheduling(object):
         print()
 
 
-    def calculateStateTimePercent(self, fruit_picked_by):
+    def calculateStateTime(self, fruit_picked_by):
     # def calculateStateTimePercent(self, fruit_picked_by, total_distance):
         '''Calculates the percent time each arm is in each state so that it can plotState can plot the data'''
         total_distance = self.y_lim[1] - self.y_lim[0]
@@ -457,35 +471,39 @@ class IG_scheduling(object):
         total_time = total_distance / self.v  # for snapshots? -> I'm deleting Tm and Tw data at each snapshot, problem
 
         ## states: idle, pick_yz, pick_x, grab, retract_x, move_z/unload
-        self.state_percent = np.zeros([self.total_arms, 6]) # save each arm's percent time in each of the six states 
+        # self.state_percent = np.zeros([self.total_arms, 6]) # save each arm's percent time in each of the six states 
+        self.state_time = np.zeros([self.total_arms, 7]) # save each arm's percent time in each of the six states 
 
         for n in range(self.n_cell):
             for k in range(self.n_arm):
                 tot_arm_index = k + (n*self.n_arm)
                 # calculate arm's move_yz using Tm
                 for tm in self.Tm_values[n][k]:
-                    self.state_percent[tot_arm_index,1] += tm
+                    self.state_time[tot_arm_index,1] += tm
 
                 for i in fruit_picked_by[n][k]:  
         #             print(Tw_values[i])
 
                     # calculate extend from Tw0 and final j for each arm k       
                     move_x = self.Tw_values[i][0] - self.t_grab
-                    self.state_percent[tot_arm_index,2] += move_x
+                    self.state_time[tot_arm_index,2] += move_x
 
                     # calculate grab from Tw and final j for each arm k
-                    self.state_percent[tot_arm_index,3] += self.t_grab
+                    self.state_time[tot_arm_index,3] += self.t_grab
 
                     # calculate unload from Tw1 and final j for each arm k
-                    self.state_percent[tot_arm_index,5] += self.Tw_values[i][1] - move_x
+                    self.state_time[tot_arm_index,5] += self.Tw_values[i][1] - move_x
 
                 # since this is ideal, retract == extend
-                self.state_percent[tot_arm_index,4] = self.state_percent[tot_arm_index,2]
+                self.state_time[tot_arm_index,4] = self.state_time[tot_arm_index,2]
 
                 # calculate idle by subtracting all before by total time: length_row / v
-                self.state_percent[tot_arm_index,0] = total_time - np.sum(self.state_percent[tot_arm_index,:])
+                self.state_time[tot_arm_index,0] = total_time - np.sum(self.state_time[tot_arm_index,:])
+                # save the total time for this run to get total percent later
+                self.state_time[tot_arm_index,6] = total_time
+                
 
-                self.state_percent[tot_arm_index,:] = (self.state_percent[tot_arm_index,:] / total_time) * 100
+                # self.state_time[tot_arm_index,:] = (self.state_time[tot_arm_index,:] / total_time) * 100
 
         #         print('For arm', tot_arm_index,)
         #         print('idle:', state_percent[tot_arm_index,0], 'pick_yz:', state_percent[tot_arm_index,1], 
@@ -493,9 +511,9 @@ class IG_scheduling(object):
         #               state_percent[tot_arm_index,4], 'unload:', state_percent[tot_arm_index,5])
 
                 # does each k's state % add up to 100%?
-                percent_sum = np.sum(self.state_percent[tot_arm_index,:])
-        #         print('Sum total of all percentages', percent_sum)
-        #         print()
+            # percent_sum = np.sum(self.state_time[tot_arm_index,:])
+            # print('Sum total of all times', percent_sum)
+            # print()
 
         # state_percent_transpose = self.state_percent
         # state_percent_list = state_percent_transpose.tolist()
