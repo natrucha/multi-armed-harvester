@@ -39,7 +39,7 @@ class IG_data_analysis(object):
         self.density         = list()
         self.R               = list()
         self.PCT             = list()
-        self.state_percent   = list()    # list of arrays with the % of time each arm spent in each state during snapshot
+        self.state_time      = list()    # list of arrays with the % of time each arm spent in each state during snapshot
         
         ### values saved as arrays for easier manipulation/calculations ###
         self.v_vy       = np.zeros(len(self.schedule_data))
@@ -70,7 +70,7 @@ class IG_data_analysis(object):
             self.tot_fruit[index] = snapshot.numFruit
 
             self.PCT.append(snapshot.avg_PCT)
-            self.state_percent.append(snapshot.state_percent)
+            self.state_time.append(snapshot.state_time)
             self.fruit_picked_by.append(snapshot.fruit_picked_by)
             self.fruit_list.append(snapshot.sortedFruit)
 
@@ -129,19 +129,22 @@ class IG_data_analysis(object):
         # plt.show()
 
 
-    def plotMeanStatePercent(self):
+    def plotTotalStatePercent(self):
         '''Takes the average percent time each arm spent in each of the six states'''
 
-        self.state_percent_avg = np.zeros([self.total_arms, 6])
+        self.state_percent = np.zeros([self.total_arms, 7])
 
-        for snapshot_percent in self.state_percent:
-            self.state_percent_avg = self.state_percent_avg + snapshot_percent
+        for snapshot_percent in self.state_time:
+            self.state_percent = self.state_percent + snapshot_percent
+
+        print('snapshot state times:')
+        print(self.state_percent)
         
-        # average it over number of snapshots
-        self.state_percent_avg = self.state_percent_avg / len(self.schedule_data)
+        # get percentage by dividing over total time
+        self.state_percent = self.state_percent / self.state_percent[0,6] * 100
 
         print('Overall average percent amount of time each arm spent in each state:')
-        print(self.state_percent_avg)
+        print(self.state_percent)
         print()
 
         file_name = './plots/state_percent.png'
@@ -149,7 +152,7 @@ class IG_data_analysis(object):
         print('Saving plot of the mean state percent of each arm in', file_name)
 
         # Create and save the plot
-        state_percent_list = self.state_percent_avg.tolist()
+        state_percent_list = self.state_percent.tolist()
         # print(state_percent_list)
         plot_states = plotStates(state_percent_list, file_name)
 

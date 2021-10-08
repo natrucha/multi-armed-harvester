@@ -172,7 +172,7 @@ def main(args=None):
         snapshot_fruit_picked_by = sched.fruitPickedBy(sliced_numFruit)
 
         sched.calcPCT(snapshot_fruit_picked_by)
-        sched.calculateStateTimePercent(snapshot_fruit_picked_by)
+        sched.calculateStateTime(snapshot_fruit_picked_by)
         # # combine results
         # FPT_snap.append(sched.FPT)
         # FPE_snap.append(sched.FPE)
@@ -196,7 +196,7 @@ def main(args=None):
     results.avgPCT()
     print()
     results.plotValuesOverDistance()
-    results.plotMeanStatePercent()
+    results.plotTotalStatePercent()
 
     snapshot_schedules_2_plot = range(n_snapshots)  
     results.plot2DSchedule(snapshot_schedules_2_plot)
