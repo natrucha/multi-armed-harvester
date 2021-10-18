@@ -16,7 +16,7 @@ from fruit_distribution import *  # import module to create the various desired 
 
 
 class IG_scheduling(object):
-    def __init__(self, v_v, v_max, a_max, n_arm, n_cell, cell_l, x_lim, y_lim, z_lim):
+    def __init__(self, v_v, v_max, a_max, n_arm, n_cell, cell_l, x_lim, y_lim, z_lim, vehicle_l, horizon_l):
 
         '''
             Interval graph scheduling algorithm for automated orchard fruit picking based on automated 
@@ -52,18 +52,24 @@ class IG_scheduling(object):
         self.d_max = self.a_max
 
         self.t_grab   = 0.1
-        self.t_unload = 0.   # if we assume arm moves to the side frame to unload, unloading becomes constant
+        self.t_unload = 0.1   # if we assume arm moves to the side frame to unload, unloading becomes constant
 
         # cell width/height (perpendicular to movement) and length (parallel to movement)
         self.cell_h = (self.z_lim[1] - self.z_lim[0]) / self.n_cell  # w in paper, not true once we know dimensions
         self.cell_l = cell_l                  # length of individual arm cell 
+
+        self.vehicle_l = vehicle_l  # in m, the length (in y) of the vehicle
+        self.horizon_l = horizon_l  # in m, the length (in y) of the horizon
+
+        self.Ts_end = self.y_lim[1] / self.v # in s, the time when the next snapshot will be taken so nonthing can be scheduled after
 
         # arm starting locations
         arm_location = np.zeros([self.n_cell, self.n_arm, 3])
         offset       = 0.2
 
         arm_location[:,:,0] = 0. # x-coordinate start
-        arm_location[:,:,1] = np.linspace(0, self.n_arm*offset, self.n_arm, endpoint=True)
+        arm_location[:,:,1] = np.linspace(self.y_lim[0], self.n_arm*offset + self.y_lim[0], self.n_arm, endpoint=True)
+        # print('ARM Y START', arm_location[:,:,1])
 
         for n in range(self.n_cell):
             arm_location[n,:,2] = 0. + n*self.cell_h # z-coordinate start
@@ -94,6 +100,15 @@ class IG_scheduling(object):
         self.traj_calc = Trajectory(self.v_max, self.a_max, self.d_max)
 
 
+    def fixNumFruit(self):
+        '''Function needed to remove picked fruit from numFruit due to indexing complications outside of scheduling'''
+        #### NOTE: after adding an array row of world frame indexes to sortedFruit, this should change to removing 
+        #          horizon double counting 
+        actual_available_fruit = np.where(self.sortedFruit[4,:] < 1)
+
+        self.actual_numFruit = len(actual_available_fruit[0])
+
+
     def setFruitData(self, numFruit, sortedFruit):
         '''Gives the current total fruit and all the fruit locations, can't run without it'''
         self.numFruit    = numFruit
@@ -102,6 +117,10 @@ class IG_scheduling(object):
         # create an array (or list if it'll need to be dynamic later) for node objects
         # node_array  = np.ndarray(self.numFruit+self.n_arm, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
         self.node_array  = np.ndarray(self.numFruit+self.total_arms, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
+
+        # create a variable (actual_numFruit) that has the picked fruit subtracted from it. Used for results 
+        # and data analysis -> remove once fruit disappear when picked ;)
+        self.fixNumFruit()
 
 
     def calcTm(self, traj_calc, start_y, start_z, fruit_y, fruit_z):
@@ -217,11 +236,17 @@ class IG_scheduling(object):
         #     print(n)
 
             # fruit could be located higher than the arms can go... 
-            if n < self.n_cell:
-                self.n_fruit_row[n] += 1
+            # if n < self.n_cell:
+            #     self.n_fruit_row[n] += 1
+            if n > self.n_cell:
+                print('ERROR: fruit higher than available cells')
+
+            self.n_fruit_row[n] += 1
 
             ## can set fruit node's pool value here:
             self.node_array[index+self.total_arms].n = n
+
+            #### CHECK IF THE FRUIT IS IN HORIZON/CAN'T BE PICKED BY THIS ARM ####
             
             # calculate y_i / v which is constant for this fruit
 
@@ -235,35 +260,40 @@ class IG_scheduling(object):
 
             Tw = Tw0 + Tw1
 
+            #### NOTE: SHOULD THERE BE AN OFFSET FOR THE SNAPSHOT'S OFFSET STARTING POSITION? -> kinda is one ####
             # values of fruit location at the start and end, as well as the handling time
             t_start_0 = y_i / self.v - Tw # adding the calculated handling time 
             t_end_0   = y_i / self.v      # the end time will be when the back frame is reached by the fruit 
 
-            k_edges.append(index)
+            if t_start_0 < self.Ts_end and self.sortedFruit[4,index] < 1:
+                # if the schedule would happen before the end of the snapshot, continue (otherwise nothing happens)
 
-            for k in range(self.n_arm):
-                # add the offset based on the arm number (assuming back arm is k=0 to front arm k=n_arm)
-        #         offset = (cell_l*(k+1)) / v  # (k+1) to indicate it's the front frame location we're looking for
-                offset = (self.cell_l*k) / self.v  # looking at the back part of the frame 
+                k_edges.append(index)
 
-                ## Saying here that the fruit can only be picked if arm is not busy when the front of the frame reaches t
-                #  the fruit
+                for k in range(self.n_arm):
+                    # add the offset based on the arm number (assuming back arm is k=0 to front arm k=n_arm)
+            #         offset = (cell_l*(k+1)) / v  # (k+1) to indicate it's the front frame location we're looking for
+                    offset = (self.cell_l*k) / self.v  # looking at the back part of the frame 
 
-                t_start_k = t_start_0 - offset
-                t_end_k   = t_end_0 - offset
+                    ## Saying here that the fruit can only be picked if arm is not busy when the front of the frame reaches t
+                    #  the fruit
 
-                ### NOTE: check if interval too long versus the amount of time fruit is in cell (t = cell_l/v)      
-                if t_start_k > 0 and t_end_k > 0 and t_end_k - (t_start_k + Tw0) < self.cell_l/self.v:
-                    # the interval has to be positive or it cannot be used (impossible to pick that fruit)
-                    k_edges.append([k, t_start_k, t_end_k])
+                    t_start_k = t_start_0 - offset
+                    t_end_k   = t_end_0 - offset
+
+                    #### NOTE: check if interval too long versus the amount of time fruit is in cell (t = cell_l/v) 
+                    if t_start_k > 0 and t_end_k > 0 and Tw < self.cell_l/self.v:
+                    # if t_start_k > 0 and t_end_k > 0 and t_end_k - (t_start_k + Tw0) < self.cell_l/self.v:
+                        # the interval has to be positive or it cannot be used (impossible to pick that fruit)
+                        k_edges.append([k, t_start_k, t_end_k])
 
 
-            if len(k_edges) > 1:
-        #         print(k_edges)
-                self.edge_list[n].append(k_edges.copy()) # if not a copy, values in edge_list also get deleted in next line
+                if len(k_edges) > 1:
+            #         print(k_edges)
+                    self.edge_list[n].append(k_edges.copy()) # if not a copy, values in edge_list also get deleted in next line
 
-            # delete values in k_edges
-            del k_edges[:]
+                # delete values in k_edges
+                del k_edges[:]
 
         # print(self.edge_list[0]) # prints pool 0 time intervals
 
@@ -385,13 +415,13 @@ class IG_scheduling(object):
         '''Calculate and print basic results like total picked fruit, FPE, FPT, etc.'''
         total_distance = self.y_lim[1] - self.y_lim[0]
 
-        self.FPE = np.sum(self.curr_j)/self.numFruit
+        self.FPE = np.sum(self.curr_j)/self.actual_numFruit
         self.FPT = np.sum(self.curr_j) / (total_distance / self.v)
 
         self.FPE_row = list()
         self.FPT_row = list()
 
-        print('Total number of fruit:', self.numFruit)
+        print('Total number of fruit:', self.actual_numFruit)
         # print('Total time:', (self.y_lim[1] - self.y_lim[0]) / self.v, 'sec')
         print('Total time:', total_distance / self.v, 'sec')
         print('Vehicle velocity:', self.v, 'm/s')
@@ -465,7 +495,7 @@ class IG_scheduling(object):
 
     def calculateStateTime(self, fruit_picked_by):
     # def calculateStateTimePercent(self, fruit_picked_by, total_distance):
-        '''Calculates the percent time each arm is in each state so that it can plotState can plot the data'''
+        '''Calculates the time each arm is in each state so that it can plotState can plot the data'''
         total_distance = self.y_lim[1] - self.y_lim[0]
 
         total_time = total_distance / self.v  # for snapshots? -> I'm deleting Tm and Tw data at each snapshot, problem
@@ -492,7 +522,8 @@ class IG_scheduling(object):
                     self.state_time[tot_arm_index,3] += self.t_grab
 
                     # calculate unload from Tw1 and final j for each arm k
-                    self.state_time[tot_arm_index,5] += self.Tw_values[i][1] - move_x
+                    # self.state_time[tot_arm_index,5] += self.Tw_values[i][1] - move_x
+                    self.state_time[tot_arm_index,5] += self.t_unload
 
                 # since this is ideal, retract == extend
                 self.state_time[tot_arm_index,4] = self.state_time[tot_arm_index,2]
@@ -520,95 +551,7 @@ class IG_scheduling(object):
         # # print(state_percent_list)
         # plot_states = plotStates(state_percent_list)
 
-
-    # def plot2DSchedule(self, fruit_picked_by):
-    #     '''Plot the path of the schedule in 2D based on y and z axes'''
-    #     fig, ax = plt.subplots()
-
-    #     # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/linestyles.html
-    #     # https://matplotlib.org/stable/tutorials/colors/colors.html
-    #     # https://thispointer.com/matplotlib-line-plot-with-markers/
-
-    #     line_type = ['--', '-.', '-', (0, (1, 1)), (0, (3, 1, 1, 1, 1, 1)), (0, (5, 10))]
-    #     color     = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink']
-
-
-    #     for n in range(self.n_cell):
-    #         for k in range(self.n_arm+1):
-    #             # add modulo later so it works with n and k > 3 
-    #             if k == self.n_arm:
-    #                 line_color = 'gold'
-    #                 linestyle = ''
-    #                 arm_label = 'unpicked'
-    #             elif k == 0:
-    #                 line_color = str(color[k])
-    #                 linestyle = line_type[n]
-    #                 arm_label = 'back arm'
-    #             elif k == self.n_arm-1:
-    #                 line_color = str(color[k])
-    #                 linestyle = line_type[n]
-    #                 arm_label = 'front arm'
-    #             else:
-    #                 line_color = str(color[k])
-    #                 linestyle = line_type[n]
-    #                 arm_label = 'middle arm ' + str(k)
-
-    #             if n == 0:
-    #                 # limit the labels for the legend
-    #                 plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-    #                         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
-
-    #             else:
-    #                 # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-    #                 #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o')
-    #                 plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-    #                         self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
-
-    #     plt.xlabel('Distance along orchard row (m)')
-    #     plt.ylabel('Height from ground (m)')
-
-    #     legend = ax.legend(bbox_to_anchor=(1.1, 1),loc='upper right')
-                        
-    #     plt.show()
-
     
-    # def plot3DSchedule(self, fruit_picked_by): 
-    #     '''Plot the path of the schedule in 3D alongside the fruit'''
-    #     fig = plt.figure()
-    #     ax = plt.axes(projection ='3d')
-
-    #     line_type = ['--', '-.', '-', '.']
-    #     color     = ['c', 'r', 'b', 'g']
-
-    #     for n in range(self.n_cell):
-    #         for k in range(self.n_arm+1):
-    #             # add modulo later so it works with n and k > 3 
-    #             if k == self.n_arm:
-    #                 line = 'oy'
-    #                 arm_label = 'row ' + str(n) + ', unpicked'
-    #             elif k == 0:
-    #                 line = 'o' + line_type[n] + color[k]
-    #                 arm_label = 'row ' + str(n) + ', back arm'
-    #             elif k == n_arm-1:
-    #                 line = 'o' + line_type[n] + color[k]
-    #                 arm_label = 'row ' + str(n) + ', front arm'
-    #             else:
-    #                 line = 'o' + line_type[n] + color[k]
-    #                 arm_label = 'row ' + str(n) + ', middle arm ' + str(k)
-                    
-    #             plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-    #                     self.sortedFruit[0][fruit_picked_by[n][k]],
-    #                     self.sortedFruit[2][fruit_picked_by[n][k]], line, label=arm_label)
-
-    #     ax.set_xlabel('Distance along orchard row (m)')
-    #     ax.set_ylabel('Distance into tree crown (m)')
-    #     ax.set_zlabel('Height from ground (m)')
-
-    #     plt.show()
-
-
-
-
 ## Interval graph node setup
 class fruitNode:
     def __init__(self, i, j, k, n, t): 
