@@ -47,6 +47,7 @@ class IG_data_analysis(object):
         self.FPE        = np.zeros(len(self.schedule_data))
         self.FPT        = np.zeros(len(self.schedule_data))
         self.tot_fruit  = np.zeros(len(self.schedule_data)) # total fruit available in snapshot
+        self.pick_fruit = np.zeros(len(self.schedule_data))
 
         # extract individual pieces of information from the master lists
         self.extractData()
@@ -63,11 +64,12 @@ class IG_data_analysis(object):
                 self.total_arms = self.n_arm * self.n_cell
 
             # extract scheduling data per snapshot
-            self.v_vy[index]      = snapshot.v
-            self.FPE[index]       = snapshot.FPE
-            self.FPT[index]       = snapshot.FPT
-            self.y0[index]        = snapshot.y_lim[0]
-            self.tot_fruit[index] = snapshot.numFruit
+            self.v_vy[index]       = snapshot.v
+            self.FPE[index]        = snapshot.FPE
+            self.FPT[index]        = snapshot.FPT
+            self.y0[index]         = snapshot.y_lim[0]
+            self.tot_fruit[index]  = snapshot.actual_numFruit
+            self.pick_fruit[index] = np.sum(snapshot.curr_j)
 
             self.PCT.append(snapshot.avg_PCT)
             self.state_time.append(snapshot.state_time)
@@ -136,19 +138,16 @@ class IG_data_analysis(object):
 
         for snapshot_percent in self.state_time:
             self.state_percent = self.state_percent + snapshot_percent
-
-        print('snapshot state times:')
-        print(self.state_percent)
+        # print('snapshot state times:')
+        # print(self.state_percent)
         
         # get percentage by dividing over total time
         self.state_percent = self.state_percent / self.state_percent[0,6] * 100
-
-        print('Overall average percent amount of time each arm spent in each state:')
-        print(self.state_percent)
-        print()
+        # print('Overall average percent amount of time each arm spent in each state:')
+        # print(self.state_percent)
+        # print()
 
         file_name = './plots/state_percent.png'
-
         print('Saving plot of the mean state percent of each arm in', file_name)
 
         # Create and save the plot
@@ -162,6 +161,9 @@ class IG_data_analysis(object):
         avg_FPE = np.average(self.FPE)
         avg_FPT = np.average(self.FPT)
 
+        print('Total Picked Fruit', np.sum(self.pick_fruit), 'out of', np.sum(self.tot_fruit))
+        print()
+
         print('Based on known pickable fruit by system:')
         print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
         print("Average final FPE {0:.2f}".format(avg_FPE*100), "%")
@@ -169,6 +171,7 @@ class IG_data_analysis(object):
 
     def avgPCT(self):
         '''Calculates each arm's average PCT over all the snapshots'''
+        #### FIGURE OUT HOW TO DEAL WITH NAN ####
         avg_PCT = np.zeros([self.n_cell, self.n_arm])
 
         for snapshot_PCT in self.PCT:
@@ -177,7 +180,6 @@ class IG_data_analysis(object):
         avg_PCT = avg_PCT / len(self.schedule_data)
         print('Average PCT for each arm over the whole run:')
         print(avg_PCT)
-
 
 
     def plot2DSchedule(self, snapshot_list):

@@ -26,8 +26,12 @@ class fruitDistribution(object):
         '''
             Sorts x, y, and z fruit coordinate arrays based on the y-coordinates and stacks them into a matrix
         '''
+        # create another array to indicate picked or not picked
+        isPicked = np.zeros(len(y))
+        index    = range(len(y))
+
         # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
-        fruit = np.stack([x, y, z])
+        fruit = np.stack([x, y, z, index, isPicked])
 
         axis_to_sort = np.argsort(y) # sort based on y-axis
         sortedFruit = fruit[:,axis_to_sort]

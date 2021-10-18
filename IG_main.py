@@ -18,16 +18,44 @@ def whatIsInFront(sortedFruit, q_vy, vehicle_l):
     '''Get the number of fruit in front of vehicle and their coordinates for scheduling'''
     vehicle_front   = q_vy + vehicle_l
 
-    fruit_index     = np.where((sortedFruit[1,:] >= q_vy) & (sortedFruit[1,:] < vehicle_front))
+    # does not check if fruit is set as picked -> doing that in scheduling to preserve indexes
+    # fruit_index     = np.where((sortedFruit[1,:] >= q_vy) & (sortedFruit[1,:] < vehicle_front))
+    fruit_index     = np.where((sortedFruit[1,:] >= q_vy) & (sortedFruit[1,:] < vehicle_front) & 
+                                (sortedFruit[4,:] < 1))
     new_numFruit    = len(fruit_index[0])
 
-    new_sortedFruit = np.copy(sortedFruit[:,fruit_index[0]]) 
-    # need to chnage fruit to be in vehicle frame
+    # WIIF_index_start = fruit_index[0][0]
+    # WIIF_index_end   = fruit_index[0][-1]
+    # print('START INDEX:', WIIF_index_start)
+
+    new_sortedFruit = np.copy(sortedFruit[:,fruit_index[0]])  # this does not match indexes with sortedFruit
+
+    # due to indexing issues, this will remain until only unpicked apples appear before the vehicle.
+    # already_picked = np.where(new_sortedFruit[3,:] < 1)
+
+    # need to change fruit to be in vehicle frame -> incorrect because the indexes are flipped and data_analysis
+    # uses those indexes... with WIIF start index, could switch over I guess. 
     # new_sortedFruit[1,:] = new_sortedFruit[1,:] - q_vy
 
     print('Num fruit in front of vehicle:', new_numFruit, 'at coordinates')
+    # print('Num fruit in front of vehicle:', new_numFruit - len(already_picked[0]), 'at coordinates')
     # print(new_sortedFruit)
     return([new_numFruit, new_sortedFruit])
+    # return([new_numFruit, new_sortedFruit, WIIF_index_start])
+
+
+def getHorizonIndex(sortedFruit, q_vy, vehicle_l, horizon_l):
+    '''
+       Saves this snapshot's horizon fruit indexes based on the sortedFruit indexes to 
+       compare and remove picked fruit.
+    '''
+    # edges of the horizon based on vehicle location and length
+    horizon_back  = q_vy + vehicle_l
+    horizon_front = horizon_back + horizon_l
+
+    H_fruit_index = np.where((sortedFruit[1,:] >= horizon_back) & (sortedFruit[1,:] < horizon_front))
+
+    return(H_fruit_index[0])
 
 
 def calcDensity(q_vy, v_v, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit):
@@ -49,7 +77,8 @@ def calcDensity(q_vy, v_v, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit)
             # print('back', col_y, 'front', col_y + cell_l)
             # print('bottom', row_z, 'top', row_z + cell_h)
             index = np.where((sortedFruit[1,:] >= col_y) & (sortedFruit[1,:] < col_y + cell_l) & 
-                        (sortedFruit[2,:] >= row_z) & (sortedFruit[2,:] < row_z + cell_h))
+                        (sortedFruit[2,:] >= row_z) & (sortedFruit[2,:] < row_z + cell_h) & 
+                        (sortedFruit[4,:] < 1))
             # save the number of fruit in this cell
             d[n,k] = len(index[0])
             # print(d)
@@ -75,7 +104,36 @@ def calcR(d, v_v):
     R = d * v_v # in fruit / (m^2 * s)
     print('Fruit incoming rate for each cell [fruit/(m^2 s)]:')
     print(R)
-    return(R)    
+    return(R)   
+
+
+def setAsPicked(sortedFruit, slice_sortedFruit, n_arm, n_cell, picked_fruit):
+    '''Set fruit picked by scheduler as picked so that they aren't repicked'''
+    # get the real sortedFruit (not sliced) index by adding the index start offset 
+    index_list = list()
+    for n in range(n_cell):
+        for k in range(n_arm):
+            index_list += picked_fruit[n][k]
+
+    # check it works  
+    # before flattening (rememeber the last list in each one is for unpicked)
+    # print('picked_fruit:', picked_fruit) 
+    # print()
+    # print('before offset index list:', index_list)
+    slice_picked_index = np.array(index_list) #, dtype=np.uint)
+    sorted_slice       = np.sort(slice_picked_index)
+    # print('slice sorted index', sorted_slice)
+
+    real_picked_index = slice_sortedFruit[3,sorted_slice]
+    # print('world frame sorted index:', np.uint(np.sort(real_picked_index)))
+
+    sortedFruit[4, np.uint(np.sort(real_picked_index))] = 1.
+
+    ## Doesn't really help. Choose a value you know should change to 1. and check that the value changes
+    # print('sortedFruit after fruits set as picked')
+    # print(sortedFruit[4,:])
+
+    return(sortedFruit)
 
 
 def main(args=None):
@@ -98,9 +156,12 @@ def main(args=None):
     cell_h = (z_lim[1] - z_lim[0]) / n_cell # in m, height of each hor. row
     vehicle_l = n_arm * cell_l 
 
+    horizon_l = 0 # for now
+    # horizon_l = cell_l*2 # for now
+
     arm_reach = x_lim[1] - x_lim[0]
 
-    v_v    = 0.08      # in m/s vehicle velocity -> max 0.9 m/s
+    v_v    = 0.05      # in m/s vehicle velocity -> max 0.9 m/s
     q_vy   = y_lim[0]  # in m, vehicle's current position (backmost part) 
 
     # arm settings, also in calcTd function
@@ -118,10 +179,10 @@ def main(args=None):
     fruit_in_cell = 3 # num of fruit in front of cell if using (equalCellDensity())
     csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
 
-    [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
+    # [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
     # [numFruit, sortedFruit] = fruitD.column(v_v, v_max, a_max, t_grab, n_cell, n_arm, cell_h, z_seed)
     # [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
-    # [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
+    [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
 
     # ### init IG scheduler module ###
     # sched = IG_scheduling(v_v, n_arm, n_cell, cell_l, y_lim, z_lim)
@@ -135,19 +196,30 @@ def main(args=None):
     step_length = vehicle_l
     snapshot_y_lim = np.zeros(2)
 
+    # prev_WIIF = 0.
+
     # loop until the vehicle has reached the end of the row
     while q_vy < y_lim[1]:
         print('vehicle\'s current location:', q_vy)
         # run 'vision system' to determine what fruit are in front of the vehicle
         # changes numFruit and sortedFruit to match 
-        [sliced_numFruit, sliced_sortedFruit] = whatIsInFront(sortedFruit, q_vy, vehicle_l)
+        camera_l = vehicle_l + horizon_l
+
+        # save the what is in front strating index which will lower computation trying to figure out what fruit 
+        # has been picked? 
+        # prev_WIIF = WIIF_index_start
+
+        # obtain a sliced version of sortedFruit based on what the vehicle sees in front of it (snapshot)
+        [sliced_numFruit, sliced_sortedFruit] = whatIsInFront(sortedFruit, q_vy, camera_l)
+        # save a list with the sortedFruit indexes of the horizon fruit to compare picked fruit against it
+        # horizon_indexes = getHorizonIndex(sortedFruit, q_vy, vehicle_l, horizon_l)
         print()
 
         snapshot_y_lim[0] = q_vy
         snapshot_y_lim[1] = q_vy + vehicle_l
 
         ### init/reset IG scheduler module for this snapshot ###
-        sched = IG_scheduling(v_v, v_max, a_max, n_arm, n_cell, cell_l, x_lim, snapshot_y_lim, z_lim)
+        sched = IG_scheduling(v_v, v_max, a_max, n_arm, n_cell, cell_l, x_lim, snapshot_y_lim, z_lim, vehicle_l, horizon_l)
 
         ## calculate multiple R and v_v values based on multiple slices of the current view
         # return a list of fruit densities in each cell
@@ -157,7 +229,7 @@ def main(args=None):
 
         ## using the fruit densities, determine the vehicle speed to set a specific R value?
         # currently, the R value would be 
-        R = calcR(d, v_v)
+        R = calcR(d, v_v)  #### recalculate based on columns and the horizon length ####
         
         # sched.setFruitData(numFruit, sortedFruit)
         sched.setFruitData(sliced_numFruit, sliced_sortedFruit)
@@ -170,6 +242,9 @@ def main(args=None):
         sched.calcResults()
         # sched.calcResults(step_length)
         snapshot_fruit_picked_by = sched.fruitPickedBy(sliced_numFruit)
+
+        # set picked fruit in sortedFruit as picked
+        sortedFruit = setAsPicked(sortedFruit, sched.sortedFruit, n_arm, n_cell, snapshot_fruit_picked_by)
 
         sched.calcPCT(snapshot_fruit_picked_by)
         sched.calculateStateTime(snapshot_fruit_picked_by)
