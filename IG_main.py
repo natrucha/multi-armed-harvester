@@ -24,6 +24,10 @@ def whatIsInFront(sortedFruit, q_vy, vehicle_l):
                                 (sortedFruit[4,:] < 1))
     new_numFruit    = len(fruit_index[0])
 
+    # print('to pick fruit indexes:', fruit_index[0])
+    # print('world frame index to pick (should be same as above):', sortedFruit[3,fruit_index[0]])
+    # print()
+
     # WIIF_index_start = fruit_index[0][0]
     # WIIF_index_end   = fruit_index[0][-1]
     # print('START INDEX:', WIIF_index_start)
@@ -31,11 +35,7 @@ def whatIsInFront(sortedFruit, q_vy, vehicle_l):
     new_sortedFruit = np.copy(sortedFruit[:,fruit_index[0]])  # this does not match indexes with sortedFruit
 
     # due to indexing issues, this will remain until only unpicked apples appear before the vehicle.
-    # already_picked = np.where(new_sortedFruit[3,:] < 1)
-
-    # need to change fruit to be in vehicle frame -> incorrect because the indexes are flipped and data_analysis
-    # uses those indexes... with WIIF start index, could switch over I guess. 
-    # new_sortedFruit[1,:] = new_sortedFruit[1,:] - q_vy
+    # already_picked = np.where(new_sortedFruit[4,:] < 1)
 
     print('Num fruit in front of vehicle:', new_numFruit, 'at coordinates')
     # print('Num fruit in front of vehicle:', new_numFruit - len(already_picked[0]), 'at coordinates')
@@ -58,7 +58,7 @@ def getHorizonIndex(sortedFruit, q_vy, vehicle_l, horizon_l):
     return(H_fruit_index[0])
 
 
-def calcDensity(q_vy, v_v, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit):
+def calcDensity(q_vy, v_vy, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit):
     '''Get the fruit density, d, of each cell'''
     ## should the columns be based on cell length? number of arms? 
     #  should the columns be the same width? increase/decrease the closer to the front of vehicle?
@@ -99,9 +99,9 @@ def calcDensity(q_vy, v_v, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit)
     return(d)
 
 
-def calcR(d, v_v):
+def calcR(d, v_vy):
     '''Calculate the R value given a speed and density'''
-    R = d * v_v # in fruit / (m^2 * s)
+    R = d * v_vy # in fruit / (m^2 * s)
     print('Fruit incoming rate for each cell [fruit/(m^2 s)]:')
     print(R)
     return(R)   
@@ -122,18 +122,22 @@ def setAsPicked(sortedFruit, slice_sortedFruit, n_arm, n_cell, picked_fruit):
     # print('before offset index list:', index_list)
     slice_picked_index = np.array(index_list) #, dtype=np.uint)
     sorted_slice       = np.sort(slice_picked_index)
-    # print('slice sorted index', sorted_slice)
+    # print('slice picked fruit sorted index', sorted_slice)
 
-    real_picked_index = slice_sortedFruit[3,sorted_slice]
-    # print('world frame sorted index:', np.uint(np.sort(real_picked_index)))
+    try:
+        real_picked_index = slice_sortedFruit[3,sorted_slice]
+        # print('world frame picked sorted index:', np.uint(np.sort(real_picked_index)))
+        # print()
+        sortedFruit[4, np.uint(np.sort(real_picked_index))] = 1.
+        ## Doesn't really help. Choose a value you know should change to 1. and check that the value changes
+        # print('sortedFruit after fruits set as picked')
+        # print(sortedFruit[4,:])
+        return(sortedFruit)
 
-    sortedFruit[4, np.uint(np.sort(real_picked_index))] = 1.
+    except IndexError:
+        return(sortedFruit)
 
-    ## Doesn't really help. Choose a value you know should change to 1. and check that the value changes
-    # print('sortedFruit after fruits set as picked')
-    # print(sortedFruit[4,:])
-
-    return(sortedFruit)
+    
 
 
 def main(args=None):
@@ -149,19 +153,19 @@ def main(args=None):
     z_seed = PCG64(165440185943501291848242755689690423219)
 
     ### robot constants and variables
-    n_cell = 4       # total number of horizonatal rows s
+    n_cell = 4       # total number of horizontal rows s
     n_arm  = 5       # total number of arms in a row
     
-    cell_l = 0.3     # in m, length of individual arm cell
+    cell_l = 0.3       # in m, length of individual arm cell (was 0.3)
     cell_h = (z_lim[1] - z_lim[0]) / n_cell # in m, height of each hor. row
     vehicle_l = n_arm * cell_l 
 
-    horizon_l = 0 # for now
-    # horizon_l = cell_l*2 # for now
+    # horizon_l = 0. # for now
+    horizon_l = cell_l *2 # for now
 
     arm_reach = x_lim[1] - x_lim[0]
 
-    v_v    = 0.05      # in m/s vehicle velocity -> max 0.9 m/s
+    v_vy    = 0.05      # in m/s vehicle velocity -> max 0.9 m/s
     q_vy   = y_lim[0]  # in m, vehicle's current position (backmost part) 
 
     # arm settings, also in calcTd function
@@ -176,38 +180,30 @@ def main(args=None):
 
     # settings/variables for the various allowed distributions
     density = 10      # fruit/m^3, average density of whole orchard
-    fruit_in_cell = 3 # num of fruit in front of cell if using (equalCellDensity())
+    fruit_in_cell = 3 #* math.floor(1/0.3) # num of fruit in front of cell if using (equalCellDensity())
     csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
 
     # [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
-    # [numFruit, sortedFruit] = fruitD.column(v_v, v_max, a_max, t_grab, n_cell, n_arm, cell_h, z_seed)
+    # [numFruit, sortedFruit] = fruitD.column(v_vy, v_max, a_max, t_grab, n_cell, n_arm, cell_h, z_seed)
     # [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
     [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
 
     # ### init IG scheduler module ###
-    # sched = IG_scheduling(v_v, n_arm, n_cell, cell_l, y_lim, z_lim)
+    # sched = IG_scheduling(v_vy, n_arm, n_cell, cell_l, y_lim, z_lim)
     ## create list to save each snapshot's schedule and data
     snapshot_list = list()
     snapshot_cell = list()
 
     n_snapshots = 0
-    # FPT_snap = list() -> uneccessary if saving each scheduling object successfully
-    # FPE_snap = list()
     step_length = vehicle_l
     snapshot_y_lim = np.zeros(2)
 
-    # prev_WIIF = 0.
-
     # loop until the vehicle has reached the end of the row
-    while q_vy < y_lim[1]:
+    while q_vy < y_lim[1]+vehicle_l:
         print('vehicle\'s current location:', q_vy)
         # run 'vision system' to determine what fruit are in front of the vehicle
         # changes numFruit and sortedFruit to match 
         camera_l = vehicle_l + horizon_l
-
-        # save the what is in front strating index which will lower computation trying to figure out what fruit 
-        # has been picked? 
-        # prev_WIIF = WIIF_index_start
 
         # obtain a sliced version of sortedFruit based on what the vehicle sees in front of it (snapshot)
         [sliced_numFruit, sliced_sortedFruit] = whatIsInFront(sortedFruit, q_vy, camera_l)
@@ -219,17 +215,17 @@ def main(args=None):
         snapshot_y_lim[1] = q_vy + vehicle_l
 
         ### init/reset IG scheduler module for this snapshot ###
-        sched = IG_scheduling(v_v, v_max, a_max, n_arm, n_cell, cell_l, x_lim, snapshot_y_lim, z_lim, vehicle_l, horizon_l)
+        sched = IG_scheduling(v_vy, v_max, a_max, n_arm, n_cell, cell_l, x_lim, snapshot_y_lim, z_lim, vehicle_l, horizon_l)
 
-        ## calculate multiple R and v_v values based on multiple slices of the current view
+        ## calculate multiple R and v_vy values based on multiple slices of the current view
         # return a list of fruit densities in each cell
-        d = calcDensity(q_vy, v_v, n_cell, n_arm, cell_l, cell_h, arm_reach, sliced_sortedFruit)
+        d = calcDensity(q_vy, v_vy, n_cell, n_arm, cell_l, cell_h, arm_reach, sliced_sortedFruit)
         print()
         ## I wonder if calculating the max number of fruit in a bunch would help...
 
         ## using the fruit densities, determine the vehicle speed to set a specific R value?
         # currently, the R value would be 
-        R = calcR(d, v_v)  #### recalculate based on columns and the horizon length ####
+        R = calcR(d, v_vy)  #### recalculate based on columns and the horizon length ####
         
         # sched.setFruitData(numFruit, sortedFruit)
         sched.setFruitData(sliced_numFruit, sliced_sortedFruit)
@@ -267,6 +263,8 @@ def main(args=None):
     # combine the results based on the various snapshots taken
     ## remember this is just the scheduling, so it's the theoretically best results (no missed scheduled fruit, etc.)
     results = IG_data_analysis(snapshot_list, snapshot_cell)
+    results.printSettings()
+    results.realFPEandFPT(sortedFruit, y_lim, v_vy)
     results.avgFPTandFPE()
     results.avgPCT()
     print()
