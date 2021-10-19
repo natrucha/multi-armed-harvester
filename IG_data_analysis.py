@@ -62,6 +62,11 @@ class IG_data_analysis(object):
                 self.n_arm  = snapshot.n_arm
                 self.n_cell = snapshot.n_cell
                 self.total_arms = self.n_arm * self.n_cell
+                self.horizon_l  = snapshot.horizon_l
+                self.vehicle_l  = snapshot.vehicle_l
+                self.cell_l     = snapshot.cell_l
+                self.v_max      = snapshot.v_max
+                self.a_max      = snapshot.a_max
 
             # extract scheduling data per snapshot
             self.v_vy[index]       = snapshot.v
@@ -156,17 +161,50 @@ class IG_data_analysis(object):
         plot_states = plotStates(state_percent_list, file_name)
 
 
+    def printSettings(self):
+        '''Prints out constant robot settings such as number of arms, etc.'''
+        print('Settings for these results:')
+        print('Number of cells', self.n_cell, 'number of arms:', self.n_arm)
+        print('Arm max velocity:', self.v_max, 'm/s, and max accel:', self.a_max,'m/s^2')
+        print()
+        print('Vehicle length:', self.vehicle_l, 'm, with cell length:', self.cell_l, 'm')
+        print('Horizon length:', self.horizon_l, 'm')
+        print()
+
+
     def avgFPTandFPE(self):
         '''Takes the various snapshots and combines their fPT and FPE values to get overall average FPT and FPE'''
         avg_FPE = np.average(self.FPE)
         avg_FPT = np.average(self.FPT)
 
         print('Total Picked Fruit', np.sum(self.pick_fruit), 'out of', np.sum(self.tot_fruit))
+        print('Does not delete potential doubling between snapshot (realism)')
         print()
 
         print('Based on known pickable fruit by system:')
         print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
         print("Average final FPE {0:.2f}".format(avg_FPE*100), "%")
+        print()
+
+
+    def realFPEandFPT(self, real_sortedFruit, y_lim, v_vy):
+        '''
+            Takes created fruit distribution matrix and calculates the real overall FPE and FPT 
+            assuming that the snapshots will never have the complete picture (newly revealed data, double 
+            counting due to the horizon, etc.)
+        '''
+        total_fruit = len(real_sortedFruit[4,:])
+        total_time  = (y_lim[1] - y_lim[0]) / v_vy
+
+        picked_index = np.where(real_sortedFruit[4,:] > 0)
+
+        real_FPE = len(picked_index[0]) / total_fruit * 100
+        real_FPT = len(picked_index[0]) / total_time
+
+        print('--------------------------------------------------------')
+        print('Real total fruit:', total_fruit)
+        print("Real overall FPE: {0:.2f}".format(real_FPE), "%, and FPT: {0:.2f}".format(real_FPT), "fruit/s")
+        print('--------------------------------------------------------')
 
 
     def avgPCT(self):
