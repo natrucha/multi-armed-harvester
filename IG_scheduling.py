@@ -340,8 +340,8 @@ class IG_scheduling(object):
                 # the edge list has been separated by pool/row already
             for e in self.edge_list[n]:
                 i   = e[0] ## means k+1 is needed in code below because e[0] is i (fruit num) 
-                print('Potential Tw start and ends:')
-                print(e)
+                # print('Potential Tw start and ends:')
+                # print(e)
 
                 for arm_num in range(len(e)-1):
                     # the zeroeth arm may not be able to pick fruit (due to snapshot end) so there is a need 
@@ -403,7 +403,7 @@ class IG_scheduling(object):
                         # print('number of intervals that fall within the current calculated edges',len(n_interval))
 
                         is_busy    = self.IG.edges(v=last_i[n,k], begin=start_time, end=e[arm_num+1][2])
-                        if k > 2:
+                        # if k > 2:
                             # print('is arm', k, 'in pool', n, 'already busy for this interval?', len(is_busy))
 
             #             if len(n_interval) < n_arm and len(is_busy) < 1: 
@@ -440,7 +440,11 @@ class IG_scheduling(object):
         '''Calculate and print basic results like total picked fruit, FPE, FPT, etc.'''
         total_distance = self.y_lim[1] - self.y_lim[0]
 
-        self.FPE = np.sum(self.curr_j)/self.actual_numFruit
+        try:
+            self.FPE = np.sum(self.curr_j)/self.actual_numFruit
+        except ZeroDivisionError:
+            self.FPE = 0
+
         self.FPT = np.sum(self.curr_j) / (total_distance / self.v)
 
         self.FPE_row = list()
