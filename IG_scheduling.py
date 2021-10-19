@@ -61,7 +61,7 @@ class IG_scheduling(object):
         self.vehicle_l = vehicle_l  # in m, the length (in y) of the vehicle
         self.horizon_l = horizon_l  # in m, the length (in y) of the horizon
 
-        self.Ts_end = self.y_lim[1] / self.v # in s, the time when the next snapshot will be taken so nonthing can be scheduled after
+        self.Ts_end = (self.y_lim[1] - self.y_lim[0]) / self.v # in s, the time when the next snapshot will be taken so nothing can be scheduled after
 
         # arm starting locations
         arm_location = np.zeros([self.n_cell, self.n_arm, 3])
@@ -262,10 +262,13 @@ class IG_scheduling(object):
 
             #### NOTE: SHOULD THERE BE AN OFFSET FOR THE SNAPSHOT'S OFFSET STARTING POSITION? -> kinda is one ####
             # values of fruit location at the start and end, as well as the handling time
-            t_start_0 = y_i / self.v - Tw # adding the calculated handling time 
-            t_end_0   = y_i / self.v      # the end time will be when the back frame is reached by the fruit 
+            t_start_0 = (y_i - self.y_lim[0]) / self.v - Tw # adding the calculated handling time 
+            t_end_0   = (y_i - self.y_lim[0]) / self.v      # the end time will be when the back frame is reached by the fruit 
 
-            if t_start_0 < self.Ts_end and self.sortedFruit[4,index] < 1:
+            # print('Snapshot ends at', self.Ts_end)
+            # print('non-offset start and end times:', t_start_0, 'and', t_end_0)
+
+            if self.sortedFruit[4,index] < 1:
                 # if the schedule would happen before the end of the snapshot, continue (otherwise nothing happens)
 
                 k_edges.append(index)
@@ -281,11 +284,18 @@ class IG_scheduling(object):
                     t_start_k = t_start_0 - offset
                     t_end_k   = t_end_0 - offset
 
+                    # if k == 4:
+                        # print('Frontmost arm un-appended Tw start and end times:', t_start_k, t_end_k)
+
                     #### NOTE: check if interval too long versus the amount of time fruit is in cell (t = cell_l/v) 
-                    if t_start_k > 0 and t_end_k > 0 and Tw < self.cell_l/self.v:
+                    if (t_start_k > 0) and (t_end_k > 0) and (Tw < self.cell_l/self.v) and (t_end_k < self.Ts_end):
                     # if t_start_k > 0 and t_end_k > 0 and t_end_k - (t_start_k + Tw0) < self.cell_l/self.v:
                         # the interval has to be positive or it cannot be used (impossible to pick that fruit)
                         k_edges.append([k, t_start_k, t_end_k])
+                        # if k == 4:
+                        #     print('Frontmost arm is added to the list :)')
+                        #     print('With Tw start and end times:', t_start_k, t_end_k)
+                        # print('for fruit located at', y_i, 'arm', k, 'start and end time:', t_start_k, 'and', t_end_k)
 
 
                 if len(k_edges) > 1:
@@ -329,13 +339,22 @@ class IG_scheduling(object):
         for n in range(self.n_cell):
                 # the edge list has been separated by pool/row already
             for e in self.edge_list[n]:
-                i   = e[0] ## causes below k+1 because e[0] is i (fruit num) 
+                i   = e[0] ## means k+1 is needed in code below because e[0] is i (fruit num) 
+                print('Potential Tw start and ends:')
+                print(e)
 
-                for k in range(len(e)-1):
+                for arm_num in range(len(e)-1):
+                    # the zeroeth arm may not be able to pick fruit (due to snapshot end) so there is a need 
+                    # to get the real arm number from e[arm_number+1]
+                    k = e[arm_num+1][0]  
+                    # print('THE ARM NUMBER IS:', k)
                     # the arm number (changes based on how many intervals had negative values) 
                     # => not all arms could pick fruit
-            #         print('arm number', k)
-            #         print('start:', e[k+1][1], 'end:', e[k+1][2]) 
+                    # if k > self.n_arm - 3:
+                    #     print('arm number', k)
+                    #     print('start:', e[arm_num+1][1], 'end:', e[arm_num+1][2]) 
+                    #     print('is there possible Tw for the frontmost arm?')
+                    #     print('start:', e[-1][1], 'end:', e[-1][2]) 
 
                     # new fruit's location
                     fruit_y = self.sortedFruit[1,i]
@@ -358,6 +377,7 @@ class IG_scheduling(object):
                     # since we know the arm ends at the back of the cell
                     start_y = 0.
                     dist_y  = Tw*self.v 
+                    # print('in cell', n, 'for arm', k, 'y-distance travelled by vehicle over Tw time:', dist_y)
                     
                     # if unloading is done at the back of the cell:   
                     start_z = self.sortedFruit[2, last_i[n,k].i]  # uses the last fruit's z-axis value
@@ -370,42 +390,47 @@ class IG_scheduling(object):
                     # calculate how long it would take to reach new fruit
                     # Tm = self.calcTm(self.traj_calc, start_y, start_z, fruit_y, fruit_z)
                     Tm = self.calcTm(self.traj_calc, start_y, start_z, dist_y, fruit_z)
+                    # print('Calculated Tm time:', Tm)
 
-                    start_time = e[k+1][1] - Tm # add movement into work before handling to get the true total time interval
+                    start_time = e[arm_num+1][1] - Tm # subtract Tm from Tw_start time to get correct true starting time
+                    # print('Fruit picking start time:', start_time, 'start of Tw0:', e[k+1][1])
 
-                    # careful with reference, the return should actually be ((u,v), begin, end)
-                    # https://dynetworkx.readthedocs.io/en/latest/reference/classes/generated/dynetworkx.IntervalGraph.edges.html#dynetworkx.IntervalGraph.edges              
-                    n_interval = self.IG.edges(begin=start_time, end=e[k+1][2]) # check if there are edges that lie between the new edges?
-                    # print('number of intervals that fall within the current calculated edges',len(n_interval))
+                    if start_time > 0.:
 
-                    is_busy    = self.IG.edges(v=last_i[n,k], begin=start_time, end=e[k+1][2])
-                    # print('is arm', k, 'in pool', n, 'already busy for this interval?', len(is_busy))
+                        # careful with reference, the return should actually be ((u,v), begin, end)
+                        # https://dynetworkx.readthedocs.io/en/latest/reference/classes/generated/dynetworkx.IntervalGraph.edges.html#dynetworkx.IntervalGraph.edges              
+                        n_interval = self.IG.edges(begin=start_time, end=e[arm_num+1][2]) # check if there are edges that lie between the new edges?
+                        # print('number of intervals that fall within the current calculated edges',len(n_interval))
 
-        #             if len(n_interval) < n_arm and len(is_busy) < 1: 
-                    if len(is_busy) < 1: 
-                        # add an edge between the last node and this node with interval edge U
-                        # print('      add edge')
-            #             self.IG.add_edge(last_i[k], node_array[i+n_arm], e[k+1][1], e[k+1][2])
-                        self.IG.add_edge(last_i[n,k], self.node_array[i+self.total_arms], start_time, e[k+1][2])
+                        is_busy    = self.IG.edges(v=last_i[n,k], begin=start_time, end=e[arm_num+1][2])
+                        if k > 2:
+                            # print('is arm', k, 'in pool', n, 'already busy for this interval?', len(is_busy))
 
-                        # update the node
-                        self.node_array[i+self.total_arms].j = self.curr_j[n,k] + 1
-                        self.node_array[i+self.total_arms].k = k
-                        self.node_array[i+self.total_arms].t = e[k+1][2] 
+            #             if len(n_interval) < n_arm and len(is_busy) < 1: 
+                        if len(is_busy) < 1: 
+                            # add an edge between the last node and this node with interval edge U
+                            # print('      add edge')
+                #             self.IG.add_edge(last_i[k], node_array[i+n_arm], e[k+1][1], e[k+1][2])
+                            self.IG.add_edge(last_i[n,k], self.node_array[i+self.total_arms], start_time, e[arm_num+1][2])
 
-                        # save the Tm value for state plot
-                        self.Tm_values[n][k].append(Tm)
+                            # update the node
+                            self.node_array[i+self.total_arms].j = self.curr_j[n,k] + 1
+                            self.node_array[i+self.total_arms].k = k
+                            self.node_array[i+self.total_arms].t = e[arm_num+1][2] 
 
-                        # save that this fruit was picked by this arm
-                        # fruit_picked_by[n][k].append(i)
+                            # save the Tm value for state plot
+                            self.Tm_values[n][k].append(Tm)
 
-                        # update all the saved prev node data
-                        last_i[n,k] = self.node_array[i+self.total_arms]
-                        self.curr_j[n,k] = self.node_array[i+self.total_arms].j # maybe don't need to save this array, just use last_i
+                            # save that this fruit was picked by this arm
+                            # fruit_picked_by[n][k].append(i)
 
-                        # skip this fruit for the rest of the arms
-                        # print()
-                        break
+                            # update all the saved prev node data
+                            last_i[n,k] = self.node_array[i+self.total_arms]
+                            self.curr_j[n,k] = self.node_array[i+self.total_arms].j # maybe don't need to save this array, just use last_i
+
+                            # skip this fruit for the rest of the arms
+                            # print()
+                            break
         
         # return(fruit_picked_by)
 
@@ -422,7 +447,6 @@ class IG_scheduling(object):
         self.FPT_row = list()
 
         print('Total number of fruit:', self.actual_numFruit)
-        # print('Total time:', (self.y_lim[1] - self.y_lim[0]) / self.v, 'sec')
         print('Total time:', total_distance / self.v, 'sec')
         print('Vehicle velocity:', self.v, 'm/s')
         print('Number of rows:', self.n_cell)
