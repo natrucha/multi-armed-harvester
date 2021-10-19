@@ -93,7 +93,7 @@ class IG_data_analysis(object):
 
         x = np.arange(len(self.schedule_data))  # snapshot number, can change later
 
-        fig, axs = plt.subplots(5, 1)
+        fig, axs = plt.subplots(6, 1)
         # want subplots to stack in columns so they can be compared, see
         # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/cohere.html#sphx-glr-gallery-lines-bars-and-markers-cohere-py
         axs[0].plot(x, self.FPE*100, color='r')
@@ -123,7 +123,10 @@ class IG_data_analysis(object):
         axs[4].plot(x, self.tot_fruit, color='k')
         axs[4].set_ylabel('available fruit')
 
-        axs[4].set_xlabel('Snapshot No.')
+        axs[5].plot(x, self.R, color='b')
+        axs[5].set_ylabel('R [fruit/(m^3 s)]')
+
+        axs[5].set_xlabel('Snapshot No.')
 
         fig.tight_layout()
 

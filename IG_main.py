@@ -99,10 +99,18 @@ def calcDensity(q_vy, v_vy, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit
     return(d)
 
 
-def calcR(d, v_vy):
-    '''Calculate the R value given a speed and density'''
-    R = d * v_vy # in fruit / (m^2 * s)
-    print('Fruit incoming rate for each cell [fruit/(m^2 s)]:')
+def calcR(v_vy, fruit_in_horizon, horizon_l, vehicle_h, arm_reach):
+    '''Calculate the R value given a speed and horizon volume and density'''
+    try:
+        density_H = fruit_in_horizon / (horizon_l * vehicle_h * arm_reach)
+        time_H    = horizon_l / v_vy
+
+        R         = density_H / time_H # in fruit / (m^3 * s)
+
+    except ZeroDivisionError:
+        R         = 0 
+    
+    print('Fruit incoming rate based on the horizon [fruit/(m^3 s)]:')
     print(R)
     return(R)   
 
@@ -139,7 +147,6 @@ def setAsPicked(sortedFruit, slice_sortedFruit, n_arm, n_cell, picked_fruit):
 
     
 
-
 def main(args=None):
     # create fruit distribution(s)
     ### environment constants
@@ -158,7 +165,9 @@ def main(args=None):
     
     cell_l = 0.3       # in m, length of individual arm cell (was 0.3)
     cell_h = (z_lim[1] - z_lim[0]) / n_cell # in m, height of each hor. row
+
     vehicle_l = n_arm * cell_l 
+    vehicle_h = n_cell * cell_h  # will probably need to switch to no. horizontal row, rather than n_cell
 
     # horizon_l = 0. # for now
     horizon_l = cell_l *2 # for now
@@ -208,7 +217,7 @@ def main(args=None):
         # obtain a sliced version of sortedFruit based on what the vehicle sees in front of it (snapshot)
         [sliced_numFruit, sliced_sortedFruit] = whatIsInFront(sortedFruit, q_vy, camera_l)
         # save a list with the sortedFruit indexes of the horizon fruit to compare picked fruit against it
-        # horizon_indexes = getHorizonIndex(sortedFruit, q_vy, vehicle_l, horizon_l)
+        horizon_indexes = getHorizonIndex(sortedFruit, q_vy, vehicle_l, horizon_l)
         print()
 
         snapshot_y_lim[0] = q_vy
@@ -225,7 +234,7 @@ def main(args=None):
 
         ## using the fruit densities, determine the vehicle speed to set a specific R value?
         # currently, the R value would be 
-        R = calcR(d, v_vy)  #### recalculate based on columns and the horizon length ####
+        R = calcR(v_vy, len(horizon_indexes), horizon_l, vehicle_h, arm_reach)  # calculated based on columns and the horizon length
         
         # sched.setFruitData(numFruit, sortedFruit)
         sched.setFruitData(sliced_numFruit, sliced_sortedFruit)
