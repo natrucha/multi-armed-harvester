@@ -16,7 +16,7 @@ from plotStates_updated import *  # import module to plot % time each arm is in 
 
 
 class IG_data_analysis(object):
-    def __init__(self, snapshot_list, snapshot_cell):
+    def __init__(self, snapshot_list, snapshot_cell, step_l, y_lim):
 
         '''
             Obtain list of snapshot/camer frame calculated schedule and fruit density and fruit R at each cell
@@ -31,6 +31,10 @@ class IG_data_analysis(object):
         self.n_arm  = 0
         self.n_cell = 0
         self.total_arms = 0
+
+        self.step_l = step_l
+
+        self.y_lim = y_lim # in m, needed to calculate real FPT from the individual snapshot FPT results  
 
         ### values/lists saved as lists for easier access ###
         # will save each snapshot's schedule as a list of lists
@@ -172,6 +176,7 @@ class IG_data_analysis(object):
         print()
         print('Vehicle length:', self.vehicle_l, 'm, with cell length:', self.cell_l, 'm')
         print('Horizon length:', self.horizon_l, 'm')
+        print('Step length:', self.step_l , 'm')
         print()
 
 
@@ -179,6 +184,9 @@ class IG_data_analysis(object):
         '''Takes the various snapshots and combines their fPT and FPE values to get overall average FPT and FPE'''
         avg_FPE = np.average(self.FPE)
         avg_FPT = np.average(self.FPT)
+        # calculate the "real FPT" value from individual FPT results
+        sum_FPT = np.sum(self.FPT)
+        orchard_veh = (self.y_lim[1] - self.y_lim[0]) / self.vehicle_l  # number of vehicle lengths that fit in orchard row
 
         print('Total Picked Fruit', np.sum(self.pick_fruit), 'out of', np.sum(self.tot_fruit))
         print('Does not delete potential doubling between snapshot (realism)')
@@ -187,6 +195,9 @@ class IG_data_analysis(object):
         print('Based on known pickable fruit by system:')
         print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
         print("Average final FPE {0:.2f}".format(avg_FPE*100), "%")
+        print()
+        print('Sum of FPT values {0:.2f}'.format(sum_FPT), 'fruit/s, and number of times the vehicle length fits in the orchard row:', orchard_veh)
+        print('divide the two to get the REAL FPT: {0:.2f}'.format(sum_FPT/orchard_veh), 'fruit/s')
         print()
 
 
@@ -206,6 +217,7 @@ class IG_data_analysis(object):
 
         print('--------------------------------------------------------')
         print('Real total fruit:', total_fruit)
+        print('Real total fruit picked:', len(picked_index[0]))
         print("Real overall FPE: {0:.2f}".format(real_FPE), "%, and FPT: {0:.2f}".format(real_FPT), "fruit/s")
         print('--------------------------------------------------------')
 
@@ -213,14 +225,18 @@ class IG_data_analysis(object):
     def avgPCT(self):
         '''Calculates each arm's average PCT over all the snapshots'''
         #### FIGURE OUT HOW TO DEAL WITH NAN ####
-        avg_PCT = np.zeros([self.n_cell, self.n_arm])
+        sum_PCT = np.zeros([self.n_cell, self.n_arm])
 
         for snapshot_PCT in self.PCT:
-            avg_PCT = avg_PCT + snapshot_PCT
+            sum_PCT = np.nansum(np.dstack((sum_PCT,snapshot_PCT)),2)
 
-        avg_PCT = avg_PCT / len(self.schedule_data)
+        avg_PCT = sum_PCT / len(self.schedule_data)
         print('Average PCT for each arm over the whole run:')
+        print('**Lower than it should be, nan values are converted to 0 which lowers the average')
         print(avg_PCT)
+        # print()
+        # print('Sum of PCT matrices')
+        # print(sum_PCT)
 
 
     def plot2DSchedule(self, snapshot_list):

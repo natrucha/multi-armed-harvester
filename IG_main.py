@@ -188,8 +188,10 @@ def main(args=None):
     fruitD = fruitDistribution(x_lim, y_lim, z_lim)
 
     # settings/variables for the various allowed distributions
-    density = 10      # fruit/m^3, average density of whole orchard
-    fruit_in_cell = 3 #* math.floor(1/0.3) # num of fruit in front of cell if using (equalCellDensity())
+    density = 13.333      # fruit/m^3, average density of whole orchard
+    fruit_in_cell = math.ceil(density * (cell_h*cell_l*arm_reach)) #* math.floor(1/0.3) # num of fruit in front of cell if using (equalCellDensity())
+    print('Number of fruit in each cell:', fruit_in_cell)
+    print()
     csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
 
     # [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
@@ -204,7 +206,7 @@ def main(args=None):
     snapshot_cell = list()
 
     n_snapshots = 0
-    step_length = vehicle_l
+    step_length = cell_l #vehicle_l
     snapshot_y_lim = np.zeros(2)
 
     # loop until the vehicle has reached the end of the row
@@ -212,7 +214,7 @@ def main(args=None):
         print('vehicle\'s current location:', q_vy)
         # run 'vision system' to determine what fruit are in front of the vehicle
         # changes numFruit and sortedFruit to match 
-        camera_l = vehicle_l + horizon_l
+        camera_l = vehicle_l + horizon_l  
 
         # obtain a sliced version of sortedFruit based on what the vehicle sees in front of it (snapshot)
         [sliced_numFruit, sliced_sortedFruit] = whatIsInFront(sortedFruit, q_vy, camera_l)
@@ -271,7 +273,7 @@ def main(args=None):
 
     # combine the results based on the various snapshots taken
     ## remember this is just the scheduling, so it's the theoretically best results (no missed scheduled fruit, etc.)
-    results = IG_data_analysis(snapshot_list, snapshot_cell)
+    results = IG_data_analysis(snapshot_list, snapshot_cell, step_length, y_lim)
     results.printSettings()
     results.realFPEandFPT(sortedFruit, y_lim, v_vy)
     results.avgFPTandFPE()
