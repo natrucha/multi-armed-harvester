@@ -61,7 +61,7 @@ class IG_scheduling(object):
         self.vehicle_l = vehicle_l  # in m, the length (in y) of the vehicle
         self.horizon_l = horizon_l  # in m, the length (in y) of the horizon
 
-        self.Ts_end = (self.y_lim[1] - self.y_lim[0]) / self.v # in s, the time when the next snapshot will be taken so nothing can be scheduled after
+        self.Ts_end = horizon_l / self.v # in s, the time when the next snapshot will be taken so nothing can be scheduled after
 
         # arm starting locations
         arm_location = np.zeros([self.n_cell, self.n_arm, 3])
@@ -266,7 +266,8 @@ class IG_scheduling(object):
             t_end_0   = (y_i - self.y_lim[0]) / self.v      # the end time will be when the back frame is reached by the fruit 
 
             # print('Snapshot ends at', self.Ts_end)
-            # print('non-offset start and end times:', t_start_0, 'and', t_end_0)
+            # print('Cell movement limit:',  self.cell_l/self.v, 'and Tw:', Tw)
+            # print('non-offset start and e nd times:', t_start_0, 'and', t_end_0)
 
             if self.sortedFruit[4,index] < 1:
                 # if the schedule would happen before the end of the snapshot, continue (otherwise nothing happens)
@@ -284,17 +285,18 @@ class IG_scheduling(object):
                     t_start_k = t_start_0 - offset
                     t_end_k   = t_end_0 - offset
 
-                    # if k == 4:
-                        # print('Frontmost arm un-appended Tw start and end times:', t_start_k, t_end_k)
+                    # if k == 0:
+                    #     print('Backmost arm un-appended Tw start and end times:', t_start_k, t_end_k)
 
                     #### NOTE: check if interval too long versus the amount of time fruit is in cell (t = cell_l/v) 
                     if (t_start_k > 0) and (t_end_k > 0) and (Tw < self.cell_l/self.v) and (t_end_k < self.Ts_end):
                     # if t_start_k > 0 and t_end_k > 0 and t_end_k - (t_start_k + Tw0) < self.cell_l/self.v:
                         # the interval has to be positive or it cannot be used (impossible to pick that fruit)
                         k_edges.append([k, t_start_k, t_end_k])
-                        # if k == 4:
-                        #     print('Frontmost arm is added to the list :)')
+                        # if k == 0:
+                        #     print('Backmost arm is added to the list :)')
                         #     print('With Tw start and end times:', t_start_k, t_end_k)
+                        #     print()
                         # print('for fruit located at', y_i, 'arm', k, 'start and end time:', t_start_k, 'and', t_end_k)
 
 
