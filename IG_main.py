@@ -169,8 +169,8 @@ def main(args=None):
     vehicle_l = n_arm * cell_l 
     vehicle_h = n_cell * cell_h  # will probably need to switch to no. horizontal row, rather than n_cell
 
-    # horizon_l = 0. # for now
-    horizon_l = cell_l *2 # for now
+    horizon_l = 0. # for now
+    # horizon_l = cell_l#*2   # in m
 
     arm_reach = x_lim[1] - x_lim[0]
 
@@ -206,7 +206,7 @@ def main(args=None):
     snapshot_cell = list()
 
     n_snapshots = 0
-    step_length = cell_l #vehicle_l
+    travel_l = cell_l
     snapshot_y_lim = np.zeros(2)
 
     # loop until the vehicle has reached the end of the row
@@ -226,7 +226,7 @@ def main(args=None):
         snapshot_y_lim[1] = q_vy + vehicle_l
 
         ### init/reset IG scheduler module for this snapshot ###
-        sched = IG_scheduling(v_vy, v_max, a_max, n_arm, n_cell, cell_l, x_lim, snapshot_y_lim, z_lim, vehicle_l, horizon_l)
+        sched = IG_scheduling(v_vy, v_max, a_max, n_arm, n_cell, cell_l, x_lim, snapshot_y_lim, z_lim, vehicle_l, travel_l, horizon_l)
 
         ## calculate multiple R and v_vy values based on multiple slices of the current view
         # return a list of fruit densities in each cell
@@ -247,7 +247,7 @@ def main(args=None):
         # snapshot_fruit_picked_by = sched.chooseArm4Fruit()
         print()
         sched.calcResults()
-        # sched.calcResults(step_length)
+        # sched.calcResults(travel_l)
         snapshot_fruit_picked_by = sched.fruitPickedBy(sliced_numFruit)
 
         # set picked fruit in sortedFruit as picked
@@ -269,11 +269,11 @@ def main(args=None):
         n_snapshots += 1
 
         # vehicle takes a step (as big or small as desired)
-        q_vy = vehicleStep(q_vy, step_length)
+        q_vy = vehicleStep(q_vy, travel_l)
 
     # combine the results based on the various snapshots taken
     ## remember this is just the scheduling, so it's the theoretically best results (no missed scheduled fruit, etc.)
-    results = IG_data_analysis(snapshot_list, snapshot_cell, step_length, y_lim)
+    results = IG_data_analysis(snapshot_list, snapshot_cell, travel_l, y_lim)
     results.printSettings()
     results.realFPEandFPT(sortedFruit, y_lim, v_vy)
     results.avgFPTandFPE()

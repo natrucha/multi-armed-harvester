@@ -73,7 +73,7 @@ class IG_data_analysis(object):
                 self.a_max      = snapshot.a_max
 
             # extract scheduling data per snapshot
-            self.v_vy[index]       = snapshot.v
+            self.v_vy[index]       = snapshot.v_vy
             self.FPE[index]        = snapshot.FPE
             self.FPT[index]        = snapshot.FPT
             self.y0[index]         = snapshot.y_lim[0]
@@ -185,20 +185,21 @@ class IG_data_analysis(object):
         avg_FPE = np.average(self.FPE)
         avg_FPT = np.average(self.FPT)
         # calculate the "real FPT" value from individual FPT results
-        sum_FPT = np.sum(self.FPT)
-        orchard_veh = (self.y_lim[1] - self.y_lim[0]) / self.vehicle_l  # number of vehicle lengths that fit in orchard row
+        # sum_FPT = np.sum(self.FPT)
+        # orchard_veh = (self.y_lim[1] - self.y_lim[0]) / self.vehicle_l  # number of vehicle lengths that fit in orchard row
 
         print('Total Picked Fruit', np.sum(self.pick_fruit), 'out of', np.sum(self.tot_fruit))
         print('Does not delete potential doubling between snapshot (realism)')
         print()
 
         print('Based on known pickable fruit by system:')
-        print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
         print("Average final FPE {0:.2f}".format(avg_FPE*100), "%")
+        print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
         print()
-        print('Sum of FPT values {0:.2f}'.format(sum_FPT), 'fruit/s, and number of times the vehicle length fits in the orchard row:', orchard_veh)
-        print('divide the two to get the REAL FPT: {0:.2f}'.format(sum_FPT/orchard_veh), 'fruit/s')
-        print()
+        #### NOT WORKING SINCE FIX TO Ts_end
+        # print('Sum of FPT values {0:.2f}'.format(sum_FPT), 'fruit/s, and number of times the vehicle length fits in the orchard row:', orchard_veh)
+        # print('divide the two to get the REAL FPT: {0:.2f}'.format(sum_FPT/orchard_veh), 'fruit/s')
+        # print()
 
 
     def realFPEandFPT(self, real_sortedFruit, y_lim, v_vy):

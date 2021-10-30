@@ -16,7 +16,7 @@ from fruit_distribution import *  # import module to create the various desired 
 
 
 class IG_scheduling(object):
-    def __init__(self, v_v, v_max, a_max, n_arm, n_cell, cell_l, x_lim, y_lim, z_lim, vehicle_l, horizon_l):
+    def __init__(self, v_vy, v_max, a_max, n_arm, n_cell, cell_l, x_lim, y_lim, z_lim, vehicle_l, travel_l, horizon_l):
 
         '''
             Interval graph scheduling algorithm for automated orchard fruit picking based on automated 
@@ -44,7 +44,7 @@ class IG_scheduling(object):
         self.n_fruit_row = np.zeros([n_cell]) # for now, this is the number of horizonatal rows
 
         # vehicle speed
-        self.v = v_v   # in m/s 
+        self.v_vy = v_vy   # in m/s 
 
         # arm settings, also in calcTd function
         self.v_max = v_max
@@ -59,9 +59,12 @@ class IG_scheduling(object):
         self.cell_l = cell_l                  # length of individual arm cell 
 
         self.vehicle_l = vehicle_l  # in m, the length (in y) of the vehicle
+        self.travel_l  = travel_l   # in m, the distance the vehicle moves in this snapshot
         self.horizon_l = horizon_l  # in m, the length (in y) of the horizon
 
-        self.Ts_end = horizon_l / self.v # in s, the time when the next snapshot will be taken so nothing can be scheduled after
+        self.Ts_end = self.travel_l / self.v_vy # in s, the time when the next snapshot will be taken so nothing can be scheduled after
+        # print('Horizon length:', self.horizon_l, 'travel length:', self.travel_l)
+        # print('TS_END:', self.Ts_end)
 
         # arm starting locations
         arm_location = np.zeros([self.n_cell, self.n_arm, 3])
@@ -86,7 +89,7 @@ class IG_scheduling(object):
         ################# Modulers and Libraries #################
         # Create Fruit distribution
         # fruitD = fruitDistribution(x_lim, self.y_lim, z_lim)
-        # # [self.numFruit, self.sortedFruit] = fruitD.column(self.v, self.v_max, self.a_max, self.t_grab, self.n_cell, self.n_arm, self.cell_h, z_seed)
+        # # [self.numFruit, self.sortedFruit] = fruitD.column(self.v_vy, self.v_max, self.a_max, self.t_grab, self.n_cell, self.n_arm, self.cell_h, z_seed)
         # [self.numFruit, self.sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
         
         # # create an array (or list if it'll need to be dynamic later) for node objects
@@ -262,12 +265,12 @@ class IG_scheduling(object):
 
             #### NOTE: SHOULD THERE BE AN OFFSET FOR THE SNAPSHOT'S OFFSET STARTING POSITION? -> kinda is one ####
             # values of fruit location at the start and end, as well as the handling time
-            t_start_0 = (y_i - self.y_lim[0]) / self.v - Tw # adding the calculated handling time 
-            t_end_0   = (y_i - self.y_lim[0]) / self.v      # the end time will be when the back frame is reached by the fruit 
+            t_start_0 = (y_i - self.y_lim[0]) / self.v_vy - Tw # adding the calculated handling time 
+            t_end_0   = (y_i - self.y_lim[0]) / self.v_vy      # the end time will be when the back frame is reached by the fruit 
 
             # print('Snapshot ends at', self.Ts_end)
-            # print('Cell movement limit:',  self.cell_l/self.v, 'and Tw:', Tw)
-            # print('non-offset start and e nd times:', t_start_0, 'and', t_end_0)
+            # print('Cell movement limit:',  self.cell_l/self.v_vy, 'and Tw:', Tw)
+            # print('non-offset start and end times:', t_start_0, 'and', t_end_0)
 
             if self.sortedFruit[4,index] < 1:
                 # if the schedule would happen before the end of the snapshot, continue (otherwise nothing happens)
@@ -277,7 +280,7 @@ class IG_scheduling(object):
                 for k in range(self.n_arm):
                     # add the offset based on the arm number (assuming back arm is k=0 to front arm k=n_arm)
             #         offset = (cell_l*(k+1)) / v  # (k+1) to indicate it's the front frame location we're looking for
-                    offset = (self.cell_l*k) / self.v  # looking at the back part of the frame 
+                    offset = (self.cell_l*k) / self.v_vy  # looking at the back part of the frame 
 
                     ## Saying here that the fruit can only be picked if arm is not busy when the front of the frame reaches t
                     #  the fruit
@@ -289,8 +292,8 @@ class IG_scheduling(object):
                     #     print('Backmost arm un-appended Tw start and end times:', t_start_k, t_end_k)
 
                     #### NOTE: check if interval too long versus the amount of time fruit is in cell (t = cell_l/v) 
-                    if (t_start_k > 0) and (t_end_k > 0) and (Tw < self.cell_l/self.v) and (t_end_k < self.Ts_end):
-                    # if t_start_k > 0 and t_end_k > 0 and t_end_k - (t_start_k + Tw0) < self.cell_l/self.v:
+                    if (t_start_k > 0) and (t_end_k > 0) and (Tw < self.cell_l/self.v_vy) and (t_end_k < self.Ts_end):
+                    # if t_start_k > 0 and t_end_k > 0 and t_end_k - (t_start_k + Tw0) < self.cell_l/self.v_vy:
                         # the interval has to be positive or it cannot be used (impossible to pick that fruit)
                         k_edges.append([k, t_start_k, t_end_k])
                         # if k == 0:
@@ -365,11 +368,11 @@ class IG_scheduling(object):
                     # get total Tw value for the fruit
                     Tw = self.Tw_values[i][0] + self.Tw_values[i][1]
                     # to calculate where the edge of the cell's frame is at that time
-                    # q_cy_t_m_end = fruit_y - Tw * self.v
+                    # q_cy_t_m_end = fruit_y - Tw * self.v_vy
                     
                     # # calculate how far the vehicle moves between the interval end of y_(i-1) and interval start of y_i
                     # # also removes the Td/Tw after picking value (won't move in y after that)
-                    # veh_move = (e[k+1][1] - (last_i[n,k].t - self.Tw_values[i][1])) * self.v  
+                    # veh_move = (e[k+1][1] - (last_i[n,k].t - self.Tw_values[i][1])) * self.v_vy  
                     # move to new location arrived when moving to get the next fruit
                     # ends in line with previous fruit plus the distance the vehicle moves between the end time of last fruit
                     # and the beginning time of this one
@@ -378,7 +381,7 @@ class IG_scheduling(object):
                     # if unloading at the back of the cell, in the y-axis we only care about the distance travelled
                     # since we know the arm ends at the back of the cell
                     start_y = 0.
-                    dist_y  = Tw*self.v 
+                    dist_y  = Tw*self.v_vy 
                     # print('in cell', n, 'for arm', k, 'y-distance travelled by vehicle over Tw time:', dist_y)
                     
                     # if unloading is done at the back of the cell:   
@@ -440,21 +443,22 @@ class IG_scheduling(object):
     def calcResults(self):
     # def calcResults(self, total_distance):
         '''Calculate and print basic results like total picked fruit, FPE, FPT, etc.'''
-        total_distance = self.y_lim[1] - self.y_lim[0]
+        # total_distance = self.y_lim[1] - self.y_lim[0]
+        total_distance = self.travel_l
 
         try:
             self.FPE = np.sum(self.curr_j)/self.actual_numFruit
         except ZeroDivisionError:
             self.FPE = 0
 
-        self.FPT = np.sum(self.curr_j) / (total_distance / self.v)
+        self.FPT = np.sum(self.curr_j) / (total_distance / self.v_vy)
 
         self.FPE_row = list()
         self.FPT_row = list()
 
         print('Total number of fruit:', self.actual_numFruit)
-        print('Total time:', total_distance / self.v, 'sec')
-        print('Vehicle velocity:', self.v, 'm/s')
+        print('Total time:', total_distance / self.v_vy, 'sec')
+        print('Vehicle velocity:', self.v_vy, 'm/s')
         print('Number of rows:', self.n_cell)
         print('Number of arms in row:', self.n_arm)
         print()
@@ -466,7 +470,7 @@ class IG_scheduling(object):
         for n in range(self.n_cell):
             arm_string = ''
             # calculate the row's FPE and FPT
-            self.FPT_row.append(np.sum(self.curr_j[n,:]) / (total_distance / self.v))
+            self.FPT_row.append(np.sum(self.curr_j[n,:]) / (total_distance / self.v_vy))
             self.FPE_row.append(np.sum(self.curr_j[n,:]) / self.n_fruit_row[n])
 
             for k in range(self.n_arm):
@@ -526,9 +530,10 @@ class IG_scheduling(object):
     def calculateStateTime(self, fruit_picked_by):
     # def calculateStateTimePercent(self, fruit_picked_by, total_distance):
         '''Calculates the time each arm is in each state so that it can plotState can plot the data'''
-        total_distance = self.y_lim[1] - self.y_lim[0]
+        # total_distance = self.y_lim[1] - self.y_lim[0]
+        total_distance = self.travel_l
 
-        total_time = total_distance / self.v  # for snapshots? -> I'm deleting Tm and Tw data at each snapshot, problem
+        total_time = total_distance / self.v_vy  # for snapshots? -> I'm deleting Tm and Tw data at each snapshot, problem
 
         ## states: idle, pick_yz, pick_x, grab, retract_x, move_z/unload
         # self.state_percent = np.zeros([self.total_arms, 6]) # save each arm's percent time in each of the six states 
