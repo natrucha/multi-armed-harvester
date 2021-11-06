@@ -1,5 +1,6 @@
 import numpy as np
 # import math
+import sys
 
 ######## IMPORT MY OWN MODULES ########
 from trajectory import *          # import the trajectory time calc (bang-bang) 
@@ -37,7 +38,7 @@ def whatIsInFront(sortedFruit, q_vy, vehicle_l):
     # due to indexing issues, this will remain until only unpicked apples appear before the vehicle.
     # already_picked = np.where(new_sortedFruit[4,:] < 1)
 
-    print('Num fruit in front of vehicle:', new_numFruit, 'at coordinates')
+    # print('Num fruit in front of vehicle:', new_numFruit, 'at coordinates')
     # print('Num fruit in front of vehicle:', new_numFruit - len(already_picked[0]), 'at coordinates')
     # print(new_sortedFruit)
     return([new_numFruit, new_sortedFruit])
@@ -93,8 +94,8 @@ def calcDensity(q_vy, v_vy, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit
     # divide all the values by the volume of space in front of each cell 
     d = d / (arm_reach * cell_l * cell_h)
 
-    print('fruit density in each cell [fruit/m^3]:')
-    print(d)
+    # print('fruit density in each cell [fruit/m^3]:')
+    # print(d)
 
     return(d)
 
@@ -110,8 +111,8 @@ def calcR(v_vy, fruit_in_horizon, horizon_l, vehicle_h, arm_reach):
     except ZeroDivisionError:
         R         = 0 
     
-    print('Fruit incoming rate based on the horizon [fruit/(m^3 s)]:')
-    print(R)
+    # print('Fruit incoming rate based on the horizon [fruit/(m^3 s)]:')
+    # print(R)
     return(R)   
 
 
@@ -147,11 +148,29 @@ def setAsPicked(sortedFruit, slice_sortedFruit, n_arm, n_cell, picked_fruit):
 
     
 
-def main(args=None):
+def main():
+    args = sys.argv[1:]
+    # args based on Stanford CS106A Command Line Example, Nick Parlante
+    print('length of arguments is', len(args))
+    print('the arguments are:', args)
+    if len(args) == 3:
+        # for now, the arguments are 
+        cell_l    = float(args[0])
+        horizon_l = float(args[1])
+        travel_l  = float(args[2])
+        print('We are using arguments')
+
+    else:
+        cell_l = 1.            # in m, length of individual arm cell (was 0.3)
+        horizon_l = cell_l*2   # in m
+        travel_l = cell_l*2 # in m
+
+    fruit_start_offset = cell_l*2 # in m, offsets the fruit starting position so all fruit can be picked
+
     # create fruit distribution(s)
     ### environment constants
     x_lim = [0.2, 1.2]  # -> now know physically, arm can extend 1 m in length
-    y_lim = [0., 12.]
+    y_lim = [0.+fruit_start_offset, 12.+fruit_start_offset]  # offset the starting fruit position 
     z_lim = [0., 3.]
 
     # for the fruit distribution, want to keep it the same for these tests
@@ -163,19 +182,15 @@ def main(args=None):
     n_cell = 4       # total number of horizontal rows s
     n_arm  = 5       # total number of arms in a row
     
-    cell_l = 0.3       # in m, length of individual arm cell (was 0.3)
     cell_h = (z_lim[1] - z_lim[0]) / n_cell # in m, height of each hor. row
 
     vehicle_l = n_arm * cell_l 
     vehicle_h = n_cell * cell_h  # will probably need to switch to no. horizontal row, rather than n_cell
 
-    horizon_l = 0. # for now
-    # horizon_l = cell_l#*2   # in m
-
     arm_reach = x_lim[1] - x_lim[0]
 
-    v_vy    = 0.05      # in m/s vehicle velocity -> max 0.9 m/s
-    q_vy   = y_lim[0]  # in m, vehicle's current position (backmost part) 
+    v_vy   = 0.03      # in m/s vehicle velocity -> max 0.9 m/s
+    q_vy   = y_lim[0]-fruit_start_offset  # in m, vehicle's current position (backmost part) 
 
     # arm settings, also in calcTd function
     v_max = 0.5     # in m/s, Oriental Motor Co. value
@@ -206,12 +221,11 @@ def main(args=None):
     snapshot_cell = list()
 
     n_snapshots = 0
-    travel_l = cell_l
     snapshot_y_lim = np.zeros(2)
 
     # loop until the vehicle has reached the end of the row
-    while q_vy < y_lim[1]+vehicle_l:
-        print('vehicle\'s current location:', q_vy)
+    while q_vy < y_lim[1]+(2*vehicle_l/3): 
+        # print('vehicle\'s current location:', q_vy)
         # run 'vision system' to determine what fruit are in front of the vehicle
         # changes numFruit and sortedFruit to match 
         camera_l = vehicle_l + horizon_l  
@@ -220,7 +234,7 @@ def main(args=None):
         [sliced_numFruit, sliced_sortedFruit] = whatIsInFront(sortedFruit, q_vy, camera_l)
         # save a list with the sortedFruit indexes of the horizon fruit to compare picked fruit against it
         horizon_indexes = getHorizonIndex(sortedFruit, q_vy, vehicle_l, horizon_l)
-        print()
+        # print()
 
         snapshot_y_lim[0] = q_vy
         snapshot_y_lim[1] = q_vy + vehicle_l
@@ -231,7 +245,7 @@ def main(args=None):
         ## calculate multiple R and v_vy values based on multiple slices of the current view
         # return a list of fruit densities in each cell
         d = calcDensity(q_vy, v_vy, n_cell, n_arm, cell_l, cell_h, arm_reach, sliced_sortedFruit)
-        print()
+        # print()
         ## I wonder if calculating the max number of fruit in a bunch would help...
 
         ## using the fruit densities, determine the vehicle speed to set a specific R value?
@@ -245,7 +259,7 @@ def main(args=None):
         sched.initBaseTimeIntervals()
         sched.chooseArm4Fruit()
         # snapshot_fruit_picked_by = sched.chooseArm4Fruit()
-        print()
+        # print()
         sched.calcResults()
         # sched.calcResults(travel_l)
         snapshot_fruit_picked_by = sched.fruitPickedBy(sliced_numFruit)
@@ -259,10 +273,49 @@ def main(args=None):
         # FPT_snap.append(sched.FPT)
         # FPE_snap.append(sched.FPE)
 
+        curr_FPT = sched.FPT
+        print('current FPT', curr_FPT, 'fruit/s')
+        print('current R  ', R, 'fruit / m^3 s')
+        curr_FPE = sched.FPE
+        print('current FPE', curr_FPE*100, '%')
+
+        curr_FPT_by_volume = curr_FPT / (vehicle_l * vehicle_h * arm_reach)
+        print('By operating region volume', curr_FPT_by_volume, 'fruit / m^3 s')
+        
+        try:
+            p  = curr_FPT_by_volume / R
+            print('Percent of R being picked', p)
+
+            v_vy_diff = 0.005 # in m/s -> for now, the max velocity of vehicle
+
+            v_vy_min = 0.01 
+            v_vy_max = 0.9
+
+            p_min = .25
+            p_max = .35
+
+            if p < p_min:
+                v_vy = v_vy - v_vy_diff
+
+                if v_vy < v_vy_min:
+                    v_vy = v_vy_min
+
+            elif p > p_max:
+                 v_vy = v_vy + v_vy_diff
+
+                 if v_vy > v_vy_max:
+                    v_vy = v_vy_max
+
+        except ZeroDivisionError:
+            print('zero incoming fruit')
+
+        print()
+
+
         # save snapshot
         snapshot_list.append(sched)
-        print('NUMBER OF SCHEDULED SNAPSHOTS:', len(snapshot_list))
-        print()
+        # print('NUMBER OF SCHEDULED SNAPSHOTS:', len(snapshot_list))
+        # print()
         # save the snapshot's cell by cell density and R values
         snapshot_cell.append([d, R])
 
