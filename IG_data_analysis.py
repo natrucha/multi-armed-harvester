@@ -81,7 +81,7 @@ class IG_data_analysis(object):
             self.pick_fruit[index] = np.sum(snapshot.curr_j)
 
             self.PCT.append(snapshot.avg_PCT)
-            self.state_time.append(snapshot.state_time)
+            # self.state_time.append(snapshot.state_time)
             self.fruit_picked_by.append(snapshot.fruit_picked_by)
             self.fruit_list.append(snapshot.sortedFruit)
 
@@ -254,11 +254,50 @@ class IG_data_analysis(object):
         # used to indicate arm number
         color     = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink']
 
-        for snapshot_i in snapshot_list:
-            for n in range(self.n_cell):
+        if self.n_cell > 1:
+            for snapshot_i in snapshot_list:
+                for n in range(self.n_cell):
+                    for k in range(self.n_arm+1):
+                        x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][n][k]]
+                        y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][n][k]]
+
+                        # add modulo later so it works with n and k > 3 
+                        if k == self.n_arm:
+                            line_color = 'gold'
+                            linestyle = ''
+                            arm_label = 'unpicked'
+                        elif k == 0:
+                            line_color = str(color[k])
+                            linestyle = line_type[n]
+                            arm_label = 'back arm'
+                        elif k == self.n_arm-1:
+                            line_color = str(color[k])
+                            linestyle = line_type[n]
+                            arm_label = 'front arm'
+                        else:
+                            line_color = str(color[k])
+                            linestyle = line_type[n]
+                            arm_label = 'middle arm ' + str(k)
+
+                        if snapshot_i == 0 and n == 0:
+                            # limits the labels for the legend
+                            # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+                            #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
+
+                            plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o', label=arm_label)
+
+                        else:
+                            # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+                            #         self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
+                            plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o')
+
+        elif self.n_cell == 1:
+            for snapshot_i in snapshot_list:
                 for k in range(self.n_arm+1):
-                    x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][n][k]]
-                    y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][n][k]]
+                    x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][k]]
+                    y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][k]]
+
+                    linestyle = line_type[2]
 
                     # add modulo later so it works with n and k > 3 
                     if k == self.n_arm:
@@ -267,18 +306,18 @@ class IG_data_analysis(object):
                         arm_label = 'unpicked'
                     elif k == 0:
                         line_color = str(color[k])
-                        linestyle = line_type[n]
+                        # linestyle = line_type[n]
                         arm_label = 'back arm'
                     elif k == self.n_arm-1:
                         line_color = str(color[k])
-                        linestyle = line_type[n]
+                        # linestyle = line_type[n]
                         arm_label = 'front arm'
                     else:
                         line_color = str(color[k])
-                        linestyle = line_type[n]
+                        # linestyle = line_type[n]
                         arm_label = 'middle arm ' + str(k)
 
-                    if snapshot_i == 0 and n == 0:
+                    if snapshot_i == 0:
                         # limits the labels for the legend
                         # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
                         #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
@@ -289,6 +328,7 @@ class IG_data_analysis(object):
                         # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
                         #         self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
                         plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o')
+
 
         plt.xlabel('Distance along orchard row (m)')
         plt.ylabel('Height from ground (m)')

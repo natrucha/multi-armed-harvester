@@ -3,11 +3,12 @@ import numpy as np
 import sys
 
 ######## IMPORT MY OWN MODULES ########
-from trajectory import *          # import the trajectory time calc (bang-bang) 
-from plotStates_updated import *  # import module to plot % time each arm is in each state
-from fruit_distribution import *  # import module to create the various desired fruit distributions
-from IG_scheduling import *       # import module to perform interval graph scheduling similar to melon paper
-from IG_data_analysis import *    # import module to analyze the data from the snapshots
+from trajectory import *           # import the trajectory time calc (bang-bang) 
+from plotStates_updated import *   # import module to plot % time each arm is in each state
+from fruit_distribution import *   # import module to create the various desired fruit distributions
+from IG_scheduling import *        # import module to perform interval graph scheduling similar to melon paper
+from IG_melon_scheduling import * # import module to perform melon paper's exact interval graph scheduling
+from IG_data_analysis import *     # import module to analyze the data from the snapshots
 
 def vehicleStep(q_vy, distance):
     '''Moves the vehicle a given distance'''
@@ -120,9 +121,15 @@ def setAsPicked(sortedFruit, slice_sortedFruit, n_arm, n_cell, picked_fruit):
     '''Set fruit picked by scheduler as picked so that they aren't repicked'''
     # get the real sortedFruit (not sliced) index by adding the index start offset 
     index_list = list()
-    for n in range(n_cell):
+
+    if n_cell > 1:
+        for n in range(n_cell):
+            for k in range(n_arm):
+                index_list += picked_fruit[n][k]
+
+    elif n_cell == 1: 
         for k in range(n_arm):
-            index_list += picked_fruit[n][k]
+            index_list += picked_fruit[k]
 
     # check it works  
     # before flattening (rememeber the last list in each one is for unpicked)
@@ -146,6 +153,36 @@ def setAsPicked(sortedFruit, slice_sortedFruit, n_arm, n_cell, picked_fruit):
     except IndexError:
         return(sortedFruit)
 
+
+def varyVehicleVelocity(v_vy, R, curr_FPT_by_volume):
+    try:
+        p  = curr_FPT_by_volume / R
+        print('Percent of R being picked', p)
+
+        v_vy_diff = 0.005 # in m/s -> for now, the max velocity of vehicle
+
+        v_vy_min = 0.01 
+        v_vy_max = 0.9
+
+        p_min = .32
+        p_max = .4
+
+        if p <= p_min:
+            v_vy = v_vy - v_vy_diff
+
+            if v_vy < v_vy_min:
+                v_vy = v_vy_min
+
+        elif p >= p_max:
+            v_vy = v_vy + v_vy_diff
+
+            if v_vy > v_vy_max:
+                v_vy = v_vy_max
+
+    except ZeroDivisionError:
+        print('zero incoming fruit')
+
+    return(v_vy)
     
 
 def main():
@@ -165,22 +202,22 @@ def main():
         horizon_l = cell_l*2   # in m
         travel_l = cell_l*2 # in m
 
-    fruit_start_offset = cell_l*2 # in m, offsets the fruit starting position so all fruit can be picked
+    ### robot constants and variables
+    n_cell = 1       # total number of horizontal rows, WAS 4
+    n_arm  = 6       # total number of arms in a row,   WAS 5
+
+    fruit_start_offset = n_arm * cell_l # in m, offsets the fruit starting position so all fruit can be picked
 
     # create fruit distribution(s)
     ### environment constants
     x_lim = [0.2, 1.2]  # -> now know physically, arm can extend 1 m in length
-    y_lim = [0.+fruit_start_offset, 12.+fruit_start_offset]  # offset the starting fruit position 
-    z_lim = [0., 3.]
+    y_lim = [0.+fruit_start_offset, 5.+fruit_start_offset]  # offset the starting fruit position 
+    z_lim = [0., 2.] #[0., 3.]
 
     # for the fruit distribution, want to keep it the same for these tests
     x_seed = PCG64(37428395352013185889194479428694397783)
     y_seed = PCG64(13250124924871709375127216220749555998)
     z_seed = PCG64(165440185943501291848242755689690423219)
-
-    ### robot constants and variables
-    n_cell = 4       # total number of horizontal rows s
-    n_arm  = 5       # total number of arms in a row
     
     cell_h = (z_lim[1] - z_lim[0]) / n_cell # in m, height of each hor. row
 
@@ -189,7 +226,7 @@ def main():
 
     arm_reach = x_lim[1] - x_lim[0]
 
-    v_vy   = 0.03      # in m/s vehicle velocity -> max 0.9 m/s
+    v_vy   = 0.3      # in m/s vehicle velocity -> max 0.9 m/s
     q_vy   = y_lim[0]-fruit_start_offset  # in m, vehicle's current position (backmost part) 
 
     # arm settings, also in calcTd function
@@ -199,11 +236,14 @@ def main():
 
     t_grab = 0.1  # in sec
 
+    ## for melon algorithm, use fruit handling time 
+    Td = 2 # in sec, time to extend(?), grab, retract, drop off fruit, and move to a ready-pick-position all together
+
     ### Create Fruit Distribution ###
     fruitD = fruitDistribution(x_lim, y_lim, z_lim)
 
     # settings/variables for the various allowed distributions
-    density = 13.333      # fruit/m^3, average density of whole orchard
+    density = 4 #13.333      # fruit/m^3, average density of whole orchard
     fruit_in_cell = math.ceil(density * (cell_h*cell_l*arm_reach)) #* math.floor(1/0.3) # num of fruit in front of cell if using (equalCellDensity())
     print('Number of fruit in each cell:', fruit_in_cell)
     print()
@@ -212,7 +252,8 @@ def main():
     # [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
     # [numFruit, sortedFruit] = fruitD.column(v_vy, v_max, a_max, t_grab, n_cell, n_arm, cell_h, z_seed)
     # [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
-    [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
+    [numFruit, sortedFruit] = fruitD.uniformRandomMelon(density, y_seed, z_seed)
+    # [numFruit, sortedFruit] = fruitD.equalCellDensity(n_cell, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
 
     # ### init IG scheduler module ###
     # sched = IG_scheduling(v_vy, n_arm, n_cell, cell_l, y_lim, z_lim)
@@ -228,7 +269,9 @@ def main():
         # print('vehicle\'s current location:', q_vy)
         # run 'vision system' to determine what fruit are in front of the vehicle
         # changes numFruit and sortedFruit to match 
-        camera_l = vehicle_l + horizon_l  
+        # camera_l = vehicle_l + horizon_l  
+        ##### FOR MELON ######
+        camera_l = y_lim[1]
 
         # obtain a sliced version of sortedFruit based on what the vehicle sees in front of it (snapshot)
         [sliced_numFruit, sliced_sortedFruit] = whatIsInFront(sortedFruit, q_vy, camera_l)
@@ -237,10 +280,12 @@ def main():
         # print()
 
         snapshot_y_lim[0] = q_vy
-        snapshot_y_lim[1] = q_vy + vehicle_l
+        # snapshot_y_lim[1] = q_vy + vehicle_l
+        snapshot_y_lim[1] = q_vy + vehicle_l + travel_l
 
         ### init/reset IG scheduler module for this snapshot ###
-        sched = IG_scheduling(v_vy, v_max, a_max, n_arm, n_cell, cell_l, x_lim, snapshot_y_lim, z_lim, vehicle_l, travel_l, horizon_l)
+        # sched = IG_scheduling(v_vy, v_max, a_max, n_arm, n_cell, cell_l, x_lim, snapshot_y_lim, z_lim, vehicle_l, travel_l, horizon_l)
+        sched = IG_melon_scheduling(v_vy, Td, v_max, a_max, n_arm, n_cell, cell_l, x_lim, snapshot_y_lim, z_lim, vehicle_l, travel_l, horizon_l)
 
         ## calculate multiple R and v_vy values based on multiple slices of the current view
         # return a list of fruit densities in each cell
@@ -256,62 +301,36 @@ def main():
         sched.setFruitData(sliced_numFruit, sliced_sortedFruit)
         # schedule the current view
         sched.initDummyNodes()
-        sched.initBaseTimeIntervals()
-        sched.chooseArm4Fruit()
-        # snapshot_fruit_picked_by = sched.chooseArm4Fruit()
+        sched.initBaseDistIntervals()    ###### MELON ######
+    #     sched.initBaseTimeIntervals()
+        sched.chooseArm4Fruit()  ###### MELON ######
+    #     # snapshot_fruit_picked_by = sched.chooseArm4Fruit()
         # print()
         sched.calcResults()
-        # sched.calcResults(travel_l)
         snapshot_fruit_picked_by = sched.fruitPickedBy(sliced_numFruit)
 
         # set picked fruit in sortedFruit as picked
         sortedFruit = setAsPicked(sortedFruit, sched.sortedFruit, n_arm, n_cell, snapshot_fruit_picked_by)
 
         sched.calcPCT(snapshot_fruit_picked_by)
-        sched.calculateStateTime(snapshot_fruit_picked_by)
-        # # combine results
-        # FPT_snap.append(sched.FPT)
-        # FPE_snap.append(sched.FPE)
+    #     sched.calculateStateTime(snapshot_fruit_picked_by)
+    #     # # combine results
+    #     # FPT_snap.append(sched.FPT)
+    #     # FPE_snap.append(sched.FPE)
 
+
+    #     #### Use to vary vehicle velocity (not tested as a function) ####
         curr_FPT = sched.FPT
         print('current FPT', curr_FPT, 'fruit/s')
-        print('current R  ', R, 'fruit / m^3 s')
+    #     # print('current R  ', R, 'fruit / m^3 s')
         curr_FPE = sched.FPE
         print('current FPE', curr_FPE*100, '%')
 
-        curr_FPT_by_volume = curr_FPT / (vehicle_l * vehicle_h * arm_reach)
-        print('By operating region volume', curr_FPT_by_volume, 'fruit / m^3 s')
+    #     # curr_FPT_by_volume = curr_FPT / (vehicle_l * vehicle_h * arm_reach)
+    #     # print('By operating region volume', curr_FPT_by_volume, 'fruit / m^3 s')
+
+    #     # v_vy = varyVehicleVelocity(v_vy, R, curr_FPT_by_volume)
         
-        try:
-            p  = curr_FPT_by_volume / R
-            print('Percent of R being picked', p)
-
-            v_vy_diff = 0.005 # in m/s -> for now, the max velocity of vehicle
-
-            v_vy_min = 0.01 
-            v_vy_max = 0.9
-
-            p_min = .25
-            p_max = .35
-
-            if p < p_min:
-                v_vy = v_vy - v_vy_diff
-
-                if v_vy < v_vy_min:
-                    v_vy = v_vy_min
-
-            elif p > p_max:
-                 v_vy = v_vy + v_vy_diff
-
-                 if v_vy > v_vy_max:
-                    v_vy = v_vy_max
-
-        except ZeroDivisionError:
-            print('zero incoming fruit')
-
-        print()
-
-
         # save snapshot
         snapshot_list.append(sched)
         # print('NUMBER OF SCHEDULED SNAPSHOTS:', len(snapshot_list))
@@ -324,16 +343,16 @@ def main():
         # vehicle takes a step (as big or small as desired)
         q_vy = vehicleStep(q_vy, travel_l)
 
-    # combine the results based on the various snapshots taken
-    ## remember this is just the scheduling, so it's the theoretically best results (no missed scheduled fruit, etc.)
+    # # combine the results based on the various snapshots taken
+    # ## remember this is just the scheduling, so it's the theoretically best results (no missed scheduled fruit, etc.)
     results = IG_data_analysis(snapshot_list, snapshot_cell, travel_l, y_lim)
     results.printSettings()
     results.realFPEandFPT(sortedFruit, y_lim, v_vy)
     results.avgFPTandFPE()
-    results.avgPCT()
-    print()
-    results.plotValuesOverDistance()
-    results.plotTotalStatePercent()
+    # results.avgPCT()
+    # print()
+    # results.plotValuesOverDistance()
+    # results.plotTotalStatePercent()
 
     snapshot_schedules_2_plot = range(n_snapshots)  
     results.plot2DSchedule(snapshot_schedules_2_plot)
