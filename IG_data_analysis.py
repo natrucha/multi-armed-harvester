@@ -16,7 +16,7 @@ from plotStates_updated import *  # import module to plot % time each arm is in 
 
 
 class IG_data_analysis(object):
-    def __init__(self, snapshot_list, snapshot_cell, step_l, y_lim):
+    def __init__(self, snapshot_list, snapshot_cell, step_l, y_lim, algorithm):
 
         '''
             Obtain list of snapshot/camer frame calculated schedule and fruit density and fruit R at each cell
@@ -24,12 +24,21 @@ class IG_data_analysis(object):
         '''
 
         print('-------------------FINAL RESULTS-------------------')
+        
+        self.algorithm = 0 # default to not using the melon algorithm
+
+        if algorithm == 1:
+            # if it is based on the melon algorithm
+            self.algorithm = 1
+        else:
+            # who knows, default to not melon algorithm
+            print('Defaulting to not using the melon algorithm')
 
         self.schedule_data       = snapshot_list
         self.fruit_per_cell_data = snapshot_cell
 
         self.n_arm  = 0
-        self.n_cell = 0
+        self.n_row = 0
         self.total_arms = 0
 
         self.step_l = step_l
@@ -63,14 +72,16 @@ class IG_data_analysis(object):
         for index, snapshot in enumerate(self.schedule_data):
             if index == 0:
                 # obtain constant values of the whole run
-                self.n_arm  = snapshot.n_arm
-                self.n_cell = snapshot.n_cell
-                self.total_arms = self.n_arm * self.n_cell
+                self.n_arm      = snapshot.n_arm
+                self.n_row      = snapshot.n_row
+                self.total_arms = self.n_arm * self.n_row
                 self.horizon_l  = snapshot.horizon_l
                 self.vehicle_l  = snapshot.vehicle_l
                 self.cell_l     = snapshot.cell_l
                 self.v_max      = snapshot.v_max
                 self.a_max      = snapshot.a_max
+                if self.algorithm == 1:
+                    self.Td     = snapshot.Td
 
             # extract scheduling data per snapshot
             self.v_vy[index]       = snapshot.v_vy
@@ -110,7 +121,7 @@ class IG_data_analysis(object):
 
         x_pct = list()
 
-        for n in range(self.n_cell):
+        for n in range(self.n_row):
             for k in range(self.n_arm):
                 y = list()
 
@@ -145,34 +156,51 @@ class IG_data_analysis(object):
 
     def plotTotalStatePercent(self):
         '''Takes the average percent time each arm spent in each of the six states'''
-
         self.state_percent = np.zeros([self.total_arms, 7])
 
-        for snapshot_percent in self.state_time:
-            self.state_percent = self.state_percent + snapshot_percent
-        # print('snapshot state times:')
-        # print(self.state_percent)
-        
-        # get percentage by dividing over total time
-        self.state_percent = self.state_percent / self.state_percent[0,6] * 100
-        # print('Overall average percent amount of time each arm spent in each state:')
-        # print(self.state_percent)
-        # print()
+        if self.algorithm == 1: 
+            # if it's the melon algorithm, it just uses Td -> 
+            # assumes Td time spent on handling for for all fruit picked
+            print('fruit picked by object looks like')
+              
+            for n in range(self.n_row): # this might actually need to be snapshot number?
+                print(self.fruit_picked_by[n])
 
-        file_name = './plots/state_percent.png'
-        print('Saving plot of the mean state percent of each arm in', file_name)
+                # for k in range(self.n_arm):
 
-        # Create and save the plot
-        state_percent_list = self.state_percent.tolist()
-        # print(state_percent_list)
-        plot_states = plotStates(state_percent_list, file_name)
+        else:
+            
+            for snapshot_percent in self.state_time:
+                self.state_percent = self.state_percent + snapshot_percent
+            # print('snapshot state times:')
+            # print(self.state_percent)
+            
+            # get percentage by dividing over total time
+            self.state_percent = self.state_percent / self.state_percent[0,6] * 100
+            # print('Overall average percent amount of time each arm spent in each state:')
+            # print(self.state_percent)
+            # print()
+
+            file_name = './plots/state_percent.png'
+            print('Saving plot of the mean state percent of each arm in', file_name)
+
+            # Create and save the plot
+            state_percent_list = self.state_percent.tolist()
+            # print(state_percent_list)
+            plot_states = plotStates(state_percent_list, file_name)
 
 
     def printSettings(self):
         '''Prints out constant robot settings such as number of arms, etc.'''
         print('Settings for these results:')
-        print('Number of cells', self.n_cell, 'number of arms:', self.n_arm)
-        print('Arm max velocity:', self.v_max, 'm/s, and max accel:', self.a_max,'m/s^2')
+        print('Number of rows', self.n_row, 'number of arms:', self.n_arm)
+
+        if self.algorithm == 1:
+            print('Fruit handling time:', self.Td)
+
+        else:
+            print('Arm max velocity:', self.v_max, 'm/s, and max accel:', self.a_max,'m/s^2')
+            
         print()
         print('Vehicle length:', self.vehicle_l, 'm, with cell length:', self.cell_l, 'm')
         print('Horizon length:', self.horizon_l, 'm')
@@ -181,7 +209,7 @@ class IG_data_analysis(object):
 
 
     def avgFPTandFPE(self):
-        '''Takes the various snapshots and combines their fPT and FPE values to get overall average FPT and FPE'''
+        '''Takes the various snapshots and combines their FPT and FPE values to get overall average FPT and FPE'''
         avg_FPE = np.average(self.FPE)
         avg_FPT = np.average(self.FPT)
         # calculate the "real FPT" value from individual FPT results
@@ -226,7 +254,7 @@ class IG_data_analysis(object):
     def avgPCT(self):
         '''Calculates each arm's average PCT over all the snapshots'''
         #### FIGURE OUT HOW TO DEAL WITH NAN ####
-        sum_PCT = np.zeros([self.n_cell, self.n_arm])
+        sum_PCT = np.zeros([self.n_row, self.n_arm])
 
         for snapshot_PCT in self.PCT:
             sum_PCT = np.nansum(np.dstack((sum_PCT,snapshot_PCT)),2)
@@ -254,9 +282,9 @@ class IG_data_analysis(object):
         # used to indicate arm number
         color     = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink']
 
-        if self.n_cell > 1:
+        if self.n_row > 1:
             for snapshot_i in snapshot_list:
-                for n in range(self.n_cell):
+                for n in range(self.n_row):
                     for k in range(self.n_arm+1):
                         x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][n][k]]
                         y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][n][k]]
@@ -291,7 +319,7 @@ class IG_data_analysis(object):
                             #         self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
                             plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o')
 
-        elif self.n_cell == 1:
+        elif self.n_row == 1 and self.algorithm == 1:  # if using the melon algorithm
             for snapshot_i in snapshot_list:
                 for k in range(self.n_arm+1):
                     x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][k]]
@@ -307,15 +335,15 @@ class IG_data_analysis(object):
                     elif k == 0:
                         line_color = str(color[k])
                         # linestyle = line_type[n]
-                        arm_label = 'back arm'
+                        arm_label = 'front arm (k=0)'     
                     elif k == self.n_arm-1:
                         line_color = str(color[k])
                         # linestyle = line_type[n]
-                        arm_label = 'front arm'
+                        arm_label = 'back arm (k=' + str(k) + ')'      
                     else:
                         line_color = str(color[k])
                         # linestyle = line_type[n]
-                        arm_label = 'middle arm ' + str(k)
+                        arm_label = 'k=' + str(k)
 
                     if snapshot_i == 0:
                         # limits the labels for the legend
@@ -352,7 +380,7 @@ class IG_data_analysis(object):
     #     line_type = ['--', '-.', '-', '.']
     #     color     = ['c', 'r', 'b', 'g']
 
-    #     for n in range(self.n_cell):
+    #     for n in range(self.n_row):
     #         for k in range(self.n_arm+1):
     #             # add modulo later so it works with n and k > 3 
     #             if k == self.n_arm:
