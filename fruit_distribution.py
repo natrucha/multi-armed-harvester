@@ -138,6 +138,75 @@ class fruitDistribution(object):
         return([numFruit, sortedFruit])
 
 
+    def uniformRandomMelon(self, density, y_seed, z_seed):
+        '''
+           Fruit distribution set uniform random along total y, and z given y, and z limits, seeds, 
+           and desired density. x is asumed constant for melons.
+        '''
+        numFruit = int(density * (self.len_y*self.len_x*self.len_z)) 
+
+        x = np.ones(numFruit)
+
+        y = np.random.default_rng(y_seed).uniform(self.y_lim[0], self.y_lim[1], numFruit)
+        z = np.random.default_rng(z_seed).uniform(self.z_lim[0], self.z_lim[1], numFruit)
+
+        # # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
+        # fruit = np.stack([x, y, z])
+
+        # axis_to_sort = np.argsort(y) # sort based on y-axis
+        # sortedFruit = fruit[:,axis_to_sort]
+
+        sortedFruit = self.sortNstack(x, y, z)
+
+        # return numFruit and the sortedFruit
+        return([numFruit, sortedFruit])
+
+
+    def uniformRandomMelon_MultipleDensity(self, densities, y_seed, z_seed):
+        '''
+           Fruit distribution set uniform random along total y, and z given y, and z limits, seeds, 
+           and desired density. x is asumed constant for melons. Row changes densities after given distance.
+        '''
+        offset = 2 # paper has 2 m of empty space between densities
+
+        # length on the y-axis for each density is the same and limited by y_lim
+        length_den = (self.y_lim[1] - self.y_lim[0]) / len(densities) - 2
+        # print('length of the density:',length_den)
+
+        fruit_per_density = densities * (length_den*self.len_x*self.len_z) # array with the number of fruit in each density space
+        fruit_per_density = np.asarray(fruit_per_density,dtype="int") # number of fruit has to be discrete
+
+        print('fruit per density')
+        print(fruit_per_density)
+
+        # total fruit in the row
+        numFruit = int(np.sum(fruit_per_density))
+        print('total number of fruit', numFruit)
+
+        x = np.ones(numFruit)
+        z = np.random.default_rng(z_seed).uniform(self.z_lim[0], self.z_lim[1], numFruit)
+
+        y_start = self.y_lim[0]
+        y_end   = y_start + length_den
+
+        for space in range(len(densities)):
+            y_part = np.random.default_rng(y_seed).uniform(y_start, y_end, fruit_per_density[space])
+
+            y_start += length_den + offset
+            y_end   += length_den + offset
+            
+
+            if space == 0:
+                y = y_part
+            else:
+                y = np.concatenate((y,y_part))
+
+        sortedFruit = self.sortNstack(x, y, z)
+
+        return([numFruit, sortedFruit])
+
+
+
     def equalCellDensity(self, n_row, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed):
         '''
            Fruit distribution set uniform random within each cell, making sure that the density in every 
