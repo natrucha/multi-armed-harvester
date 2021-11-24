@@ -202,6 +202,19 @@ def main():
         horizon_l = cell_l*2   # in m
         travel_l = cell_l*2 # in m
 
+    ## set algorithm being used (can add more later): ##
+    # 1     == melon
+    # not 1 == not melon
+    algorithm = 1
+
+    ## set fruit distribution flag
+    # 0     == Raj's digitized fruits
+    # 1     == uniform random  (if algorithm == 1, use melon version)
+    # 2     == uniform random, equal cell density
+    # 3     == multiple densities (only melon for now)
+    # 4     == fruit in vertical columns
+    set_distribution = 3
+
     ### robot constants and variables
     n_row = 1       # total number of horizontal rows, WAS 4
     n_arm  = 6       # total number of arms in a row,   WAS 5
@@ -209,9 +222,10 @@ def main():
     fruit_start_offset = 0. #n_arm * cell_l # in m, offsets the fruit starting position so all fruit can be picked
 
     # create fruit distribution(s)
+    y_lim_end = travel_l - (n_arm*cell_l)
     ### environment constants
     x_lim = [0.2, 1.2]  # -> now know physically, arm can extend 1 m in length
-    y_lim = [0.+fruit_start_offset, 5.+fruit_start_offset]  # offset the starting fruit position 
+    y_lim = [0.+fruit_start_offset, y_lim_end+fruit_start_offset]  # offset the starting fruit position 
     z_lim = [0., 2.] #[0., 3.]
 
     # for the fruit distribution, want to keep it the same for these tests
@@ -237,24 +251,45 @@ def main():
     t_grab = 0.1  # in sec
 
     ## for melon algorithm, use fruit handling time 
-    Td = 2 # in sec, time to extend, grab, retract, drop off fruit, and move to a ready-pick-position all together
+    Td = 4 # in sec, time to extend, grab, retract, drop off fruit, and move to a ready-pick-position all together
 
     ### Create Fruit Distribution ###
     fruitD = fruitDistribution(x_lim, y_lim, z_lim)
 
     # settings/variables for the various allowed distributions
     density = 4 #13.333      # fruit/m^3, average density of whole orchard
-    fruit_in_cell = math.ceil(density * (cell_h*cell_l*arm_reach)) #* math.floor(1/0.3) # num of fruit in front of cell if using (equalCellDensity())
-    print('Number of fruit in each cell:', fruit_in_cell)
-    print()
-    csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
+    
 
-    # [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
-    # [numFruit, sortedFruit] = fruitD.column(v_vy, v_max, a_max, t_grab, n_row, n_arm, cell_h, z_seed)
-    # [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
-    [numFruit, sortedFruit] = fruitD.uniformRandomMelon(density, y_seed, z_seed)
-    # [numFruit, sortedFruit] = fruitD.equalCellDensity(n_row, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
+    if set_distribution == 0:
+        csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
+        [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
 
+    elif set_distribution == 1:
+        if algorithm == 1:
+            [numFruit, sortedFruit] = fruitD.uniformRandomMelon(density, y_seed, z_seed)
+        else:
+            [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
+
+    elif set_distribution == 2: 
+        fruit_in_cell = math.ceil(density * (cell_h*cell_l*arm_reach)) # num of fruit in front of cell if using (equalCellDensity())
+        print('Number of fruit in each cell:', fruit_in_cell)
+        print()
+        [numFruit, sortedFruit] = fruitD.equalCellDensity(n_row, n_arm, cell_h, cell_l, arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
+
+    elif set_distribution == 3: 
+        densities = np.array([5, 4, 3])
+        [numFruit, sortedFruit] = fruitD.uniformRandomMelon_MultipleDensity(densities, y_seed, z_seed)
+
+    elif set_distribution == 4: 
+        [numFruit, sortedFruit] = fruitD.column(v_vy, v_max, a_max, t_grab, n_row, n_arm, cell_h, z_seed)
+
+    else: 
+        print('not a correct fruit distribution, defaulting to uniform random')
+        if algorithm == 1:
+            [numFruit, sortedFruit] = fruitD.uniformRandomMelon(density, y_seed, z_seed)
+        else:
+            [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
+    
     # ### init IG scheduler module ###
     # sched = IG_scheduling(v_vy, n_arm, n_row, cell_l, y_lim, z_lim)
     ## create list to save each snapshot's schedule and data
@@ -283,12 +318,7 @@ def main():
         # snapshot_y_lim[1] = q_vy + vehicle_l
         snapshot_y_lim[1] = q_vy + vehicle_l + travel_l
 
-        ##### init/reset IG scheduler module for this snapshot #####
-        ## set algorithm being used (can add more later): ##
-        # 1     == melon
-        # not 1 == not melon
-        algorithm = 1
-
+        # init/reset IG scheduler module for this snapshot 
         if algorithm == 1:
             sched = IG_melon_scheduling(q_vy, v_vy, Td, v_max, a_max, n_arm, n_row, cell_l, x_lim, snapshot_y_lim, z_lim, vehicle_l, travel_l, horizon_l)
         else:
