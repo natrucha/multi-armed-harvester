@@ -16,14 +16,17 @@ from plotStates_updated import *  # import module to plot % time each arm is in 
 
 
 class IG_data_analysis(object):
-    def __init__(self, snapshot_list, snapshot_cell, step_l, y_lim, algorithm):
+    def __init__(self, snapshot_list, snapshot_cell, step_l, y_lim, algorithm, print_out):
 
         '''
             Obtain list of snapshot/camer frame calculated schedule and fruit density and fruit R at each cell
             which are combined and analyzed to provide results.
         '''
 
-        print('-------------------FINAL RESULTS-------------------')
+        self.print_out = print_out # determines if results are printed out, 1 is yes
+
+        if self.print_out == 1:
+            print('-------------------FINAL RESULTS-------------------')
         
         self.algorithm = 0 # default to not using the melon algorithm
 
@@ -92,7 +95,7 @@ class IG_data_analysis(object):
             self.pick_fruit[index] = np.sum(snapshot.curr_j)
 
             self.PCT.append(snapshot.avg_PCT)
-            # self.state_time.append(snapshot.state_time)
+            self.state_time.append(snapshot.state_time)
             self.fruit_picked_by.append(snapshot.fruit_picked_by)
             self.fruit_list.append(snapshot.sortedFruit)
 
@@ -104,8 +107,7 @@ class IG_data_analysis(object):
 
     def plotValuesOverDistance(self):
         '''Plot all the relevant values as vehicle moves'''
-        fig, ax = plt.subplots()
-
+        # fig, ax = plt.subplots()
         x = np.arange(len(self.schedule_data))  # snapshot number, can change later
 
         fig, axs = plt.subplots(6, 1)
@@ -158,54 +160,54 @@ class IG_data_analysis(object):
         '''Takes the average percent time each arm spent in each of the six states'''
         self.state_percent = np.zeros([self.total_arms, 7])
 
-        if self.algorithm == 1: 
-            # if it's the melon algorithm, it just uses Td -> 
-            # assumes Td time spent on handling for for all fruit picked
-            print('fruit picked by object looks like')
+        # if self.algorithm == 1: 
+        #     # if it's the melon algorithm, it just uses Td -> 
+        #     # assumes Td time spent on handling for for all fruit picked
+        #     print('fruit picked by object looks like')
               
-            for n in range(self.n_row): # this might actually need to be snapshot number?
-                print(self.fruit_picked_by[n])
+        #     for n in range(self.n_row): # this might actually need to be snapshot number?
+        #         print(self.fruit_picked_by[n])
 
-                # for k in range(self.n_arm):
-
-        else:
+        #         # for k in range(self.n_arm):
+        # else:
             
-            for snapshot_percent in self.state_time:
-                self.state_percent = self.state_percent + snapshot_percent
-            # print('snapshot state times:')
-            # print(self.state_percent)
-            
-            # get percentage by dividing over total time
-            self.state_percent = self.state_percent / self.state_percent[0,6] * 100
-            # print('Overall average percent amount of time each arm spent in each state:')
-            # print(self.state_percent)
-            # print()
+        for snapshot_percent in self.state_time:
+            self.state_percent = self.state_percent + snapshot_percent
+        # print('snapshot state times:')
+        # print(self.state_percent)
+        
+        # get percentage by dividing over total time
+        self.state_percent = self.state_percent / self.state_percent[0,6] * 100
+        # print('Overall average percent amount of time each arm spent in each state:')
+        # print(self.state_percent)
+        # print()
 
-            file_name = './plots/state_percent.png'
-            print('Saving plot of the mean state percent of each arm in', file_name)
+        file_name = './plots/state_percent.png'
+        print('Saving plot of the mean state percent of each arm in', file_name)
 
-            # Create and save the plot
-            state_percent_list = self.state_percent.tolist()
-            # print(state_percent_list)
-            plot_states = plotStates(state_percent_list, file_name)
+        # Create and save the plot
+        state_percent_list = self.state_percent.tolist()
+        # print(state_percent_list)
+        plot_states = plotStates(state_percent_list, file_name)
 
 
     def printSettings(self):
         '''Prints out constant robot settings such as number of arms, etc.'''
-        print('Settings for these results:')
-        print('Number of rows', self.n_row, 'number of arms:', self.n_arm)
+        if self.print_out == 1:
+            print('Settings for these results:')
+            print('Number of rows', self.n_row, 'number of arms:', self.n_arm)
 
-        if self.algorithm == 1:
-            print('Fruit handling time:', self.Td)
+            if self.algorithm == 1:
+                print('Fruit handling time:', self.Td, 'sec')
 
-        else:
-            print('Arm max velocity:', self.v_max, 'm/s, and max accel:', self.a_max,'m/s^2')
-            
-        print()
-        print('Vehicle length:', self.vehicle_l, 'm, with cell length:', self.cell_l, 'm')
-        print('Horizon length:', self.horizon_l, 'm')
-        print('Step length:', self.step_l , 'm')
-        print()
+            else:
+                print('Arm max velocity:', self.v_max, 'm/s, and max accel:', self.a_max,'m/s^2')
+                
+            print()
+            print('Vehicle length:', self.vehicle_l, 'm, with cell length:', self.cell_l, 'm')
+            print('Horizon length:', self.horizon_l, 'm')
+            print('Step length:', self.step_l , 'm')
+            print()
 
 
     def avgFPTandFPE(self):
@@ -215,19 +217,19 @@ class IG_data_analysis(object):
         # calculate the "real FPT" value from individual FPT results
         # sum_FPT = np.sum(self.FPT)
         # orchard_veh = (self.y_lim[1] - self.y_lim[0]) / self.vehicle_l  # number of vehicle lengths that fit in orchard row
+        if self.print_out == 1:
+            print('Total Picked Fruit', np.sum(self.pick_fruit), 'out of', np.sum(self.tot_fruit))
+            print('Does not delete potential doubling between snapshot (realism)')
+            print()
 
-        print('Total Picked Fruit', np.sum(self.pick_fruit), 'out of', np.sum(self.tot_fruit))
-        print('Does not delete potential doubling between snapshot (realism)')
-        print()
-
-        print('Based on known pickable fruit by system:')
-        print("Average final FPE {0:.2f}".format(avg_FPE*100), "%")
-        print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
-        print()
-        #### NOT WORKING SINCE FIX TO Ts_end
-        # print('Sum of FPT values {0:.2f}'.format(sum_FPT), 'fruit/s, and number of times the vehicle length fits in the orchard row:', orchard_veh)
-        # print('divide the two to get the REAL FPT: {0:.2f}'.format(sum_FPT/orchard_veh), 'fruit/s')
-        # print()
+            print('Based on known pickable fruit by system:')
+            print("Average final FPE {0:.2f}".format(avg_FPE*100), "%")
+            print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
+            print()
+            #### NOT WORKING SINCE FIX TO Ts_end
+            # print('Sum of FPT values {0:.2f}'.format(sum_FPT), 'fruit/s, and number of times the vehicle length fits in the orchard row:', orchard_veh)
+            # print('divide the two to get the REAL FPT: {0:.2f}'.format(sum_FPT/orchard_veh), 'fruit/s')
+            # print()
 
 
     def realFPEandFPT(self, real_sortedFruit, y_lim, v_vy):
@@ -244,11 +246,14 @@ class IG_data_analysis(object):
         real_FPE = len(picked_index[0]) / total_fruit * 100
         real_FPT = len(picked_index[0]) / total_time
 
-        print('--------------------------------------------------------')
-        print('Real total fruit:', total_fruit)
-        print('Real total fruit picked:', len(picked_index[0]))
-        print("Real overall FPE: {0:.2f}".format(real_FPE), "%, and FPT: {0:.2f}".format(real_FPT), "fruit/s")
-        print('--------------------------------------------------------')
+        if self.print_out == 1:
+            print('--------------------------------------------------------')
+            print('Real total fruit:', total_fruit)
+            print('Real total fruit picked:', len(picked_index[0]))
+            print("Real overall FPE: {0:.2f}".format(real_FPE), "%, and FPT: {0:.2f}".format(real_FPT), "fruit/s")
+            print('--------------------------------------------------------')
+
+        return([real_FPE, real_FPT])
 
 
     def avgPCT(self):
@@ -260,12 +265,14 @@ class IG_data_analysis(object):
             sum_PCT = np.nansum(np.dstack((sum_PCT,snapshot_PCT)),2)
 
         avg_PCT = sum_PCT / len(self.schedule_data)
-        print('Average PCT for each arm over the whole run:')
-        print('**Lower than it should be, nan values are converted to 0 which lowers the average')
-        print(avg_PCT)
-        # print()
-        # print('Sum of PCT matrices')
-        # print(sum_PCT)
+
+        if self.print_out == 1:
+            print('Average PCT for each arm over the whole run:')
+            print('**Lower than it should be, nan values are converted to 0 which lowers the average')
+            print(avg_PCT)
+            # print()
+            # print('Sum of PCT matrices')
+            # print(sum_PCT)
 
 
     def plot2DSchedule(self, snapshot_list):

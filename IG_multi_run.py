@@ -8,8 +8,9 @@ from trajectory import *           # import the trajectory time calc (bang-bang)
 from plotStates_updated import *   # import module to plot % time each arm is in each state
 from fruit_distribution import *   # import module to create the various desired fruit distributions
 from IG_scheduling import *        # import module to perform interval graph scheduling similar to melon paper
-from IG_melon_scheduling import * # import module to perform melon paper's exact interval graph scheduling
+from IG_melon_scheduling import *  # import module to perform melon paper's exact interval graph scheduling
 from IG_data_analysis import *     # import module to analyze the data from the snapshots
+from IG_single_run import *        # import module that runs the scheduling algorithm once
 
 def vehicleStep(q_vy, distance):
     '''Moves the vehicle a given distance'''
@@ -223,6 +224,10 @@ def singleRun(seed, distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, t
     # 4     == fruit in vertical columns
     set_distribution = distribution
 
+    ## set if data_analysis will print out settings and results
+    # 1     == print
+    print_out = 0   # for multiple runs it does not make sense to print out all the results
+
     ### robot constants and variables
     n_row = 1       # total number of horizontal rows, WAS 4
     # n_arm  = 6       # total number of arms in a row,   WAS 5 #### SET ABOVE ####
@@ -395,7 +400,7 @@ def singleRun(seed, distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, t
 
     # # combine the results based on the various snapshots taken
     # ## remember this is just the scheduling, so it's the theoretically best results (no missed scheduled fruit, etc.)
-    results = IG_data_analysis(snapshot_list, snapshot_cell, travel_l, y_lim, algorithm)
+    results = IG_data_analysis(snapshot_list, snapshot_cell, travel_l, y_lim, algorithm, print_out)
     # results.printSettings() # just prints 
     [realFPE, realFPT] = results.realFPEandFPT(sortedFruit, y_lim, v_vy)
     # results.avgFPTandFPE()  # just prints 
