@@ -32,6 +32,15 @@ class plotStates(object):
             self.retr_plot.append(arm_state_lists[4])
             self.unlo_plot.append(arm_state_lists[5])
 
+        ## FOR MELON ONLY ##
+        # reverse the lists, since the indexing is reversed
+        self.idle_plot.reverse()
+        self.pickyz_plot.reverse()
+        self.pickx_plot.reverse()
+        self.grab_plot.reverse()
+        self.retr_plot.reverse()
+        self.unlo_plot.reverse()
+
         self.plot()
 
 
@@ -39,50 +48,52 @@ class plotStates(object):
         # stacked bar plot x-labels
         # add no. arms and no. of cells to manipulate the plot x-labels
 
+        data = {'Melon row':
+                   {'rear (k=5)':0,
+                    'k=4':1,
+                    'k=3':2,
+                    'k=2':3,
+                    'k=1':4,
+                    'front (k=0)':5
+                   }
+                }
+
         # data = {'Bottom':
         #            {'rear':0,
-        #             'mid':1,
-        #             'front':2,
-        #             'who knows':3
-        #            }
-        #         }
-
-        data = {'Bottom':
-                   {'rear':0,
-                    'mid0':1,
-                    'mid1':2,
-                    'mid2':3,
-                    'front':4
-                   },
-                'Middle Bt':
-                   {'rear':0,
-                    'mid0':1,
-                    'mid1':2,
-                    'mid2':3,
-                    'front':4
-                   },
-                'Middle Top':
-                   {'rear':0,
-                    'mid0':1,
-                    'mid1':2,
-                    'mid2':3,
-                    'front':4
-                   },
-                # 'Middle':
-                #    {'rear':0,
-                    # 'mid0':1,
-                    # 'mid1':2,
-                    # 'mid2':3,
-                    # 'front':4
-                #    },
-                'Top':
-                   {'rear':0,
-                    'mid0':1,
-                    'mid1':2,
-                    'mid2':3,
-                    'front':4
-                   },
-               }
+        #             'mid0':1,
+        #             'mid1':2,
+        #             'mid2':3,
+        #             'front':4
+        #            },
+        #         'Middle Bt':
+        #            {'rear':0,
+        #             'mid0':1,
+        #             'mid1':2,
+        #             'mid2':3,
+        #             'front':4
+        #            },
+        #         'Middle Top':
+        #            {'rear':0,
+        #             'mid0':1,
+        #             'mid1':2,
+        #             'mid2':3,
+        #             'front':4
+        #            },
+        #         # 'Middle':
+        #         #    {'rear':0,
+        #             # 'mid0':1,
+        #             # 'mid1':2,
+        #             # 'mid2':3,
+        #             # 'front':4
+        #         #    },
+        #         'Top':
+        #            {'rear':0,
+        #             'mid0':1,
+        #             'mid1':2,
+        #             'mid2':3,
+        #             'front':4
+        #            },
+        #        }
 
         # Create a figure with a single subplot
         f, ax = plt.subplots(1, figsize=(10,5))
