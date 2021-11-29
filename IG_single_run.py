@@ -3,15 +3,15 @@ import numpy as np
 import sys
 
 ######## IMPORT MY OWN MODULES ########
-from trajectory import *           # import the trajectory time calc (bang-bang) 
-from plotStates_updated import *   # import module to plot % time each arm is in each state
+# from trajectory import *           # import the trajectory time calc (bang-bang) 
+# from plotStates_updated import *   # import module to plot % time each arm is in each state
 from fruit_distribution import *   # import module to create the various desired fruit distributions
 from IG_scheduling import *        # import module to perform interval graph scheduling similar to melon paper
 from IG_melon_scheduling import * # import module to perform melon paper's exact interval graph scheduling
 from IG_data_analysis import *     # import module to analyze the data from the snapshots
 
 class IG_single_run(object):
-    def __init__(self, seed, set_distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, travel_l):
+    def __init__(self, print_out, seed, set_distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, travel_l):
         '''Main object to run a singleinstance of the simulator'''
         ## set algorithm being used (can add more later): ##
         # 1     == melon
@@ -27,7 +27,7 @@ class IG_single_run(object):
         self.set_distribution = set_distribution
 
         ## set if data_analysis will print out results
-        self.print_out      = 1
+        self.print_out      = print_out
 
         fruit_start_offset = 0. #self.n_arm * cell_l # in m, offsets the fruit starting position so all fruit can be picked
 
@@ -80,7 +80,7 @@ class IG_single_run(object):
         fruitD = fruitDistribution(self.x_lim, self.y_lim, self.z_lim)
 
         # settings/variables for the various allowed distributions
-        density = 4 #13.333      # fruit/m^3, average density of whole orchard
+        # density = density #13.333      # fruit/m^3, average density of whole orchard
         [self.numFruit, self.sortedFruit] = self.createFruit(fruitD, self.set_algorithm, set_distribution, density, x_seed, y_seed, z_seed)
 
 
@@ -95,6 +95,10 @@ class IG_single_run(object):
                 [numFruit, sortedFruit] = fruitD.uniformRandomMelon(density, y_seed, z_seed)
             else:
                 [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
+            # print()
+            # print('--------------------------------------------')
+            # print('Number of fruit:', numFruit)
+            # print()
 
         elif set_distribution == 2: 
             fruit_in_cell = math.ceil(density * (self.cell_h*self.cell_l*self.arm_reach)) # num of fruit in front of cell if using (equalCellDensity())
@@ -303,7 +307,7 @@ class IG_single_run(object):
         return(v_vy)
 
 
-    def singleRun(self):
+    def singleRun(self, plot_out):
         # ### init IG scheduler module ###
         # sched = IG_scheduling(v_vy, n_arm, self.n_row, cell_l, y_lim, z_lim)
         ## create list to save each snapshot's schedule and data
@@ -368,15 +372,15 @@ class IG_single_run(object):
         #     # FPT_snap.append(sched.FPT)
         #     # FPE_snap.append(sched.FPE)
 
-
-        #     #### Use to vary vehicle velocity (not tested as a function) ####
-            curr_FPT = sched.FPT
-            print('current FPT', curr_FPT, 'fruit/s')
-        #     # print('current R  ', R, 'fruit / m^3 s')
-            curr_FPE = sched.FPE
-            print('current FPE', curr_FPE*100, '%')
-            print('----------------------------------------')
-            print()
+            if self.print_out == 1:
+            #     #### Use to vary vehicle velocity (not tested as a function) ####
+                curr_FPT = sched.FPT
+                print('current FPT', curr_FPT, 'fruit/s')
+            #     # print('current R  ', R, 'fruit / m^3 s')
+                curr_FPE = sched.FPE
+                print('current FPE', curr_FPE*100, '%')
+                print('----------------------------------------')
+                print()
 
         #     # curr_FPT_by_volume = curr_FPT / (self.vehicle_l * self.vehicle_h * self.arm_reach)
         #     # print('By operating region volume', curr_FPT_by_volume, 'fruit / m^3 s')
@@ -398,13 +402,18 @@ class IG_single_run(object):
         # # combine the results based on the various snapshots taken
         # ## remember this is just the scheduling, so it's the theoretically best results (no missed scheduled fruit, etc.)
         results = IG_data_analysis(snapshot_list, snapshot_cell, self.travel_l, self.y_lim, self.set_algorithm, self.print_out)
-        results.printSettings()
-        results.realFPEandFPT(self.sortedFruit, self.y_lim, self.v_vy)
+        if self.print_out == 1:
+            results.printSettings()
+
+        [realFPE, realFPT] = results.realFPEandFPT(self.sortedFruit, self.y_lim, self.v_vy)
         results.avgFPTandFPE()
         # results.avgPCT()
         # print()
         # results.plotValuesOverDistance()
-        results.plotTotalStatePercent()
+        if plot_out == 1:
+            results.plotTotalStatePercent()
 
-        snapshot_schedules_2_plot = range(n_snapshots)  
-        results.plot2DSchedule(snapshot_schedules_2_plot)
+            snapshot_schedules_2_plot = range(n_snapshots)  
+            results.plot2DSchedule(snapshot_schedules_2_plot)
+
+        return([realFPE, realFPT])

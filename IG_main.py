@@ -3,12 +3,12 @@ import numpy as np
 import sys
 
 ######## IMPORT MY OWN MODULES ########
-from trajectory import *           # import the trajectory time calc (bang-bang) 
-from plotStates_updated import *   # import module to plot % time each arm is in each state
-from fruit_distribution import *   # import module to create the various desired fruit distributions
-from IG_scheduling import *        # import module to perform interval graph scheduling similar to melon paper
-from IG_melon_scheduling import *  # import module to perform melon paper's exact interval graph scheduling
-from IG_data_analysis import *     # import module to analyze the data from the snapshots
+# from trajectory import *           # import the trajectory time calc (bang-bang) 
+# from plotStates_updated import *   # import module to plot % time each arm is in each state
+# from fruit_distribution import *   # import module to create the various desired fruit distributions
+# from IG_scheduling import *        # import module to perform interval graph scheduling similar to melon paper
+# from IG_melon_scheduling import *  # import module to perform melon paper's exact interval graph scheduling
+# from IG_data_analysis import *     # import module to analyze the data from the snapshots
 from IG_single_run import *        # performs a single run of the desired scheduling algorithm
 from IG_multi_run import *         # uses IG_single_run to perform multiple runs to perform data analysis  
 
@@ -410,6 +410,7 @@ from IG_multi_run import *         # uses IG_single_run to perform multiple runs
 #     results.plot2DSchedule(snapshot_schedules_2_plot)
 
 def main():
+    print_out = 1 # determine if it should print out the results
 
     # for the fruit distribution, want to keep it the same for these tests
     x_seed = 37428395352013185889194479428694397783
@@ -426,7 +427,7 @@ def main():
     horizon_l        = 0.
     travel_l         = 6.8
 
-    run_once = IG_single_run(seed, set_distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, travel_l)
+    run_once = IG_single_run(print_out, seed, set_distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, travel_l)
     run_once.singleRun()
 
 if __name__ == '__main__':

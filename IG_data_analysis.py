@@ -159,17 +159,6 @@ class IG_data_analysis(object):
     def plotTotalStatePercent(self):
         '''Takes the average percent time each arm spent in each of the six states'''
         self.state_percent = np.zeros([self.total_arms, 7])
-
-        # if self.algorithm == 1: 
-        #     # if it's the melon algorithm, it just uses Td -> 
-        #     # assumes Td time spent on handling for for all fruit picked
-        #     print('fruit picked by object looks like')
-              
-        #     for n in range(self.n_row): # this might actually need to be snapshot number?
-        #         print(self.fruit_picked_by[n])
-
-        #         # for k in range(self.n_arm):
-        # else:
             
         for snapshot_percent in self.state_time:
             self.state_percent = self.state_percent + snapshot_percent

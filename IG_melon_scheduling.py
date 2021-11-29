@@ -11,8 +11,8 @@ from mpl_toolkits.mplot3d import Axes3D   # plot in 3D
 
 ######## IMPORT MY OWN MODULES ########
 from trajectory import *          # import the trajectory time calc (bang-bang) 
-from plotStates_updated import *  # import module to plot % time each arm is in each state
-from fruit_distribution import *  # import module to create the various desired fruit distributions
+# from plotStates_updated import *  # import module to plot % time each arm is in each state
+# from fruit_distribution import *  # import module to create the various desired fruit distributions
 
 
 class IG_melon_scheduling(object):
@@ -374,9 +374,11 @@ class IG_melon_scheduling(object):
 
         # print('fruit picked by:')
         # print(fruit_picked_by)
-        print('time each arm picked fruit:')
-        print(t)
-        print()
+
+        # print('time each arm picked fruit:')
+        # print(t)
+        # print()
+
         # return(fruit_picked_by)
 
         
@@ -478,8 +480,8 @@ class IG_melon_scheduling(object):
         total_distance = self.travel_l
         total_time = total_distance / self.v_vy  # for snapshots? -> I'm deleting Tm and Tw data at each snapshot, problem
 
-        print('movement distance:', total_distance)
-        print('total move time:', total_time)
+        # print('movement distance:', total_distance)
+        # print('total move time:', total_time)
 
         ## states: idle, pick_yz, pick_x, grab, retract_x, move_z/unload
         # self.state_percent = np.zeros([self.total_arms, 6]) # save each arm's percent time in each of the six states 
@@ -493,65 +495,27 @@ class IG_melon_scheduling(object):
                 #     self.state_time[tot_arm_index,1] += tm
 
                 if self.n_row > 1:
-                    for i in fruit_picked_by[n][k]:  
-            #             print(Tw_values[i])
+                    num_picked = len(fruit_picked_by[n][k])
+                    # print('arm', k, 'picked', num_picked, 'number of fruit')
+                    busy = num_picked * self.Td
+                    # print('so was busy', busy, 'total seconds')
 
-                        # calculate extend from Tw0 and final j for each arm k       
-                        move_x = self.Tw_values[i][0] - self.t_grab
-                        self.state_time[tot_arm_index,2] += move_x
-
-                        # calculate grab from Tw and final j for each arm k
-                        self.state_time[tot_arm_index,3] += self.t_grab
-
-                        # calculate unload from Tw1 and final j for each arm k
-                        # self.state_time[tot_arm_index,5] += self.Tw_values[i][1] - move_x
-                        self.state_time[tot_arm_index,5] += self.t_unload
+                    self.state_time[tot_arm_index,1] = busy  # setting Tm as the "handling time"
 
                 else:
                     num_picked = len(fruit_picked_by[k])
-                    print('arm', k, 'picked', num_picked, 'number of fruit')
-
+                    # print('arm', k, 'picked', num_picked, 'number of fruit')
                     busy = num_picked * self.Td
-                    print('so was busy', busy, 'total seconds')
+                    # print('so was busy', busy, 'total seconds')
 
-            print()
+                    self.state_time[tot_arm_index,1] = busy  # setting Tm as the "handling time"
 
-                        # calculate extend from Tw0 and final j for each arm k       
-                #         move_x = self.Tw_values[i][0] - self.t_grab
-                #         self.state_time[tot_arm_index,2] += move_x
+                # calculate idle by subtracting all before by total time: length_row / v
+                self.state_time[tot_arm_index,0] = total_time - np.sum(self.state_time[tot_arm_index,:])
+                # save the total time for this run to get total percent later
+                self.state_time[tot_arm_index,6] = total_time
 
-                #         # calculate grab from Tw and final j for each arm k
-                #         self.state_time[tot_arm_index,3] += self.t_grab
-
-                #         # calculate unload from Tw1 and final j for each arm k
-                #         # self.state_time[tot_arm_index,5] += self.Tw_values[i][1] - move_x
-                #         self.state_time[tot_arm_index,5] += self.t_unload
-
-                # # since this is ideal, retract == extend
-                # self.state_time[tot_arm_index,4] = self.state_time[tot_arm_index,2]
-
-                # # calculate idle by subtracting all before by total time: length_row / v
-                # self.state_time[tot_arm_index,0] = total_time - np.sum(self.state_time[tot_arm_index,:])
-                # # save the total time for this run to get total percent later
-                # self.state_time[tot_arm_index,6] = total_time
-                
-
-                # self.state_time[tot_arm_index,:] = (self.state_time[tot_arm_index,:] / total_time) * 100
-
-        #         print('For arm', tot_arm_index,)
-        #         print('idle:', state_percent[tot_arm_index,0], 'pick_yz:', state_percent[tot_arm_index,1], 
-        #               'pick_x', state_percent[tot_arm_index,2], 'grab:', state_percent[tot_arm_index,3], 'retract_x:', 
-        #               state_percent[tot_arm_index,4], 'unload:', state_percent[tot_arm_index,5])
-
-                # does each k's state % add up to 100%?
-            # percent_sum = np.sum(self.state_time[tot_arm_index,:])
-            # print('Sum total of all times', percent_sum)
             # print()
-
-        # state_percent_transpose = self.state_percent
-        # state_percent_list = state_percent_transpose.tolist()
-        # # print(state_percent_list)
-        # plot_states = plotStates(state_percent_list)
 
     
 ## Interval graph node setup
