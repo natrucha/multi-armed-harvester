@@ -11,7 +11,7 @@ from IG_melon_scheduling import * # import module to perform melon paper's exact
 from IG_data_analysis import *     # import module to analyze the data from the snapshots
 
 class IG_single_run(object):
-    def __init__(self, print_out, seed, set_distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, travel_l):
+    def __init__(self, print_out, seed, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, horizon_l, travel_l):
         '''Main object to run a singleinstance of the simulator'''
         ## set algorithm being used (can add more later): ##
         # 1     == melon
@@ -36,7 +36,7 @@ class IG_single_run(object):
 
         self.cell_l    = cell_l
 
-        self.n_row     = 1       # total number of horizontal rows, WAS 4
+        self.n_row     = 1           # total number of horizontal rows, WAS 4
         self.n_arm     = n_arm       # total number of arms in a row,   WAS 5
 
         # helps create fruit distribution(s)
@@ -46,7 +46,8 @@ class IG_single_run(object):
         self.y_lim     = [0.+fruit_start_offset, y_lim_end+fruit_start_offset]  # offset the starting fruit position 
         self.z_lim     = [0., 2.] #[0., 3.]
 
-        self.cell_h    = (self.z_lim[1] - self.z_lim[0]) / self.n_row # in m, height of each hor. row
+        self.cell_h    = cell_h    # in m, height of each hor. row
+        # self.cell_h    = (self.z_lim[1] - self.z_lim[0]) / self.n_row # in m, height of each hor. row
 
         self.vehicle_l = self.n_arm * self.cell_l 
         self.vehicle_h = self.n_row * self.cell_h  # will probably need to switch to no. horizontal row, rather than n_row
@@ -367,7 +368,7 @@ class IG_single_run(object):
             self.sortedFruit = self.setAsPicked(self.sortedFruit, sched.sortedFruit, self.n_arm, self.n_row, snapshot_fruit_picked_by)
 
             sched.calcPCT(snapshot_fruit_picked_by)
-            sched.calculateStateTime(snapshot_fruit_picked_by)
+            sched.calcStateTime(snapshot_fruit_picked_by)
         #     # # combine results
         #     # FPT_snap.append(sched.FPT)
         #     # FPE_snap.append(sched.FPE)

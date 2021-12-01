@@ -473,7 +473,7 @@ class IG_melon_scheduling(object):
         # print()
 
 
-    def calculateStateTime(self, fruit_picked_by):
+    def calcStateTime(self, fruit_picked_by):
     # def calculateStateTimePercent(self, fruit_picked_by, total_distance):
         '''Calculates the time each arm is in each state so that it can plotState can plot the data'''
         # total_distance = self.y_lim[1] - self.y_lim[0]
