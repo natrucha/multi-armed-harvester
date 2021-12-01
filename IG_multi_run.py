@@ -1,5 +1,6 @@
 import csv                      # read and write CSV file-type
 import numpy as np
+from scipy.stats import poisson
 # import math
 import sys
 
@@ -35,15 +36,38 @@ def getRNGSeedList(n_runs):
         return(seed_list)
 
 
-def singleRun(seed, set_distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, travel_l):
+def singleRun(seed, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, horizon_l, travel_l):
     '''Run the simulation once with given variables and parameters'''
     print_out = 0  # don't want to print out multiple of the 
     plot_out  = 0
 
-    run_once = IG_single_run(print_out, seed, set_distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, travel_l)
+    run_once = IG_single_run(print_out, seed, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, horizon_l, travel_l)
     [real_FPE, real_FPT] = run_once.singleRun(plot_out)
 
     return([real_FPE, real_FPT])
+
+
+def calcAvgHarvestRatio(density, cell_l, cell_h, v_vy, Td, n_arm):
+    '''
+        Calculate the expected harvest ratio of a multi-armed, 3DoF robotic fruit harvester
+        given the number of arms, fruit density, row width, frame length, forward velocity, and
+        handling time (melon combinatorial paper Eq.13 modified for multi-arm)
+    '''
+    alpha = 0.85                          # correction factor, empirically chosen
+    # the average number of fruits that lie within an interval for multi-armed harvesters
+    l     = density*cell_h * (v_vy*Td - cell_l/2) 
+    K     = n_arm                         # number of arms
+    
+    # for poisson ditribution, https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.poisson.html
+    # F(K-1, lambda), Poisson cumulative distribution function 
+    F     = poisson.cdf(K-1, l)  
+    # f(K-1, lambda), Poisson density function 
+    f     = poisson.pmf(K-1, l) 
+
+    # calculate the expected harvest ratio of a multi-armed, 3DoF robotic fruit harvester
+    p = (1-alpha*K/l)*F + alpha*K/l - alpha*f
+
+    return(p*100)
 
 
 def printRunSettings(n_row, n_arm, Td, vehicle_l, cell_l, horizon_l, travel_l, density):
@@ -59,8 +83,7 @@ def printRunSettings(n_row, n_arm, Td, vehicle_l, cell_l, horizon_l, travel_l, d
     print()
 
 
-
-def monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, cell_l, vehicle_l, horizon_l, travel_l):
+def monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l):
     '''Calculate the average FPE and FPT of a set of constant settings with n_run number of seeds equal to number of runs'''
     run_FPE = np.zeros(n_runs)
     run_FPT = np.zeros(n_runs)
@@ -80,21 +103,24 @@ def monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, T
     for run in range(n_runs):
         # get seeds for x, y, and z RNG (probably unneccessary right now, especially for x)
         seed = [seed_list[run][0], seed_list[run][1], seed_list[run][2]]
-        run_results = singleRun(seed, set_distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, travel_l)
-
+        run_results = singleRun(seed, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, horizon_l, travel_l)
         run_FPE[run] =  run_results[0]
         run_FPT[run] =  run_results[1]
+
+    # obtain the expected harvest ratio (one value for a set of settings)
+    p = calcAvgHarvestRatio(density, cell_l, cell_h, v_vy, Td, n_arm)
 
     if print_out == 1:
         print('-------------------------------------')
         print('For', n_runs, 'runs:')
         print('The mean FPE is {0:.2f}'.format(np.mean(run_FPE)), '% +/- {0:.2f}'.format(np.std(run_FPE)), '%')
         print('The mean FPT is {0:.2f}'.format(np.mean(run_FPT)), 'fruit/s +/- {0:.2f}'.format(np.std(run_FPT)), 'fruit/s')
+        print('The mean expected harvest ratio is {0:.2f}'.format(p))
 
-    return([run_FPE, run_FPT])
+    return([run_FPE, run_FPT, p])
 
 
-def multiV_vy(print_out, plot_out, v_vy_list, n_run, seed_list, distribution, density, Td, v_vy, n_arm, cell_l, vehicle_l, horizon_l, travel_l):
+def multiV_vy(print_out, plot_out, v_vy_list, n_runs, seed_list, set_distribution, density, Td, n_row, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l):
     '''View effects of vehicle velocity on FPE and FPT'''
 
     print('Testing the effects of vehicle velocity on FPE and FPT')
@@ -106,22 +132,26 @@ def multiV_vy(print_out, plot_out, v_vy_list, n_run, seed_list, distribution, de
 
     run_FPE = np.zeros(len(v_vy_list))
     run_FPT = np.zeros(len(v_vy_list))
+    run_p   = np.zeros(len(v_vy_list))
 
     for index, v_vy in enumerate(v_vy_list):
-        [multi_fpe, multi_fpt] = monteCarlo_numRun(print_out, n_runs, seed_list, distribution, density, Td, v_vy, n_arm, cell_l, vehicle_l, horizon_l, travel_l)
-        # run_results = singleRun(seed, distribution, density, Td, v_vy, n_arm, cell_l, horizon_l, travel_l)
+        [multi_fpe, multi_fpt, multi_p] = monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l)
+        # run_results = singleRun(seed, distribution, density, Td, v_vy, n_arm, cell_l, cell_h, horizon_l, travel_l)
 
         # take the average of the monte carlo run results
         run_FPE[index] =  np.mean(multi_fpe)
         run_FPT[index] =  np.mean(multi_fpt)
+        run_p[index]   =  multi_p
 
     fig, ax = plt.subplots(2, 1)
     # want subplots to stack in columns so they can be compared, see
     # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/cohere.html#sphx-glr-gallery-lines-bars-and-markers-cohere-py
-    ax[0].plot(v_vy_list, run_FPE, color='r')
+    ax[0].plot(v_vy_list, run_FPE, 'or', label='simulation')
+    ax[0].plot(v_vy_list, run_p, color='r', label='expected')
     # axs[0].set_xlabel('time')
     ax[0].set_ylabel('FPE [%]')
     ax[0].grid(True)
+    legend = ax[0].legend(bbox_to_anchor=(1.1, 1),loc='upper right')
 
     # title_string = 'Harvest ratio, density = ' + str(density) + 'fruit/m^2, T_d = ' + str(Td) + 's, and K = ' + str(n_arm) 
     # axs[0].title(title_string)
@@ -145,8 +175,7 @@ def main():
     # 0     == multiple runs of the same variables with varying RNG seeds (Monte Carlo)
     # 1     == effect of vehicle velocity on FPE and FPT
     # 2     == 
-    # 3     == 
-    set_objective = 0
+    set_objective = 1
 
     ## set fruit distribution flag
     # 0     == Raj's digitized fruits
@@ -156,12 +185,14 @@ def main():
     # 4     == fruit in vertical columns
     set_distribution = 1  # number of densities to be analyzed (1 vs 3)
 
-    density   = 3   # in fruit/m^2
+    density   = 4   # in fruit/m^2
     Td        = 2   # in s
 
     n_arm     = 6
+    n_row     = 1
 
     cell_l    = 0.3 # in m
+    cell_h    = 2.  # in m
     horizon_l = 0.0 # in m
 
     vehicle_l = cell_l * n_arm  # in m, hard coded number of arms for now, based on melon paper
@@ -183,13 +214,13 @@ def main():
     seed_list = getRNGSeedList(n_runs)
 
     if set_objective == 0:
-        v_vy      = 0.36 # in m/s, set velocity 
+        v_vy      = 0.3 # in m/s, set velocity 
 
         print_out = 1 # used to decide to print settings and results
-        plot_out  = 0 # used to decide to plot results or not
+        plot_out  = 1 # used to decide to plot results or not
 
         ## get avg fpe and fpt for one set of settings over n_runs number of runs
-        monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, cell_l, vehicle_l, horizon_l, travel_l)
+        monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l)
 
     elif set_objective == 1:
         # create array of desired velocities to test
@@ -199,7 +230,7 @@ def main():
         plot_out  = 1 # used to decide to plot results or not
 
         # research effects of v_vy on FPE and FPT
-        multiV_vy(print_out, plot_out, v_vy_list, n_run, seed_list, set_distribution, density, Td, v_vy, n_arm, cell_l, vehicle_l, horizon_l, travel_l)
+        multiV_vy(print_out, plot_out, v_vy_list, n_runs, seed_list, set_distribution, density, Td, n_row, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l)
 
 
 
