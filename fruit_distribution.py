@@ -20,6 +20,7 @@ class fruitDistribution(object):
         self.x_lim = x_lim
         self.y_lim = y_lim
         self.z_lim = z_lim
+        # print('length of orchard row within the fruit distribution creator:', self.y_lim)
 
 
     def sortNstack(self, x, y, z):
@@ -80,7 +81,7 @@ class fruitDistribution(object):
         # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
         # something like 0.2 m away in the x-direction
         x_translate = np.amin(x) # in m
-        print('x smallest value, in m', x_translate)
+        # print('x smallest value, in m', x_translate)
         x = x - x_translate + 0.2
         # something like 0 m long in the y-direction
         y_translate = np.amin(y)
@@ -266,6 +267,25 @@ class fruitDistribution(object):
 
         # return numFruit and the sortedFruit
         return([numFruit, sortedFruit])
+
+    
+    def column_melon(self, n_fruit, d_y, z_coord):
+        '''
+            Fruit distribution for testing. Fruit are set in a line at z-height every y_dist of distance.
+        '''
+        x = np.ones(n_fruit)
+        z = np.ones(n_fruit) * z_coord 
+
+        y_stop = (n_fruit-1)*d_y # -1 added since the first fruit starts at 0.0
+
+        y = np.linspace(0, y_stop, num=n_fruit, endpoint=True)
+        print('fruit y-coordinates:', y)
+
+        sortedFruit = self.sortNstack(x, y, z)
+
+        # return numFruit and the sortedFruit
+        return([n_fruit, sortedFruit])
+
 
 
     def column(self, v_v, v_a_max, a_a_max, t_grab, n_cell, n_arm, cell_h, z_seed):
