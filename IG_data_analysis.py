@@ -26,7 +26,7 @@ class IG_data_analysis(object):
         self.print_out = print_out # determines if results are printed out, 1 is yes
 
         if self.print_out == 1:
-            print('-------------------FINAL RESULTS-------------------')
+            print('--------------------- FINAL RESULTS ---------------------')
         
         self.algorithm = 0 # default to not using the melon algorithm
 
@@ -162,11 +162,13 @@ class IG_data_analysis(object):
             
         for snapshot_percent in self.state_time:
             self.state_percent = self.state_percent + snapshot_percent
+            # print('snapshot state percent:', self.state_percent)
         # print('snapshot state times:')
         # print(self.state_percent)
         
         # get percentage by dividing over total time
         self.state_percent = self.state_percent / self.state_percent[0,6] * 100
+        # print('*not* snapshot state percent:', self.state_percent)
         # print('Overall average percent amount of time each arm spent in each state:')
         # print(self.state_percent)
         # print()
@@ -193,7 +195,7 @@ class IG_data_analysis(object):
                 print('Arm max velocity:', self.v_max, 'm/s, and max accel:', self.a_max,'m/s^2')
                 
             print()
-            print('Vehicle length:', self.vehicle_l, 'm, with cell length:', self.cell_l, 'm')
+            print('Vehicle length: {0:.2f}'.format(self.vehicle_l), 'm, with cell length:', self.cell_l, 'm')
             print('Horizon length:', self.horizon_l, 'm')
             print('Step length:', self.step_l , 'm')
             print()
@@ -214,6 +216,7 @@ class IG_data_analysis(object):
             print('Based on known pickable fruit by system:')
             print("Average final FPE {0:.2f}".format(avg_FPE*100), "%")
             print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
+            print('--------------------------------------------------------')
             print()
             #### NOT WORKING SINCE FIX TO Ts_end
             # print('Sum of FPT values {0:.2f}'.format(sum_FPT), 'fruit/s, and number of times the vehicle length fits in the orchard row:', orchard_veh)
@@ -317,7 +320,8 @@ class IG_data_analysis(object):
 
         elif self.n_row == 1 and self.algorithm == 1:  # if using the melon algorithm
             for snapshot_i in snapshot_list:
-                for k in range(self.n_arm+1):
+                for k in range(self.n_arm,-1,-1):
+                # for k in range(self.n_arm+1):
                     x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][k]]
                     y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][k]]
 

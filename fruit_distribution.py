@@ -283,6 +283,8 @@ class fruitDistribution(object):
 
         sortedFruit = self.sortNstack(x, y, z)
 
+        self.y_lim[1] = n_fruit * d_y
+
         # return numFruit and the sortedFruit
         return([n_fruit, sortedFruit])
 
