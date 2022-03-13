@@ -168,7 +168,7 @@ class IG_data_analysis(object):
         
         # get percentage by dividing over total time
         self.state_percent = self.state_percent / self.state_percent[0,6] * 100
-        # print('*not* snapshot state percent:', self.state_percent)
+        # print('*not* snapshot state perce nt:', self.state_percent)
         # print('Overall average percent amount of time each arm spent in each state:')
         # print(self.state_percent)
         # print()
@@ -210,7 +210,7 @@ class IG_data_analysis(object):
         # orchard_veh = (self.y_lim[1] - self.y_lim[0]) / self.vehicle_l  # number of vehicle lengths that fit in orchard row
         if self.print_out == 1:
             print('Total Picked Fruit', np.sum(self.pick_fruit), 'out of', np.sum(self.tot_fruit))
-            print('Does not delete potential doubling between snapshot (realism)')
+            # print('Does not delete potential doubling between snapshot (realism)')
             print()
 
             print('Based on known pickable fruit by system:')

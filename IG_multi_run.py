@@ -1,7 +1,7 @@
 import csv                      # read and write CSV file-type
 import numpy as np
 from scipy.stats import poisson
-# import math
+import math
 import sys
 
 ######## IMPORT MY OWN MODULES ########
@@ -36,12 +36,12 @@ def getRNGSeedList(n_runs):
         return(seed_list)
 
 
-def singleRun(seed, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, horizon_l, travel_l):
+def singleRun(seed, set_distribution, density, Td, v_vy, n_arm, n_row, cell_l, cell_h, horizon_l, travel_l):
     '''Run the simulation once with given variables and parameters'''
     print_out = 0  # don't want to print out multiple of the 
     plot_out  = 0
 
-    run_once = IG_single_run(print_out, seed, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, horizon_l, travel_l)
+    run_once = IG_single_run(print_out, seed, set_distribution, density, Td, v_vy, n_arm, n_row, cell_l, cell_h, horizon_l, travel_l)
     [real_FPE, real_FPT] = run_once.singleRun(plot_out)
 
     return([real_FPE, real_FPT])
@@ -71,7 +71,7 @@ def calcAvgHarvestRatio(density, cell_l, cell_h, v_vy, Td, n_arm):
 
 
 def printRunSettings(n_row, n_arm, Td, vehicle_l, cell_l, horizon_l, travel_l, density):
-    print('Number of rows', n_row, 'number of arms:', n_arm)
+    print('Number of rows:', n_row, 'number of arms:', n_arm)
     print('Fruit handling time:', Td, 'sec')
         
     print()
@@ -83,12 +83,10 @@ def printRunSettings(n_row, n_arm, Td, vehicle_l, cell_l, horizon_l, travel_l, d
     print()
 
 
-def monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l):
+def monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, n_row, cell_l, cell_h, vehicle_l, horizon_l, travel_l):
     '''Calculate the average FPE and FPT of a set of constant settings with n_run number of seeds equal to number of runs'''
     run_FPE = np.zeros(n_runs)
     run_FPT = np.zeros(n_runs)
-
-    n_row = 1
 
     plot_out = 0
 
@@ -103,7 +101,7 @@ def monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, T
     for run in range(n_runs):
         # get seeds for x, y, and z RNG (probably unneccessary right now, especially for x)
         seed = [seed_list[run][0], seed_list[run][1], seed_list[run][2]]
-        run_results = singleRun(seed, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, horizon_l, travel_l)
+        run_results = singleRun(seed, set_distribution, density, Td, v_vy, n_arm, n_row, cell_l, cell_h, horizon_l, travel_l)
         run_FPE[run] =  run_results[0]
         run_FPT[run] =  run_results[1]
 
@@ -135,8 +133,8 @@ def multiV_vy(print_out, plot_out, v_vy_list, n_runs, seed_list, set_distributio
     run_p   = np.zeros(len(v_vy_list))
 
     for index, v_vy in enumerate(v_vy_list):
-        [multi_fpe, multi_fpt, multi_p] = monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l)
-        # run_results = singleRun(seed, distribution, density, Td, v_vy, n_arm, cell_l, cell_h, horizon_l, travel_l)
+        [multi_fpe, multi_fpt, multi_p] = monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, n_row, cell_l, cell_h, vehicle_l, horizon_l, travel_l)
+        # run_results = singleRun(seed, distribution, density, Td, v_vy, n_arm, n_row, cell_l, cell_h, horizon_l, travel_l)
 
         # take the average of the monte carlo run results
         run_FPE[index] =  np.mean(multi_fpe)
@@ -146,8 +144,8 @@ def multiV_vy(print_out, plot_out, v_vy_list, n_runs, seed_list, set_distributio
     fig, ax = plt.subplots(2, 1)
     # want subplots to stack in columns so they can be compared, see
     # see https://matplotlib.org/stable/gallery/lines_bars_and_markers/cohere.html#sphx-glr-gallery-lines-bars-and-markers-cohere-py
-    ax[0].plot(v_vy_list, run_FPE, 'or', label='simulation')
-    ax[0].plot(v_vy_list, run_p, color='r', label='expected')
+    ax[0].plot(v_vy_list, run_FPE, 'xr', label='simulation')
+    # ax[0].plot(v_vy_list, run_p, color='k', label='expected')
     # axs[0].set_xlabel('time')
     ax[0].set_ylabel('FPE [%]')
     ax[0].grid(True)
@@ -168,14 +166,48 @@ def multiV_vy(print_out, plot_out, v_vy_list, n_runs, seed_list, set_distributio
     print('Saving plot of FPT and FPE vs vehicle velocity', file_name)
     plt.savefig(file_name,dpi=300)
 
+
+def findBest(print_out, plot_out, v_vy_list, n_runs, seed_list, set_distribution, density, Td, n_row, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l, min_FPE):
+    '''Loop thorugh v_vy values to find the best FPE and FPT results'''
+
+    print('Testing the effects of vehicle velocity on FPE and FPT')
+    ('-------------------------------------')
+    print('Testing', len(v_vy_list), 'velocities')
+    print('ranging from', v_vy_list[0], 'to', v_vy_list[-1])
+    print()
+    printRunSettings(n_row, n_arm, Td, vehicle_l, cell_l, horizon_l, travel_l, density)
+
+    best_FPE  = 0
+    best_FPT  = 0
+    best_v_vy = 0
+
+    for index, v_vy in enumerate(v_vy_list):
+        [multi_fpe, multi_fpt, multi_p] = monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, n_row, cell_l, cell_h, vehicle_l, horizon_l, travel_l)
+        # run_results = singleRun(seed, distribution, density, Td, v_vy, n_arm, n_row, cell_l, cell_h, horizon_l, travel_l)
+
+        # take the average of the monte carlo run results
+        curr_FPE =  np.mean(multi_fpe)
+        curr_FPT =  np.mean(multi_fpt)
+
+        if curr_FPE >= min_FPE:
+            if curr_FPT > best_FPT:
+                # the v_vy has resulted in better overall FPE and FPT so choose it as the current 'best'
+                best_FPE = curr_FPE
+                best_FPT = curr_FPT
+                best_v_vy = v_vy
+
+
+    print('chosen velocity {:.3f} m/s'.format(best_v_vy)) 
+    print('FPE, {:.3f}%'.format(best_FPE), ', and FPT {:.3f}'.format(best_FPT))
+
     
 
 def main():
     ## set the run's objective  
     # 0     == multiple runs of the same variables with varying RNG seeds (Monte Carlo)
     # 1     == effect of vehicle velocity on FPE and FPT
-    # 2     == 
-    set_objective = 1
+    # 2     == loop through v_vy values to get best FPE and FPT combo
+    set_objective = 2
 
     ## set fruit distribution flag
     # 0     == Raj's digitized fruits
@@ -183,25 +215,36 @@ def main():
     # 2     == uniform random, equal cell density
     # 3     == multiple densities separated by some space (only melon for now)
     # 4     == fruit in vertical columns
-    set_distribution = 1  # number of densities to be analyzed (1 vs 3)
+    set_distribution = 1
 
-    density   = 4   # in fruit/m^2
+    density   = 5   # in fruit/m^2
     Td        = 2   # in s
+
+    FPE_min = 95.
 
     n_arm     = 6
     n_row     = 1
 
     cell_l    = 0.3 # in m
-    cell_h    = 2.  # in m
+    cell_h    = 2 / n_row  # in m
     horizon_l = 0.0 # in m
+
+    v_vy_lb_cmps = math.ceil(cell_l / Td * 100) # in cm/s
+    v_vy_ub_cmps = 90
 
     vehicle_l = cell_l * n_arm  # in m, hard coded number of arms for now, based on melon paper
 
+    n_runs = 1  # number of times simulation is run 
+    # obtain a the seed list 
+    seed_list = getRNGSeedList(n_runs)
+
     if set_distribution == 0:
         travel_l  = 12 + vehicle_l # in m
+        density   = 48.167         # in fruit/m^2 (on avg.), constant
+        n_runs    = 1
 
     elif set_distribution == 1:
-        travel_l  = 8 + vehicle_l # in m
+        travel_l  = 5 + vehicle_l # in m, was 20
     
     elif set_distribution == 3:
         travel_l  = 30 + vehicle_l # in m
@@ -209,28 +252,37 @@ def main():
     else: 
         travel_l  = 10 + vehicle_l # in m  
 
-    n_runs = 20  # number of times simulation is run 
-    # obtain a the seed list 
-    seed_list = getRNGSeedList(n_runs)
 
     if set_objective == 0:
-        v_vy      = 0.3 # in m/s, set velocity 
+        v_vy      = 0.36 # in m/s, set velocity 
 
         print_out = 1 # used to decide to print settings and results
         plot_out  = 1 # used to decide to plot results or not
 
         ## get avg fpe and fpt for one set of settings over n_runs number of runs
-        monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l)
+        monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, Td, v_vy, n_arm, n_row, cell_l, cell_h, vehicle_l, horizon_l, travel_l)
 
     elif set_objective == 1:
         # create array of desired velocities to test
-        v_vy_list = np.linspace(0.1, 0.8, 100, endpoint=True)
+        # v_vy_list = np.linspace(v_vy_lb_cmps, v_vy_ub_cmps, 100, endpoint=True)
+        v_vy_list = np.arange(v_vy_lb_cmps, v_vy_ub_cmps +1) /100 # in m/s
 
         print_out = 0 # used to decide to print settings and results
         plot_out  = 1 # used to decide to plot results or not
 
         # research effects of v_vy on FPE and FPT
         multiV_vy(print_out, plot_out, v_vy_list, n_runs, seed_list, set_distribution, density, Td, n_row, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l)
+
+    elif set_objective == 2:
+        # create array of desired velocities to test
+        # v_vy_list = np.linspace(v_vy_lb_cmps, v_vy_ub_cmps, 100, endpoint=True)
+        v_vy_list = np.arange(v_vy_lb_cmps, v_vy_ub_cmps +1) /100 # in m/s
+
+        print_out = 0 # used to decide to print settings and results
+        plot_out  = 1 # used to decide to plot results or not
+
+        # research effects of v_vy on FPE and FPT
+        findBest(print_out, plot_out, v_vy_list, n_runs, seed_list, set_distribution, density, Td, n_row, n_arm, cell_l, cell_h, vehicle_l, horizon_l, travel_l, FPE_min)
 
 
 
