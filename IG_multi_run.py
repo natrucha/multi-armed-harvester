@@ -114,6 +114,8 @@ def monteCarlo_numRun(print_out, n_runs, seed_list, set_distribution, density, T
         print('The mean FPE is {0:.2f}'.format(np.mean(run_FPE)), '% +/- {0:.2f}'.format(np.std(run_FPE)), '%')
         print('The mean FPT is {0:.2f}'.format(np.mean(run_FPT)), 'fruit/s +/- {0:.2f}'.format(np.std(run_FPT)), 'fruit/s')
         print('The mean expected harvest ratio is {0:.2f}'.format(p))
+        ('------------------------------------------')
+        print()
 
     return([run_FPE, run_FPT, p])
 
@@ -203,6 +205,12 @@ def findBest(print_out, plot_out, v_vy_list, n_runs, seed_list, set_distribution
     
 
 def main():
+    args = sys.argv[1:] # use the command line arguments to set values
+    ## command line arguments
+    # args[0] == n_arm
+    # args[1] == n_fruit
+    # args[2] == n_run
+
     ## set the run's objective  
     # 0     == multiple runs of the same variables with varying RNG seeds (Monte Carlo)
     # 1     == effect of vehicle velocity on FPE and FPT
@@ -215,26 +223,31 @@ def main():
     # 2     == uniform random, equal cell density
     # 3     == multiple densities separated by some space (only melon for now)
     # 4     == fruit in vertical columns
-    set_distribution = 1
+    # 5     == fruit in a line with uniform distance between fruit
+    set_distribution = 5
 
-    density   = 5   # in fruit/m^2
+    n_fruit = int(args[1])  # total number of fruits in the orchard row (assuming total knowledge of fruits in row)
+
+    density   = 3   # in fruit/m^2
     Td        = 2   # in s
 
     FPE_min = 95.
 
-    n_arm     = 6
-    n_row     = 1
+    n_arm     = int(args[0])  # number of arms in a horizontal row
+    n_row     = 1        # number of arms in each vertical column
 
     cell_l    = 0.3 # in m
     cell_h    = 2 / n_row  # in m
     horizon_l = 0.0 # in m
 
-    v_vy_lb_cmps = math.ceil(cell_l / Td * 100) # in cm/s
-    v_vy_ub_cmps = 90
+    single_arm_vvy = 17  # in cm/s, the chosen velocity if there is only one arm (to help set upper bound)
+
+    v_vy_lb_cmps = math.ceil(cell_l / Td * 100)   # in cm/s
+    v_vy_ub_cmps = (single_arm_vvy * n_arm) + 10  # in cm/s, platform max velocity: 90
 
     vehicle_l = cell_l * n_arm  # in m, hard coded number of arms for now, based on melon paper
 
-    n_runs = 1  # number of times simulation is run 
+    n_runs = int(args[2])  # number of times simulation is run 
     # obtain a the seed list 
     seed_list = getRNGSeedList(n_runs)
 
@@ -248,6 +261,10 @@ def main():
     
     elif set_distribution == 3:
         travel_l  = 30 + vehicle_l # in m
+
+    elif set_distribution == 5:
+        dy = math.floor(n_fruit / density) # in m, the distance needed to have the right density and right number of fruit
+        travel_l  = dy + vehicle_l # in m
 
     else: 
         travel_l  = 10 + vehicle_l # in m  
@@ -278,7 +295,7 @@ def main():
         # v_vy_list = np.linspace(v_vy_lb_cmps, v_vy_ub_cmps, 100, endpoint=True)
         v_vy_list = np.arange(v_vy_lb_cmps, v_vy_ub_cmps +1) /100 # in m/s
 
-        print_out = 0 # used to decide to print settings and results
+        print_out = 1 # used to decide to print settings and results
         plot_out  = 1 # used to decide to plot results or not
 
         # research effects of v_vy on FPE and FPT

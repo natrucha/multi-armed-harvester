@@ -1,5 +1,5 @@
 import numpy as np
-# import math
+import math
 import sys
 
 ######## IMPORT MY OWN MODULES ########
@@ -11,7 +11,7 @@ from IG_melon_scheduling import * # import module to perform melon paper's exact
 from IG_data_analysis import *     # import module to analyze the data from the snapshots
 
 class IG_single_run(object):
-    def __init__(self, print_out, seed, set_distribution, density, Td, v_vy, n_arm, cell_l, cell_h, horizon_l, travel_l):
+    def __init__(self, print_out, seed, set_distribution, density, Td, v_vy, n_arm, n_row, cell_l, cell_h, horizon_l, travel_l):
         '''Main object to run a singleinstance of the simulator'''
         ## set algorithm being used (can add more later): ##
         # 1     == melon
@@ -24,10 +24,11 @@ class IG_single_run(object):
         # 2     == uniform random, equal cell density
         # 3     == multiple densities (only melon for now)
         # 4     == fruit in vertical columns
+        # 5     == fruit in a line with given uniform distance between fruit
         self.set_distribution = set_distribution
 
         ## set if data_analysis will print out results
-        self.print_out      = print_out
+        self.print_out = print_out
 
         fruit_start_offset = 0. #self.n_arm * cell_l # in m, offsets the fruit starting position so all fruit can be picked
 
@@ -35,22 +36,24 @@ class IG_single_run(object):
         self.horizon_l = horizon_l
 
         self.cell_l    = cell_l
+        self.cell_h    = cell_h    # in m, height of each hor. row
+        # self.cell_h    = (self.z_lim[1] - self.z_lim[0]) / self.n_row # in m, height of each hor. row
 
-        self.n_row     = 1           # total number of horizontal rows, WAS 4
+
+        self.n_row     = n_row       # total number of horizontal rows, WAS 4
         self.n_arm     = n_arm       # total number of arms in a row,   WAS 5
 
+        self.vehicle_l = self.n_arm * self.cell_l 
+        self.vehicle_h = self.n_row * self.cell_h  # will probably need to switch to no. horizontal row, rather than n_row
+
         # helps create fruit distribution(s)
-        y_lim_end = self.travel_l - (self.n_arm*self.cell_l)
+        y_lim_end = self.travel_l - self.vehicle_l
+        # print('end location of the orchard row:', y_lim_end)
 
         self.x_lim     = [0.2, 1.2]  # -> now know physically, arm can extend 1 m in length
         self.y_lim     = [0.+fruit_start_offset, y_lim_end+fruit_start_offset]  # offset the starting fruit position 
         self.z_lim     = [0., 2.] #[0., 3.]
-
-        self.cell_h    = cell_h    # in m, height of each hor. row
-        # self.cell_h    = (self.z_lim[1] - self.z_lim[0]) / self.n_row # in m, height of each hor. row
-
-        self.vehicle_l = self.n_arm * self.cell_l 
-        self.vehicle_h = self.n_row * self.cell_h  # will probably need to switch to no. horizontal row, rather than n_row
+        # print('length of orchard row within single run:', self.y_lim)
 
         self.arm_reach = self.x_lim[1] - self.x_lim[0]
 
@@ -114,6 +117,16 @@ class IG_single_run(object):
         elif set_distribution == 4: 
             [numFruit, sortedFruit] = fruitD.column(self.v_vy, self.v_max, self.a_max, self.t_grab, self.n_row, self.n_arm, self.cell_h, z_seed)
 
+        elif set_distribution == 5:
+            z_coord = self.cell_h / 2                           # in m, for now, just sits at the middle of the first cell
+            n_fruit = math.floor((self.y_lim[1] - self.y_lim[0]) * density) # the total number of fruit 
+            d_y     = 1 / density                               # in m, the distance between each fruit
+
+            # print('d_y for this line of fruit:', d_y, 'so the total distance they take up:', d_y*n_fruit)
+            # print('while the travel distance is', (self.y_lim[1] - self.y_lim[0]))
+
+            [numFruit, sortedFruit] = fruitD.columnUniform_melon(n_fruit, d_y, z_coord)
+
         else: 
             print('not a correct fruit distribution, defaulting to uniform random')
             if set_algorithm == 1:
@@ -121,7 +134,10 @@ class IG_single_run(object):
             else:
                 [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
 
+        # print('Number of fruit:', numFruit)
+
         return([numFruit, sortedFruit])
+
 
 
     # def setTravel_l(self, set_algorithm, set_distribution, vehicle_l):
@@ -339,7 +355,7 @@ class IG_single_run(object):
 
             # init/reset IG scheduler module for this snapshot 
             if self.set_algorithm == 1:
-                sched = IG_melon_scheduling(self.q_vy, self.v_vy, self.Td, self.v_max, self.a_max, self.n_arm, self.n_row, self.cell_l, self.x_lim, snapshot_y_lim, self.z_lim, self.vehicle_l, self.travel_l, self.horizon_l)
+                sched = IG_melon_scheduling(self.q_vy, self.v_vy, self.Td, self.v_max, self.a_max, self.n_arm, self.n_row, self.cell_l, self.cell_h, self.x_lim, snapshot_y_lim, self.z_lim, self.vehicle_l, self.travel_l, self.horizon_l)
             else:
                 sched = IG_scheduling(self.q_vy, self.v_vy, self.v_max, self.a_max, self.n_arm, self.n_row, self.cell_l, self.x_lim, snapshot_y_lim, self.z_lim, self.vehicle_l, self.travel_l, self.horizon_l)
             
@@ -407,7 +423,8 @@ class IG_single_run(object):
             results.printSettings()
 
         [realFPE, realFPT] = results.realFPEandFPT(self.sortedFruit, self.y_lim, self.v_vy)
-        results.avgFPTandFPE()
+        [avgFPE, avgFPT] = results.avgFPTandFPE()
+        # print('incorrect FPT:', realFPT, 'correct:', avgFPT)
         # results.avgPCT()
         # print()
         # results.plotValuesOverDistance()
@@ -417,4 +434,5 @@ class IG_single_run(object):
             snapshot_schedules_2_plot = range(n_snapshots)  
             results.plot2DSchedule(snapshot_schedules_2_plot)
 
-        return([realFPE, realFPT])
+        # return([realFPE, realFPT])
+        return([avgFPE, avgFPT])

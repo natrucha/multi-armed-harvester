@@ -269,7 +269,7 @@ class fruitDistribution(object):
         return([numFruit, sortedFruit])
 
     
-    def column_melon(self, n_fruit, d_y, z_coord):
+    def columnUniform_melon(self, n_fruit, d_y, z_coord):
         '''
             Fruit distribution for testing. Fruit are set in a line at z-height every y_dist of distance.
         '''
@@ -279,7 +279,7 @@ class fruitDistribution(object):
         y_stop = (n_fruit-1)*d_y # -1 added since the first fruit starts at 0.0
 
         y = np.linspace(0, y_stop, num=n_fruit, endpoint=True)
-        print('fruit y-coordinates:', y)
+        # print('fruit y-coordinates:', y)
 
         sortedFruit = self.sortNstack(x, y, z)
 
