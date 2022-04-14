@@ -224,7 +224,8 @@ def main():
     # 3     == multiple densities separated by some space (only melon for now)
     # 4     == fruit in vertical columns
     # 5     == fruit in a line with uniform distance between fruit
-    set_distribution = 5
+    # 6     == fruit randomly placed in a line along the y-axis
+    set_distribution = 6
 
     n_fruit = int(args[1])  # total number of fruits in the orchard row (assuming total knowledge of fruits in row)
 
@@ -262,7 +263,7 @@ def main():
     elif set_distribution == 3:
         travel_l  = 30 + vehicle_l # in m
 
-    elif set_distribution == 5:
+    elif set_distribution == 5 or set_distribution == 6:
         dy = math.floor(n_fruit / density) # in m, the distance needed to have the right density and right number of fruit
         travel_l  = dy + vehicle_l # in m
 
