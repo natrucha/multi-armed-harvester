@@ -25,6 +25,7 @@ class IG_single_run(object):
         # 3     == multiple densities (only melon for now)
         # 4     == fruit in vertical columns
         # 5     == fruit in a line with given uniform distance between fruit
+        # 6     == fruit randomly placed in a line along the y-axis
         self.set_distribution = set_distribution
 
         ## set if data_analysis will print out results
@@ -126,6 +127,12 @@ class IG_single_run(object):
             # print('while the travel distance is', (self.y_lim[1] - self.y_lim[0]))
 
             [numFruit, sortedFruit] = fruitD.columnUniform_melon(n_fruit, d_y, z_coord)
+
+        elif set_distribution == 6:
+            z_coord = self.cell_h / 2                           # in m, for now, just sits at the middle of the first cell
+            n_fruit = math.floor((self.y_lim[1] - self.y_lim[0]) * density) # the total number of fruit 
+
+            [numFruit, sortedFruit] = fruitD.columnRandom_melon(n_fruit, y_seed, z_coord)
 
         else: 
             print('not a correct fruit distribution, defaulting to uniform random')
