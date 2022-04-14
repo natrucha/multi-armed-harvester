@@ -269,9 +269,11 @@ class fruitDistribution(object):
         return([numFruit, sortedFruit])
 
     
+
     def columnUniform_melon(self, n_fruit, d_y, z_coord):
         '''
-            Fruit distribution for testing. Fruit are set in a line at z-height every y_dist of distance.
+            Fruit distribution for testing. n_fruit number of fruits are set in a line at z-height every y_dist 
+            of distance. Assumes knowledge of the whole orchard row.
         '''
         x = np.ones(n_fruit)
         z = np.ones(n_fruit) * z_coord 
@@ -284,6 +286,25 @@ class fruitDistribution(object):
         sortedFruit = self.sortNstack(x, y, z)
 
         self.y_lim[1] = n_fruit * d_y
+
+        # return numFruit and the sortedFruit
+        return([n_fruit, sortedFruit])
+
+
+
+    def columnRandom_melon(self, n_fruit, y_seed, z_coord):
+        '''
+            Fruit distribution for testing. n_fruit number of fruits are set in a line at z-height randomly 
+            placed along the y-axis. Assumes knowledge of the whole orchard row.
+        '''
+        x = np.ones(n_fruit)
+        z = np.ones(n_fruit) * z_coord 
+
+        y = np.random.default_rng(y_seed).uniform(self.y_lim[0], self.y_lim[1], n_fruit)
+
+        # print('fruit y-coordinates:', y)
+
+        sortedFruit = self.sortNstack(x, y, z)
 
         # return numFruit and the sortedFruit
         return([n_fruit, sortedFruit])
