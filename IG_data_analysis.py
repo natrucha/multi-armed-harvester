@@ -203,7 +203,7 @@ class IG_data_analysis(object):
 
     def avgFPTandFPE(self):
         '''Takes the various snapshots and combines their FPT and FPE values to get overall average FPT and FPE'''
-        avg_FPE = np.average(self.FPE)
+        avg_FPE = np.average(self.FPE)*100
         avg_FPT = np.average(self.FPT)
         # calculate the "real FPT" value from individual FPT results
         # sum_FPT = np.sum(self.FPT)
@@ -214,7 +214,7 @@ class IG_data_analysis(object):
             print()
 
             print('Based on known pickable fruit by system:')
-            print("Average final FPE {0:.2f}".format(avg_FPE*100), "%")
+            print("Average final FPE {0:.2f}".format(avg_FPE), "%")
             print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
             print('--------------------------------------------------------')
             print()
@@ -222,6 +222,8 @@ class IG_data_analysis(object):
             # print('Sum of FPT values {0:.2f}'.format(sum_FPT), 'fruit/s, and number of times the vehicle length fits in the orchard row:', orchard_veh)
             # print('divide the two to get the REAL FPT: {0:.2f}'.format(sum_FPT/orchard_veh), 'fruit/s')
             # print()
+
+        return([avg_FPE, avg_FPT])
 
 
     def realFPEandFPT(self, real_sortedFruit, y_lim, v_vy):
