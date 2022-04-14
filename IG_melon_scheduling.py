@@ -16,7 +16,7 @@ from trajectory import *          # import the trajectory time calc (bang-bang)
 
 
 class IG_melon_scheduling(object):
-    def __init__(self, q_vy, v_vy, Td, v_max, a_max, n_arm, n_row, cell_l, x_lim, y_lim, z_lim, vehicle_l, travel_l, horizon_l):
+    def __init__(self, q_vy, v_vy, Td, v_max, a_max, n_arm, n_row, cell_l, cell_h, x_lim, y_lim, z_lim, vehicle_l, travel_l, horizon_l):
 
         '''
             Interval graph scheduling algorithm for automated orchard fruit picking based on automated 
@@ -30,6 +30,7 @@ class IG_melon_scheduling(object):
         self.x_lim = x_lim
         self.y_lim = y_lim
         self.z_lim = z_lim
+        # print('orchard row start and end within scheduling:', self.y_lim)
 
         # for the fruit distribution, want to keep it the same for these tests
         # x_seed = PCG64(37428395352013185889194479428694397783)
@@ -38,7 +39,7 @@ class IG_melon_scheduling(object):
 
         ### robot constants
         self.n_arm  = n_arm    # K in melon paper
-        self.n_row = n_row   # keeping it simple for now
+        self.n_row  = n_row    # keeping it simple for now
         self.total_arms = self.n_arm*self.n_row
 
         self.n_fruit_row = np.zeros([n_row]) # for now, this is the number of horizonatal rows
@@ -57,7 +58,8 @@ class IG_melon_scheduling(object):
         self.Td = Td          # in s, fruit handling time
 
         # cell width/height (perpendicular to movement) and length (parallel to movement)
-        self.cell_h = (self.z_lim[1] - self.z_lim[0]) / self.n_row  # w in paper, not true once we know dimensions
+        self.cell_h = cell_h
+        # self.cell_h = (self.z_lim[1] - self.z_lim[0]) / self.n_row  # w in paper, not true once we know dimensions
         self.cell_l = cell_l                  # length of individual arm cell 
 
         self.vehicle_l = vehicle_l  # in m, the length (in y) of the vehicle
@@ -239,15 +241,21 @@ class IG_melon_scheduling(object):
                 
             ## calculate pool/horizontal, n, row value by comparing zi vs cell height 
             n = math.floor(self.sortedFruit[2,index] / self.cell_h)
-        #     print(n)
+            # print('potential row number:', n)
 
             # fruit could be located higher than the arms can go... 
             # if n < self.n_row:
             #     self.n_fruit_row[n] += 1
             if n > self.n_row:
-                print('ERROR: fruit higher than available rows')
+                print('ERROR: fruit higher than available rows') # needs to do something else?
 
-            self.n_fruit_row[n] += 1
+            # if n_row == 1, then n = 0,1 can still work even though it should not
+            if self.n_row > 1:
+                self.n_fruit_row[n] += 1
+
+            elif self.n_row == 1 and (n+1) == 1:
+                # print('adding fruit in row number:', n, '(should only be n=0')
+                self.n_fruit_row += 1
             # print('n_fruit_row')
             # print(self.n_fruit_row)
             # print()
@@ -260,7 +268,13 @@ class IG_melon_scheduling(object):
             end_y_i   = start_y_i + self.v_vy * self.Td
 
             if self.sortedFruit[4,index] < 1:
-                self.edge_list.append([start_y_i, end_y_i])
+                if self.n_row > 1:
+                    self.edge_list[n].append([index, start_y_i, end_y_i])
+
+                elif self.n_row == 1 and (n+1) == 1:
+                    # only append edges within the row's limits (if n_row == 1, it can get confused 
+                    # when n=1 which is row number 2)
+                    self.edge_list.append([index, start_y_i, end_y_i])
 
 
     def chooseArm4Fruit(self):
@@ -270,110 +284,131 @@ class IG_melon_scheduling(object):
         t  = np.zeros([self.n_row, self.n_arm, self.numFruit+1]) # t of arm k when *finished picking* (Tm+Td) fruit i
 
         # save Tm values for state % plot
-        self.Tm_values = list()
-
-        fruit_picked_by = list()
+        # self.Tm_values = list()
+        # fruit_picked_by = list()
 
         last_i = np.ndarray([self.n_row, self.n_arm], dtype=object)      # previously picked fruit's node which provides information 
         self.curr_j = np.ndarray([self.n_row, self.n_arm], dtype=object) # current j value of the fruit picked by arm k
-    
+
+        unpicked_fruit = 0   # count how many fruit were missed
 
         for n in range(self.n_row):
-            if self.n_row > 1:
-                self.Tm_values.append([])
-                fruit_picked_by.append([])
-            
+            # print('row number:', n)
+            # if self.n_row > 1:
+                # self.Tm_values.append([])
+                # fruit_picked_by.append([])
             for k in range(self.n_arm):
-                if self.n_row > 1:
-                    self.Tm_values[n].append([])
-                else:
-                    self.Tm_values.append([])
-                fruit_picked_by.append([])
+                # if self.n_row > 1:
+                #     self.Tm_values[n].append([])
+                # elif self.n_row == 1:
+                #     self.Tm_values.append([])
+                # fruit_picked_by.append([])
         #         print('should be 0, 1, 2, ...., total arms:', k+(n*3))
                 real_index = k + (n*self.n_arm)
                 # saves the fruit id of the fruit last picked by the kth arm in pool n
                 last_i[n,k] = self.node_array[real_index]
                 # saves the current number of picked fruit by the kth arm in pool n
-                self.curr_j[0,k] = self.node_array[real_index].j
+                self.curr_j[n,k] = self.node_array[real_index].j
+       
+        for n in range(self.n_row):
+            if self.n_row > 1:
+                # edge_list is not flat and has to be divided by row
+                row_edges = self.edge_list[n]
+                # row_n     = n
+            elif self.n_row == 1:
+                # edge_list is flat and cannot be divided
+                row_edges = self.edge_list
+                # row_n     = 0
 
-        for i, e in enumerate(self.edge_list):
-            # save picking interval start and end locations 
-            start_pick = e[0]
-            end_pick   = e[1]
+            # for i, e in enumerate(row_edges):
+            for e in row_edges:
+                i = e[0]
+                # save picking interval start and end locations 
+                # print('edge:', e, 'fruit index', i)
 
-            # careful with reference, the return should actually be ((u,v), begin, end)
-            # https://dynetworkx.readthedocs.io/en/latest/reference/classes/generated/dynetworkx.IntervalGraph.edges.html#dynetworkx.IntervalGraph.edges              
-            n_interval = self.IG.edges(begin=start_pick, end=end_pick) # check if there are edges that lie between the new edges?
-            # print('number of intervals that fall within the current calculated edges',len(n_interval))
+                # if self.node_array[i+self.total_arms].n == n:
+                #     print('this fruit', i, 'can be picked by arm', k, 'in row', n)
 
-            min_U_star  = [0,0,0,0]
-            k_star      = 0
-            max_compare = 100000
+                start_pick = e[1]
+                end_pick   = e[2]
 
-            if len(n_interval) < self.n_arm:
-                # add to the subgraph and calculate time to pick and unpicking edges, U, for every arm
-                for k in range(self.n_arm):
-                    # while there is only one row, row_n = 0
-                    #### NOTE: my arms start at the back and are indexed 0
-                    t_ijk = max(last_i[0,k].t + self.Td, (self.sortedFruit[1,i] + k*self.cell_l)/self.v_vy)
+                # careful with reference, the return should actually be ((u,v), begin, end)
+                # https://dynetworkx.readthedocs.io/en/latest/reference/classes/generated/dynetworkx.IntervalGraph.edges.html#dynetworkx.IntervalGraph.edges              
+                n_interval = self.IG.edges(begin=start_pick, end=end_pick) # check if there are edges that lie between the new edges?
+                # print('number of intervals that fall within the current calculated edges',len(n_interval))
 
-                    U_edge_start = e[0]
-                    U_edge_end   = self.v_vy * (self.Td + t_ijk) - (k+1)*self.cell_l
+                min_U_star  = [0,0,0,0]
+                k_star      = 0
+                max_compare = 100000
 
-                    # if i == 1 or i == 2 or i == 3:
-                    #     print('for fruit:', i, 'and arm:',k)
-                    #     print('Edges to be added:', U_edge_start, U_edge_end)
+                if len(n_interval) < self.n_arm * (n+1): # when there are multiple rows, need to increase total number of available arms
+                    # add to the subgraph and calculate time to pick and unpicking edges, U, for every arm
+                    for k in range(self.n_arm):
+                        # while there is only one row, row_n = 0
+                        #### NOTE: my arms start at the back and are indexed 0
+                        t_ijk = max(last_i[n,k].t + self.Td, (self.sortedFruit[1,i] + k*self.cell_l)/self.v_vy)
 
-                    # comparing end edge is taking into account too many decimal places, get rid of some decimal places
-                    edge_to_compare = math.ceil(U_edge_end * 1000) # in mm
+                        U_edge_start = start_pick
+                        U_edge_end   = self.v_vy * (self.Td + t_ijk) - (k+1)*self.cell_l
 
-                    # check if the arm is busy at these intervals
-                    # is_busy = self.IG.edges(v=last_i[0,k,i], begin=U_edge_start, end=U_edge_end)
-                    # print('is arm', k, 'busy during fruit', i, 'picking interval?', is_busy)
+                        # if k == (self.n_arm-1):
+                        #     print('for fruit:', i, 'and arm:',k)
+                        #     print('Edges to be added:', U_edge_start, U_edge_end)
 
-                    if U_edge_start < U_edge_end:
-                        # go through the possible edges and find the one with the leftmost right end of the intervals
-                        if max_compare > edge_to_compare: # if want to start k=0 at back, just allow >= (sends it to later k valuess)
+                        # comparing end edge is taking into account too many decimal places, get rid of some decimal places
+                        edge_to_compare = math.ceil(U_edge_end * 1000) # in mm
 
-                            # the current edge is smaller than the previously calculated edge, so new desirable edge
-                            min_U_star = [last_i[0,k], self.node_array[i+self.total_arms], U_edge_start, U_edge_end]
-                            k_star     = k  
-                            t_star     = t_ijk
+                        # check if the arm is busy at these intervals
+                        # if k == (self.n_arm-1):
+                        #     is_busy = self.IG.edges(v=last_i[n,k], begin=U_edge_start, end=U_edge_end)
+                        #     print('is arm', k, 'busy during fruit', i, 'picking interval?', is_busy)
+                        #     print()
 
-                            max_compare = math.ceil(U_edge_end * 1000)
-                            # t_start    = t[0,k,i]
-                            # self.IG.add_edge(last_i[0,k,i], self.node_array[i+self.total_arms], U_edge_start, U_edge_end)
+                        if U_edge_start < U_edge_end:
+                            # go through the possible edges and find the one with the leftmost right end of the intervals
+                            if max_compare > edge_to_compare: # if want to start k=0 at back, just allow >= (sends it to later k valuess)
 
-                try:
-                    # add the interval with the leftmost right end of the intervals
-                    self.IG.add_edge(min_U_star[0], min_U_star[1], min_U_star[2], min_U_star[3])
+                                # the current edge is smaller than the previously calculated edge, so new desirable edge
+                                min_U_star = [last_i[n,k], self.node_array[i+self.total_arms], U_edge_start, U_edge_end]
+                                k_star     = k  
+                                t_star     = t_ijk
 
-                    # save the correct t_ijk value for this arm
-                    t[0,k_star,i] = t_star
+                                max_compare = math.ceil(U_edge_end * 1000)
+                                # t_start    = t[0,k,i]
+                                # self.IG.add_edge(last_i[0,k,i], self.node_array[i+self.total_arms], U_edge_start, U_edge_end)
 
-                    # update the node
-                    self.node_array[i+self.total_arms].t = t_star
-                    self.node_array[i+self.total_arms].j = self.curr_j[0,k_star] + 1
-                    self.node_array[i+self.total_arms].k = k_star
+                    try:
+                        # add the interval with the leftmost right end of the intervals
+                        self.IG.add_edge(min_U_star[0], min_U_star[1], min_U_star[2], min_U_star[3])
 
-                    # finish updating all the saved prev node data
-                    self.curr_j[0,k_star] = self.node_array[i+self.total_arms].j # maybe don't need to save this array, just use last_i?
-                    # print()
+                        # save the correct t_ijk value for this arm
+                        t[n,k_star,i] = t_star
 
-                    # update the saved prev node data
-                    last_i[0,k_star] = self.node_array[i+self.total_arms]
+                        # update the node
+                        self.node_array[i+self.total_arms].t = t_star
+                        self.node_array[i+self.total_arms].j = self.curr_j[n,k_star] + 1
+                        self.node_array[i+self.total_arms].k = k_star
 
-                    # save the Tm value for state plot
-                    # self.Tm_values[n][k].append(Tm)
+                        # finish updating all the saved prev node data
+                        self.curr_j[n,k_star] = self.node_array[i+self.total_arms].j # maybe don't need to save this array, just use last_i?
+                        # print()
 
-                    # save that this fruit was picked by this arm
-                    fruit_picked_by[k_star].append(i)
+                        # update the saved prev node data
+                        last_i[n,k_star] = self.node_array[i+self.total_arms]
 
-                except UnboundLocalError:
-                    print('fruit', i, 'not picked by any arm')
+                        # save the Tm value for state plot
+                        # self.Tm_values[n][k].append(Tm)
+
+                        # save that this fruit was picked by this arm
+                        # fruit_picked_by[k_star].append(i)
+
+                    except UnboundLocalError:
+                        unpicked_fruit += 1
 
         # print('fruit picked by:')
         # print(fruit_picked_by)
+
+        # print('number of potentially unpicked fruit:', unpicked_fruit)
 
         # print('time each arm picked fruit:')
         # print(t)
@@ -434,15 +469,21 @@ class IG_melon_scheduling(object):
             if self.n_row > 1:
                 self.fruit_picked_by.append([])
             for k in range(self.n_arm+1):
-                self.fruit_picked_by.append([])
-                # self.fruit_picked_by[n].append([])
+
+                if self.n_row > 1:
+                    self.fruit_picked_by[n].append([])
+                
+                else:
+                    self.fruit_picked_by.append([])
 
         for i in range(self.total_arms, self.numFruit+self.total_arms):
-        #     print('row number:', node_array[i].n, 'arm number:', node_array[i].k)
-            self.fruit_picked_by[self.node_array[i].k].append(self.node_array[i].i)
-            # self.fruit_picked_by[self.node_array[i].n][self.node_array[i].k].append(self.node_array[i].i)
+            # print('row number:', node_array[i].n, 'arm number:', node_array[i].k)
+            if self.n_row > 1:
+                self.fruit_picked_by[self.node_array[i].n][self.node_array[i].k].append(self.node_array[i].i)
+            
+            else:
+                self.fruit_picked_by[self.node_array[i].k].append(self.node_array[i].i)
 
-        # print(fruit_picked_by)
         return(self.fruit_picked_by)
 
 
@@ -515,6 +556,7 @@ class IG_melon_scheduling(object):
                 # save the total time for this run to get total percent later
                 self.state_time[tot_arm_index,6] = total_time
 
+            # print('state time, check why 7 indexes', self.state_time)
             # print()
 
     
