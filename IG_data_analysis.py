@@ -280,8 +280,8 @@ class IG_data_analysis(object):
 
         # used to indicate horizontal row
         line_type = ['--', '-.', '-', (0, (1, 1)), (0, (3, 1, 1, 1, 1, 1)), (0, (5, 10))]
-        # used to indicate arm number
-        color     = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink']
+        # used to indicate arm number, see https://matplotlib.org/stable/gallery/color/named_colors.html
+        color     = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink', 'sienna', 'deepskyblue', 'teal', 'tomato', 'slategrey']
 
         if self.n_row > 1:
             for snapshot_i in snapshot_list:
