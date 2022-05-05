@@ -116,6 +116,106 @@ class fruitDistribution(object):
         return([numFruit, sortedFruit])        
 
 
+
+    def csvFile_reduced(self, file_name, is_meter, desired_density, x_seed):
+        '''
+            Import fruit coordinates from given CSV file, where each fruit is a row, columns are x, y, z
+            coordinates. The average density in Raj's file is around 48 fruit/m^2.
+
+            file_name has to be string with '...' 
+
+            is_meter = 0 means ft, 1 is meter (other values for other measurements?).
+
+            desired_density is the total desnity that should be returned. Reducetion is done by uniform 
+            randomly choosing indexes and removing them from the list of fruit.
+
+            x_seed is a seed used to remove fruits randomly, but with a known seed. 
+        '''
+        x_list = list()
+        y_list = list()
+        z_list = list()
+
+        numFruit = 0
+
+        with open(file_name) as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+            for row in reader:
+                # need to check that x, y, z, coordinates match my definition of x, y, z -> apples 2015 do
+                x_list.append(row[0])
+                y_list.append(row[1])
+                z_list.append(row[2])
+
+                numFruit += 1
+
+        # convert list to array
+        x = np.array(x_list)
+        y = np.array(y_list)
+        z = np.array(z_list) 
+
+        # in Raj's data set, the average denisty is around 48 fruit/m^2
+        Raj_density = 48
+
+        # if we want the final density to be 20 fruit/m^2, that's 42% of the density, so we want to remove 1-20/48 
+        percent_2_remove = 1 - desired_density/Raj_density
+        # print('percent of fruit to remove', percent_2_remove, 'out of total', numFruit, 'fruit')
+        # print()
+        total_2_remove  = math.floor(numFruit * percent_2_remove)
+        # print('total fruit to remove', total_2_remove)
+        # print()
+
+        for remove in range(total_2_remove):
+            # tried making an array of random integers to remove, but not all of them were unique
+            index_2_remove = np.random.default_rng(x_seed).uniform(0, len(x)-1, 1)
+            i2r = np.asarray(index_2_remove, dtype = int)
+            x = np.delete(x, i2r)
+            y = np.delete(y, i2r)
+            z = np.delete(z, i2r)
+
+        # if (numFruit - total_2_remove) == len(x):
+        #     # check if the number of fruit in the array is correct
+        #     print('got the correct number of fruit')
+
+
+        if is_meter == 0:
+            # if is_meter is zero, convert from feet to meters
+            x = x * 0.3048
+            y = y * 0.3048
+            z = z * 0.3048
+
+        # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
+        # something like 0.2 m away in the x-direction
+        x_translate = np.amin(x) # in m
+        # print('x smallest value, in m', x_translate)
+        x = x - x_translate + 0.2
+        # something like 0 m long in the y-direction
+        y_translate = np.amin(y)
+        y = y - y_translate
+        # something like 0 m high in the z-direction
+        z_translate = np.amin(z)
+        z = z - z_translate
+
+        # remove any fruit that is outside of the robot's max limits
+        index_out_of_x_bounds = np.where(x >= self.x_lim[1])
+        index_out_of_y_bounds = np.where(y >= self.y_lim[1])
+        index_out_of_z_bounds = np.where(z >= self.z_lim[1])
+        # print('out of z bounds (before):')
+        # print(index_out_of_z_bounds[0])
+
+        out_of_bounds = np.concatenate((index_out_of_x_bounds[0], index_out_of_y_bounds[0], index_out_of_z_bounds[0]), axis=None)
+        u = np.unique(out_of_bounds) # make sure there are no dulplicates, see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
+        # print('indexes to be deleted:',u, 'with size', len(u))
+        x = np.delete(x, u)
+        y = np.delete(y, u)
+        z = np.delete(z, u)
+
+        numFruit = len(x) # reset numFruit because there have been two deletions, one to get the correct density and one to keep them within limits
+
+        sortedFruit = self.sortNstack(x, y, z)
+
+        return([numFruit, sortedFruit]) 
+
+
+
     def uniformRandom(self, density, x_seed, y_seed, z_seed):
         '''
            Fruit distribution set uniform random along total x, y, and z given x, y, and z limits, seeds, 
