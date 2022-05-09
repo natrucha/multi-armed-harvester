@@ -18,7 +18,7 @@ from IG_data_analysis import *     # import module to analyze the data from the 
 # https://gurobi.github.io/modeling-examples/technician_routing_scheduling/technician_routing_scheduling.html
 
 class MIP_melon(object):
-    def __init__(self, n_arm, n_row, set_MIPsettings, v_vy_fruit_cmps):
+    def __init__(self, n_arm, n_row, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, horizon_l):
 
         '''
             Mixed integer programming model based on the MIP model in the melon combinatorial scheduling paper. 
@@ -33,22 +33,22 @@ class MIP_melon(object):
         ## settings
         self.Td    = 2.      # fruit handling time
         self.M     = 80     # arbitrarily large number, set 600 from paper    
-        q_vy       = 0.      # in m, backmost, lowest coordinate of the vehicle
+        self.q_vy  = 0.      # in m, backmost, lowest coordinate of the vehicle
 
         # v_max      = 0.5
         # a_max      = 1.
         # t_grab     = 0.1 
 
-        self.n_row      = n_arm       # total number of horizontal rows with cells containg one arm per cell
-        self.n_arm      = n_row      # number of arms in one horizontal row
+        self.n_row      = n_row      # total number of horizontal rows with cells containg one arm per cell
+        self.n_arm      = n_arm      # number of arms in one horizontal row
 
         self.density    = 16       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
         n_fruit         = 80      # in fruit, for melon column distribution
 
         self.FPE_min    = 0.95
 
-        self.cell_l     = 0.3        # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel
-        self.cell_h     = 2. / self.n_row # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
+        self.cell_l     = cell_l     # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel
+        self.cell_h     = cell_h     # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
         self.reach      = 1          # in m, the length that the arm can extend out to pick a fruit
 
         self.noRel_time_ub  = 80     # no relaxation heuristic max time to solve before moving to branch and bound (varies)
@@ -69,36 +69,40 @@ class MIP_melon(object):
         vehicle_h  = self.n_row * self.cell_h
 
         ## for future addition of snapshots
-        horizon_l  = 0.
+        ## SET AT INIT
+        # horizon_l  = 0.
 
         # array to save which arm picked which fruit
         self.curr_j   = np.zeros([self.n_row, self.n_arm])
 
-        ## set fruit distribution flag
-        # 0     == Raj's digitized fruits
-        # 1     == uniform random  (if algorithm == 1, use melon version)
-        # 2     == uniform random, equal cell density
-        # 3     == multiple densities separated by some space (only melon for now)
-        # 4     == fruit in vertical columns
-        # 5     == "melon" version of columns (user inputs desired no. fruits, z height, and distance between fruit in y-coord)
-        # 6     == Raj's digitized fruits, but which can reduce the density to a desired density
-        set_distribution = 6
 
-        ## set algorithm being used 
-        # 1     == melon
-        # not 1 == not melon
-        set_algorithm    = 1
+        ## SET AT INIT
 
-        ## set MIP model settings
-        # 0     == basic MIP model from the melon paper with arms not sharing space
-        # 1     == basic MIP model with velocity as a variable
-        # 2     == makespan MIP (have seperate code, don't use this until proven the same as the other)
-        # set_MIPsettings = set_MIPsettings ## SET AT FUNCTION CREATION
+        # ## set fruit distribution flag
+        # # 0     == Raj's digitized fruits
+        # # 1     == uniform random  (if algorithm == 1, use melon version)
+        # # 2     == uniform random, equal cell density
+        # # 3     == multiple densities separated by some space (only melon for now)
+        # # 4     == fruit in vertical columns
+        # # 5     == "melon" version of columns (user inputs desired no. fruits, z height, and distance between fruit in y-coord)
+        # # 6     == Raj's digitized fruits, but which can reduce the density to a desired density
+        # set_distribution = 6
 
-        ## set how z-coord edges are calculated
-        # 0     == edges are divided equally along orchard height
-        # 1     == edges are divided so each row has equal number of fruit (or close to equal)
-        set_edges = 1
+        # ## set algorithm being used 
+        # # 1     == melon
+        # # not 1 == not melon
+        # set_algorithm    = 1
+
+        # ## set MIP model settings
+        # # 0     == basic MIP model from the melon paper with arms not sharing space
+        # # 1     == basic MIP model with velocity as a variable
+        # # 2     == makespan MIP (have seperate code, don't use this until proven the same as the other)
+        # # set_MIPsettings = set_MIPsettings ## SET AT FUNCTION CREATION
+
+        # ## set how z-coord edges are calculated
+        # # 0     == edges are divided equally along orchard height
+        # # 1     == edges are divided so each row has equal number of fruit (or close to equal)
+        # set_edges = 1
 
         n_snapshots = 1 # for now a constant
 
@@ -115,12 +119,12 @@ class MIP_melon(object):
         
         self.calcTravel_l(set_distribution, vehicle_l, v_vy_fruit_cmps, n_fruit)
             
-        x_lim   = [0.2, 1.2]
-        y_lim   = [0. , self.travel_l - vehicle_l]
-        z_lim   = [0., vehicle_h] 
+        x_lim        = [0.2, 1.2]
+        self.y_lim   = [0. , self.travel_l - vehicle_l]
+        z_lim        = [0., vehicle_h] 
 
         # create fruit distribution and get total number of fruits
-        fruitD = fruitDistribution(x_lim, y_lim, z_lim)
+        fruitD = fruitDistribution(x_lim, self.y_lim, z_lim)
         [self.numFruit, self.sortedFruit] = self.createFruit(fruitD, set_algorithm, set_distribution, self.density, x_seed, y_seed, z_seed)
 
         print('Total fruit in the orchard row',self.numFruit)
@@ -530,7 +534,7 @@ class MIP_melon(object):
         return(H_fruit_index[0])
 
 
-    def calcDensity(q_vy, v_vy, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit):
+    def calcDensity(self, q_vy, v_vy, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit):
         '''Get the fruit density, d, of each cell'''
         ## should the columns be based on cell length? number of arms? 
         #  should the columns be the same width? increase/decrease the closer to the front of vehicle?
