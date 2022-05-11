@@ -18,11 +18,13 @@ from IG_data_analysis import *     # import module to analyze the data from the 
 # https://gurobi.github.io/modeling-examples/technician_routing_scheduling/technician_routing_scheduling.html
 
 class MIP_melon(object):
-    def __init__(self, n_arm, n_row, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, horizon_l):
+    def __init__(self, n_arm, n_row, starting_row_n, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim):
 
         '''
             Mixed integer programming model based on the MIP model in the melon combinatorial scheduling paper. 
             Modified to work with a matrix of arms, rather than just a line.
+
+            starting_row_n is the row number at which this MIP run will start, usually set at 0 unless each row is run seperately
         '''
 
         ## Constants 
@@ -41,6 +43,8 @@ class MIP_melon(object):
 
         self.n_row      = n_row      # total number of horizontal rows with cells containg one arm per cell
         self.n_arm      = n_arm      # number of arms in one horizontal row
+
+        self.starting_row_n = starting_row_n # row number at which this MIP run will start, usually set at 0 unless each row is run seperately
 
         self.density    = 16       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
         n_fruit         = 80      # in fruit, for melon column distribution
@@ -66,18 +70,16 @@ class MIP_melon(object):
         # print('velocities being attempted:', v_vy_cmps_try)
 
         vehicle_l  = self.n_arm * self.cell_l
-        vehicle_h  = self.n_row * self.cell_h
+        # vehicle_h  = self.n_row * self.cell_h #### SET AT INIT ####
 
         ## for future addition of snapshots
-        ## SET AT INIT
-        # horizon_l  = 0.
+        # horizon_l  = 0. #### SET AT INIT ####
 
         # array to save which arm picked which fruit
         self.curr_j   = np.zeros([self.n_row, self.n_arm])
 
 
-        ## SET AT INIT
-
+        #### SET AT INIT ####
         # ## set fruit distribution flag
         # # 0     == Raj's digitized fruits
         # # 1     == uniform random  (if algorithm == 1, use melon version)
@@ -108,6 +110,39 @@ class MIP_melon(object):
 
         ## Get fruit list based on desired distribution
         n_runs = 1
+        # seed_list = self.getRNGSeedList(n_runs)
+
+        # for run in range(n_runs):
+        #     # get seeds for x, y, and z RNG (probably unneccessary right now, especially for x)
+        #     seed = [seed_list[run][0], seed_list[run][1], seed_list[run][2]]
+        #     x_seed = PCG64(int(seed[0]))
+        #     y_seed = PCG64(int(seed[1]))
+        #     z_seed = PCG64(int(seed[2]))
+        
+        self.calcTravel_l(set_distribution, vehicle_l, v_vy_fruit_cmps, n_fruit)
+            
+        # x_lim        = [0.2, 1.2]
+        # self.y_lim   = [0. , self.travel_l - vehicle_l]
+        # z_lim        = [0., vehicle_h] 
+
+        self.x_lim   = x_lim
+        self.y_lim   = y_lim
+        self.z_lim   = z_lim
+
+        self.y_lim[1] = self.travel_l - self.y_lim[1] # set all the limits outside the class, just add the correct travel length
+
+        # # create fruit distribution and get total number of fruits
+        # fruitD = fruitDistribution(x_lim, self.y_lim, z_lim)
+        # [self.numFruit, self.sortedFruit] = self.createFruit(fruitD, set_algorithm, set_distribution, self.density, x_seed, y_seed, z_seed)
+
+        # calculate the top and bottom z-coordinates for the horizontal rows
+        # [self.z_row_bot_edges, self.z_row_top_edges] = self.set_zEdges(set_edges, z_lim)   
+        
+
+
+## Functions
+    def buildOrchard(self, n_runs, set_algorithm, set_distribution):
+        '''Creates the simulated environment, separated so that MIP run/row can happen'''
         seed_list = self.getRNGSeedList(n_runs)
 
         for run in range(n_runs):
@@ -115,45 +150,41 @@ class MIP_melon(object):
             seed = [seed_list[run][0], seed_list[run][1], seed_list[run][2]]
             x_seed = PCG64(int(seed[0]))
             y_seed = PCG64(int(seed[1]))
-            z_seed = PCG64(int(seed[2]))
-        
-        self.calcTravel_l(set_distribution, vehicle_l, v_vy_fruit_cmps, n_fruit)
-            
-        x_lim        = [0.2, 1.2]
-        self.y_lim   = [0. , self.travel_l - vehicle_l]
-        z_lim        = [0., vehicle_h] 
+            z_seed = PCG64(int(seed[2])) 
 
         # create fruit distribution and get total number of fruits
-        fruitD = fruitDistribution(x_lim, self.y_lim, z_lim)
+        fruitD = fruitDistribution(self.x_lim, self.y_lim, self.z_lim) # init fruit distribution script
         [self.numFruit, self.sortedFruit] = self.createFruit(fruitD, set_algorithm, set_distribution, self.density, x_seed, y_seed, z_seed)
 
         print('Total fruit in the orchard row',self.numFruit)
         print()
         print('length of sortedFruit', len(self.sortedFruit[0]))
+        print()
         # print('List of the x, y, and z coordinates of the sorted fruit')
         # print(sortedFruit)
 
-        # calculate the top and bottom z-coordinates for the horizontal rows
-        [self.z_row_bot_edges, self.z_row_top_edges] = self.set_zEdges(set_edges, z_lim)   
-        print('bottom z-axis edges', self.z_row_bot_edges)
-        print()
-        print('top z-axis edges', self.z_row_top_edges)
-        print()
 
 
-## Functions
     def createArms(self):
         '''Create and populate all the arms' classes then put in appropriate list'''
         ## create arm object list
         arm = list()
 
-        for r in range(self.n_row):
+        if self.starting_row_n + 1 > self.n_row:
+            row_n = self.starting_row_n + 1
+        else:
+            row_n = self.n_row
+
+        # print('the starting row number is', self.starting_row_n, 'and the ending is', row_n)
+
+        for r in range(self.starting_row_n, row_n):
+            # print('row number', r)
         # for r in range(1, n_row+1):
             for k in range(self.n_arm):
         #     for k in range(1, n_arm+1):
                 this_arm = Arm(r, k)
                 arm.append(this_arm)
-
+        # print()
         return(arm)
 
 
@@ -182,11 +213,21 @@ class MIP_melon(object):
 
         for k in arm:
             for i in fruit:  
+                # if self.starting_row_n >= self.n_row or self.n_row == 1:
+                #     # check if the mip is being divided by row
+                #     n_row = self.starting_row_n
+                #     if (i.z_coord > self.z_row_bot_edges[0,n_row] and i.z_coord < self.z_row_top_edges[0,n_row]):
+                #         # only create the job if the fruit's location is within the row's limits
+                #         this_job = Job(i, k, v_vy_curr, cell_l)
+                #         job.append(this_job)
+                #         # print('for arm', this_job.arm_k.arm_n, 'and fruit', this_job.fruit_i.index)
+                #         # print('TW starts at', this_job.TW_start, 'and TW ends at', this_job.TW_end)
+
+                # else:
                 this_job = Job(i, k, v_vy_curr, cell_l)
-        #         
-    #             print('for arm', this_job.arm_k.arm_n, 'and fruit', this_job.fruit_i.index)
-    #             print('TW starts at', this_job.TW_start, 'and TW ends at', this_job.TW_end)
                 job.append(this_job)
+                # print('for arm', this_job.arm_k.arm_n, 'in row', this_job.arm_k.row_n,'and fruit', this_job.fruit_i.index)
+                # print('TW starts at', this_job.TW_start, 'and TW ends at', this_job.TW_end)  
 
         return(job)
 
@@ -194,23 +235,34 @@ class MIP_melon(object):
     def solve_melon_mip(self, arm, fruit, v_vy_curr, set_MIPsettings):
         ## Build useful data structures
         # lists:
-        K = [*range(self.n_arm)]      # list of arm/cell numbers
-        L = [*range(self.n_row)]             # list of horizontal row numbers, uses the argument-unpacking operator *
+        K = [*range(self.n_arm)]        # list of arms in each horizontal row
+        L = [*range(self.n_row)]        # list of horizontal row numbers, uses the argument-unpacking operator *
+
+        # if self.starting_row_n >= self.n_row or self.n_row == 1:
+        #     # check if the mip is being divided by row
+        #     n_row = self.starting_row_n
+        #     print('edges to be compared against', self.z_row_bot_edges[0,n_row], self.z_row_top_edges[0,n_row])
+
+        #     # only add the fruit and coordinates if the fruit's location is within the row's limits
+        #     N = [i.index for i in fruit if (i.z_coord > self.z_row_bot_edges[0,n_row] and i.z_coord < self.z_row_top_edges[0,n_row])]    # list of fruit indexes
+        #     Y = [i.y_coord for i in fruit if (i.z_coord > self.z_row_bot_edges[0,n_row] and i.z_coord < self.z_row_top_edges[0,n_row])]  # list of fruits' y-coordinate (x-coordinate in the paper)
+        #     Z = [i.z_coord for i in fruit if (i.z_coord > self.z_row_bot_edges[0,n_row] and i.z_coord < self.z_row_top_edges[0,n_row])]  # list of fruits' z-coordinate
+        # else:
         N = [i.index for i in fruit]    # list of fruit indexes
         Y = [i.y_coord for i in fruit]  # list of fruits' y-coordinate (x-coordinate in the paper)
         Z = [i.z_coord for i in fruit]  # list of fruits' z-coordinate
         
-    #     print('number of cells/arms:',K, 'with length', len(K))
-    #     print()
-    #     print('number of horizontal rows:',L, 'with length', len(L))
-    #     print()
-    #     print('number of fruits:',N, 'with length', len(N))
-    #     print()
-    #     print('fruit y-coordinate:', Y, 'with length', len(Y))
-    #     print()
-    #     print('fruit z-coordinate:', Z, 'with length', len(Z))
-    #     print()
-            
+        # print('number of arms in each horizontal row:',K, 'with length', len(K))
+        # print()
+        # print('number of horizontal rows:',L, 'with length', len(L))
+        # print()
+        print('number of fruits:',N, 'with length', len(N))
+        print()
+        # print('fruit y-coordinate:', Y, 'with length', len(Y))
+        # print()
+        # print('fruit z-coordinate:', Z, 'with length', len(Z))
+        # print()
+
         total_fruit = len(N) # needed to constraint FPE to a high picking percentage
 
         self.job = self.createJobs(arm, fruit, v_vy_curr, self.cell_l)
@@ -229,7 +281,15 @@ class MIP_melon(object):
             TW_start = {i : [j.TW_start for j in self.job if j.fruit_i.index == i] for i in N}
             TW_end   = {i : [j.TW_end for j in self.job if j.fruit_i.index == i] for i in N}
 
-        
+        if len(N) != len(Y) or len(N) != len(Z) or len(Y) != len(Z):
+            print('Error: Indexes for fruit index, y, and z-coordinates do not match')
+            print()
+
+        if len(TW_start) != len(TW_end) or len(TW_start) != len(N) or len(self.job) != len(N)*len(K)*len(L):
+            print('Error: The number of fruit and the number of jobs or TW times do not match')
+            print('Number of jobs', len(self.job), 'and number of fruits*arms', len(N)*len(K)*len(L))
+            print()
+
 
         ### Create model
         m = gp.Model("v_vy_loop_mip")
@@ -290,10 +350,15 @@ class MIP_melon(object):
         m.addConstrs((x.sum('*', '*', i) <= 1 for i in N), name="assignOne")
 
         # Time elapsed between pickup of any two fruit reached by the same arm is at least Td (2)
-        m.addConstrs((t[k, l, i] + self.Td- t[k, l, j] <= self.M * (2 - x[k, l, j] - x[k, l, i]) for i in N for j in N for k in K for l in L if Y[j] > Y[i]), name="atLeast")
+        m.addConstrs((t[k, l, i] + self.Td - t[k, l, j] <= self.M * (2 - x[k, l, j] - x[k, l, i]) for i in N for j in N for k in K for l in L if Y[j] > Y[i]), name="atLeast")
         
         # If fruit z-coord is outside of arm's range, do not pick it
-        m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Z[i] < self.z_row_bot_edges[k,l] or Z[i] > self.z_row_top_edges[k,l]), name="verticalWorkArea")
+        if self.starting_row_n >= self.n_row:
+            # if the mip is divided so each row gets a mip run, the row number has to be changed
+            n_row = self.starting_row_n
+            m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Z[i] < self.z_row_bot_edges[k,n_row] or Z[i] > self.z_row_top_edges[k,n_row]), name="verticalWorkArea")
+        else:
+            m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Z[i] < self.z_row_bot_edges[k,l] or Z[i] > self.z_row_top_edges[k,l]), name="verticalWorkArea")
         
         if set_MIPsettings == 0 or set_MIPsettings == 1:
             m.addConstrs((t[k, l, i] <= max(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinA")
@@ -350,7 +415,8 @@ class MIP_melon(object):
         status = m.Status
         if status in [GRB.INF_OR_UNBD, GRB.INFEASIBLE, GRB.UNBOUNDED]:
             print("Model is either infeasible or unbounded.")
-    #         sys.exit(0)
+            print("Exiting simulator.")
+            sys.exit(0)
         elif status != GRB.OPTIMAL:
             print("Optimization terminated with status {}".format(status))
     #         sys.exit(0)
@@ -371,15 +437,20 @@ class MIP_melon(object):
         # Assignments    
     #     print()
         for j in self.job:
-            if x[j.arm_k.arm_n, j.arm_k.row_n, j.fruit_i.index].X > 0:
+            if self.starting_row_n >= self.n_row:
+                n_row = 0
+            else:
+                n_row = j.arm_k.row_n
+
+            if x[j.arm_k.arm_n, n_row, j.fruit_i.index].X > 0:
     #             print('fruit', j.fruit_i.index, 'assigned to arm', j.arm_k.arm_n, 'at t = ', t[j.arm_k.arm_n, j.fruit_i.index].X)
     #             if set_MIPsettings == 1:
     #                 print('with tw start:', aux_min[j.arm_k.arm_n, j.fruit_i.index].X, 'and tw end:', aux_max[j.arm_k.arm_n, j.fruit_i.index].X)
                 # save picked to sortedFruit
                 self.sortedFruit[4, j.fruit_i.index] = 1
-                self.curr_j[j.arm_k.row_n, j.arm_k.arm_n] += 1
+                self.curr_j[n_row, j.arm_k.arm_n] += 1
                 if self.n_row > 1:
-                    fruit_picked_by[j.arm_k.row_n][j.arm_k.arm_n].append(j.fruit_i.index)
+                    fruit_picked_by[n_row][j.arm_k.arm_n].append(j.fruit_i.index)
 
                 else:
                     fruit_picked_by[j.arm_k.arm_n].append(j.fruit_i.index)
@@ -409,8 +480,8 @@ class MIP_melon(object):
     #         for i in N:
     #             print('TW start:', TW_start[i][k], 'TW end:', TW_end[i][k], 'and t^k_i', t[k, i].X)
 
-        print('fruit picked by [0]', fruit_picked_by[0])
-        print('fruit picked by [1]', fruit_picked_by[1])
+        # print('fruit picked by [0]', fruit_picked_by[0])
+        # print('fruit picked by [1]', fruit_picked_by[1])
         
         return(fruit_picked_by)
 
@@ -631,7 +702,7 @@ class MIP_melon(object):
             return(state_time)
     
     
-    def set_zEdges(self, set_edges, z_lim):
+    def set_zEdges(self, set_edges, z_lim, n_row):
         '''
         Calculate the z-coord for each horizontal row, assuming the whole row shares these edges.
         Returns a n_row x n_arm matrix for both the bottom and top edges of each cell. 
@@ -641,7 +712,7 @@ class MIP_melon(object):
         if set_edges == 0: 
             # divided equally by distance along orchard height
             # row bottom edge = n*self.cell_h
-            bottom = np.linspace(0, (self.n_row*self.cell_h - cself.ell_h), self.n_row, endpoint=True)
+            bottom = np.linspace(0, (n_row*self.cell_h - self.cell_h), self.n_row, endpoint=True)
 
             bot_edge = np.tile(bottom, (self.n_arm, 1))
             top_edge = np.copy(bot_edge) + self.cell_h
@@ -653,10 +724,10 @@ class MIP_melon(object):
             # divided by number of fruit
             
             # make zero arrays for top and bottom. Since edges shared along horizontal row, can tile it by n_arm
-            top    = np.zeros(self.n_row)
-            bottom = np.zeros(self.n_row)
+            top    = np.zeros(n_row)
+            bottom = np.zeros(n_row)
             
-            fruit_in_row = math.floor(self.numFruit / self.n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
+            fruit_in_row = math.floor(self.numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
             print('number of fruit in each row, rounded down', fruit_in_row)
             
             # get z-coord array
@@ -665,7 +736,7 @@ class MIP_melon(object):
             z_sorted = np.sort(z_coord)
     #         print('sorted z-coord', z_sorted)
             
-            for row in range(self.n_row-1):
+            for row in range(n_row-1):
                 top[row]      = z_sorted[fruit_in_row*(row+1)]+0.0001
                 bottom[row+1] = z_sorted[fruit_in_row*(row+1)]+0.0001 
                 
@@ -676,8 +747,17 @@ class MIP_melon(object):
             
         else:
             print('Not an edge setting, please try again')
-        
-        return([bot_edge, top_edge])
+            return([0, 0])
+
+        self.z_row_bot_edges = bot_edge
+        self.z_row_top_edges = top_edge
+
+        print('bottom z-axis edges', self.z_row_bot_edges)
+        print()
+        print('top z-axis edges', self.z_row_top_edges)
+        print()
+
+        # return([bot_edge, top_edge])
 
 
 
