@@ -46,7 +46,13 @@ class MIP_melon(object):
 
         self.starting_row_n = starting_row_n # row number at which this MIP run will start, usually set at 0 unless each row is run seperately
 
-        self.density    = 16       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
+        if set_distribution == 1:
+            self.density    = 25.9       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
+        elif set_distribution == 6:
+            self.density    = 16
+        else: 
+            self.density    = 15          # figure this out later
+       
         n_fruit         = 80      # in fruit, for melon column distribution
 
         self.FPE_min    = 0.95
@@ -55,8 +61,8 @@ class MIP_melon(object):
         self.cell_h     = cell_h     # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
         self.reach      = 1          # in m, the length that the arm can extend out to pick a fruit
 
-        self.noRel_time_ub  = 80     # no relaxation heuristic max time to solve before moving to branch and bound (varies)
-        self.timLim_time_ub = 3600/3 # 3600*2
+        self.noRel_time_ub  = 15     # no relaxation heuristic max time to solve before moving to branch and bound (varies)
+        self.timLim_time_ub = 20 # 3600/2
 
         ## set at function creation
         # v_vy_fruit_cmps = 8  # in cm/s, assumed vehicle velocity along orchard row to build line distribution
@@ -109,21 +115,9 @@ class MIP_melon(object):
         n_snapshots = 1 # for now a constant
 
         ## Get fruit list based on desired distribution
-        n_runs = 1
-        # seed_list = self.getRNGSeedList(n_runs)
-
-        # for run in range(n_runs):
-        #     # get seeds for x, y, and z RNG (probably unneccessary right now, especially for x)
-        #     seed = [seed_list[run][0], seed_list[run][1], seed_list[run][2]]
-        #     x_seed = PCG64(int(seed[0]))
-        #     y_seed = PCG64(int(seed[1]))
-        #     z_seed = PCG64(int(seed[2]))
-        
+        n_runs = 1        
         self.calcTravel_l(set_distribution, vehicle_l, v_vy_fruit_cmps, n_fruit)
             
-        # x_lim        = [0.2, 1.2]
-        # self.y_lim   = [0. , self.travel_l - vehicle_l]
-        # z_lim        = [0., vehicle_h] 
 
         self.x_lim   = x_lim
         self.y_lim   = y_lim
@@ -213,17 +207,6 @@ class MIP_melon(object):
 
         for k in arm:
             for i in fruit:  
-                # if self.starting_row_n >= self.n_row or self.n_row == 1:
-                #     # check if the mip is being divided by row
-                #     n_row = self.starting_row_n
-                #     if (i.z_coord > self.z_row_bot_edges[0,n_row] and i.z_coord < self.z_row_top_edges[0,n_row]):
-                #         # only create the job if the fruit's location is within the row's limits
-                #         this_job = Job(i, k, v_vy_curr, cell_l)
-                #         job.append(this_job)
-                #         # print('for arm', this_job.arm_k.arm_n, 'and fruit', this_job.fruit_i.index)
-                #         # print('TW starts at', this_job.TW_start, 'and TW ends at', this_job.TW_end)
-
-                # else:
                 this_job = Job(i, k, v_vy_curr, cell_l)
                 job.append(this_job)
                 # print('for arm', this_job.arm_k.arm_n, 'in row', this_job.arm_k.row_n,'and fruit', this_job.fruit_i.index)
@@ -237,17 +220,6 @@ class MIP_melon(object):
         # lists:
         K = [*range(self.n_arm)]        # list of arms in each horizontal row
         L = [*range(self.n_row)]        # list of horizontal row numbers, uses the argument-unpacking operator *
-
-        # if self.starting_row_n >= self.n_row or self.n_row == 1:
-        #     # check if the mip is being divided by row
-        #     n_row = self.starting_row_n
-        #     print('edges to be compared against', self.z_row_bot_edges[0,n_row], self.z_row_top_edges[0,n_row])
-
-        #     # only add the fruit and coordinates if the fruit's location is within the row's limits
-        #     N = [i.index for i in fruit if (i.z_coord > self.z_row_bot_edges[0,n_row] and i.z_coord < self.z_row_top_edges[0,n_row])]    # list of fruit indexes
-        #     Y = [i.y_coord for i in fruit if (i.z_coord > self.z_row_bot_edges[0,n_row] and i.z_coord < self.z_row_top_edges[0,n_row])]  # list of fruits' y-coordinate (x-coordinate in the paper)
-        #     Z = [i.z_coord for i in fruit if (i.z_coord > self.z_row_bot_edges[0,n_row] and i.z_coord < self.z_row_top_edges[0,n_row])]  # list of fruits' z-coordinate
-        # else:
         N = [i.index for i in fruit]    # list of fruit indexes
         Y = [i.y_coord for i in fruit]  # list of fruits' y-coordinate (x-coordinate in the paper)
         Z = [i.z_coord for i in fruit]  # list of fruits' z-coordinate
@@ -266,16 +238,6 @@ class MIP_melon(object):
         total_fruit = len(N) # needed to constraint FPE to a high picking percentage
 
         self.job = self.createJobs(arm, fruit, v_vy_curr, self.cell_l)
-    #     ## create job object list
-    #     job = list()
-
-    #     for k in arm:
-    #         for i in fruit:  
-    #             this_job = Job(i, k, v_vy_curr, cell_l)
-    #     #         
-    # #             print('for arm', this_job.arm_k.arm_n, 'and fruit', this_job.fruit_i.index)
-    # #             print('TW starts at', this_job.TW_start, 'and TW ends at', this_job.TW_end)
-    #             job.append(this_job)
         
         if set_MIPsettings == 0 or set_MIPsettings == 1:
             TW_start = {i : [j.TW_start for j in self.job if j.fruit_i.index == i] for i in N}
@@ -495,7 +457,7 @@ class MIP_melon(object):
             n_runs    = 1
 
         elif set_distribution == 1:
-            self.travel_l  = 3 + vehicle_l # in m, usually 5 m + length
+            self.travel_l  = 6 + vehicle_l # in m, usually 5 m + length
 
         elif set_distribution == 3:
             self.travel_l  = 30 + vehicle_l # in m
