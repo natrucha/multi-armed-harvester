@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from datetime import datetime
+from scipy.spatial import KDTree
 import sys
 
 # from fruit_distribution import *   # import module to create the various desired fruit distributions 
@@ -13,7 +14,131 @@ from MIP_melon import *            # import module that solves the extended MIP 
 def printScen(scenStr):
     sLen = len(scenStr)
     print("\n" + "*"*sLen + "\n" + scenStr + "\n" + "*"*sLen + "\n")
-    
+
+
+def distCenterline(n_row, z_row_bot_edges, z_row_top_edges, sortedFruit):
+    '''Calculate mean and variance of fruits to centerline of their respective row'''
+    centerline   = np.zeros(n_row)
+    sum_distance = np.zeros(n_row)
+    # where_array_list = list()
+
+    fruit_z = np.copy(sortedFruit[2,:])
+
+    for row in range(n_row):
+        # calculate centerline of row
+        centerline[row] = (z_row_top_edges[0,row] - z_row_bot_edges[0,row])/2 + z_row_bot_edges[0,row]
+        print('row', row, 'centerline z-coordinate', centerline[row])
+
+        # check which fruits are in this rows
+        this_row = np.where((sortedFruit[2,:] > z_row_bot_edges[0,row]) & (sortedFruit[2,:] < z_row_top_edges[0,row]))
+        # where_array_list.append(this_row[0])
+
+        for fruit_i in this_row[0]:
+            fruit_z[fruit_i] = np.absolute(fruit_z[fruit_i] - centerline[row])
+
+        # calculate row's mean and variance for distance of fruit from centerline 
+        row_mean = np.mean(fruit_z[this_row[0]]) 
+        row_var  = np.var(fruit_z[this_row[0]])
+        print('row', row, 'mean', row_mean)
+        print('row', row, 'variance', row_var)
+
+    # print('sortedFruit', sortedFruit[2,:])
+    # print()
+    # print('distance from the centerline', fruit_z)
+    # print()
+
+
+def findClustersTotal(sortedFruit, v_vy, Td, n_arm):
+    '''
+       Use k-d tree (scipy) to find clusters of fruits made up of n_arm fruits at a v_vy*Td distance from each other
+       in the y and z axis (add x when it actually matters)
+
+       see https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html#scipy.spatial.KDTree
+       and https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.query_ball_tree.html#scipy.spatial.KDTree.query_ball_tree
+    '''
+
+    d_cluster = (v_vy * Td) /2 # find all the neighbors that can be picked, half cause radius(?)
+    print()
+    print('Distance used to find clusters:', d_cluster)
+    print()
+
+    color = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink', 'sienna', 'deepskyblue', 'teal', 'tomato', 'slategrey']
+    color_index = 0
+
+    problem_cluster_num = 0
+
+    coordinates1 = np.copy(sortedFruit[0:2,:]).T
+    coordinates2 = np.copy(sortedFruit[0:2,:]).T
+
+    kd_tree1 = KDTree(coordinates1)   
+    kd_tree2 = KDTree(coordinates2)
+
+    indexes = kd_tree1.query_ball_tree(kd_tree2, r=d_cluster)
+
+    print()
+    # print('Number of pairs within the problem distance', len(indexes)) # this will always be = all because we're comparing
+    # the fruit against itself? => yup, this is what happens
+    print('Fruit index lists showing all neighbors within d distance from fruit index i', indexes)
+
+    plt.figure(figsize=(6, 6))
+    plt.plot(sortedFruit[1,:], sortedFruit[2,:], "xk", markersize=14)
+
+    for i in range(len(indexes)):
+        if len(indexes[i]) > n_arm: # because the list includes the fruit's index (tree compared to itself), so one extra
+            problem_cluster_num += 1
+
+            for j in indexes[i]:
+                # plot only the problem clusters
+                line_color = str(color[color_index])
+                plt.plot([sortedFruit[1,i], sortedFruit[1,j]], [sortedFruit[2,i], sortedFruit[2,j]], linestyle='-', color='r')
+
+            color_index +=1 
+            if color_index == 12:
+                color_index = 0
+
+    print('Number of problem clusters', problem_cluster_num)
+
+    plt.show()
+
+
+def findClustersByRow(sortedFruit, v_vy, Td, n_arm, n_row, z_row_bot_edges, z_row_top_edges):
+    '''
+       Use k-d tree (scipy) to find clusters of fruits made up of n_arm fruits at a v_vy*Td distance from each other
+       in the y and z axis (add x when it actually matters). Done individually for each row however the row was separated
+
+       see https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html#scipy.spatial.KDTree
+       and https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.query_ball_tree.html#scipy.spatial.KDTree.query_ball_tree
+    '''
+    d = (v_vy * Td) # find all the neighbors that can be picked, half cause radius(?)
+
+    problem_cluster_num = 0
+
+    coordinates1 = np.copy(sortedFruit[1:3,:]).T
+    coordinates2 = np.copy(sortedFruit[1:3,:]).T
+
+    for row in range(n_row):
+        # check which fruits are in this rows
+        this_row = np.where((sortedFruit[2,:] > z_row_bot_edges[0,row]) & (sortedFruit[2,:] < z_row_top_edges[0,row]))
+
+        for i in range(len(indexes)):
+            if len(indexes[i]) > n_arm: # because the list includes the fruit's index (tree compared to itself), so one extra
+                problem_cluster_num += 1
+
+                for j in indexes[i]:
+                    # plot only the problem clusters
+                    line_color = str(color[color_index])
+                    plt.plot([coordinates1[i,0], coordinates2[j,0]], [coordinates1[i,1], coordinates2[j,1]], linestyle='-', color=line_color)
+
+                color_index +=1 
+                if color_index == 12:
+                    color_index = 0
+
+
+
+
+
+
+
 
 def main():
     ##################### VARIABLES #####################
@@ -76,7 +201,7 @@ def main():
     ## set how z-coord edges are calculated
     # 0     == edges are divided equally along orchard height
     # 1     == edges are divided so each row has equal number of fruit (or close to equal)
-    set_edges = 1
+    set_edges = 0
 
     ##################### LISTS #####################
     # list for when there are multiple snapshots over the length of travel
@@ -117,6 +242,12 @@ def main():
         total_picked = np.sum(mip_melon.curr_j)
         FPE = (total_picked / mip_melon.numFruit)
         FPT = total_picked / (mip_melon.travel_l / v_vy)
+
+        ## solve for the mean and variance of fruits in each row 
+        distCenterline(n_row, mip_melon.z_row_bot_edges, mip_melon.z_row_top_edges, mip_melon.sortedFruit)
+
+        ## find number of problem clusters (extend later to know where the clusters are)
+        findClustersTotal(mip_melon.sortedFruit, v_vy, mip_melon.Td, n_arm)
 
         print()
         print('FPE:', FPE*100, '%, and FPT:', FPT, 'fruit/s') 
