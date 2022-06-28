@@ -62,9 +62,6 @@ def findClustersTotal(sortedFruit, v_vy, Td, n_arm):
     print('Distance used to find clusters:', d_cluster)
     print()
 
-    color = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink', 'sienna', 'deepskyblue', 'teal', 'tomato', 'slategrey']
-    color_index = 0
-
     problem_cluster_num = 0
 
     coordinates1 = np.copy(sortedFruit[0:2,:]).T
@@ -81,10 +78,14 @@ def findClustersTotal(sortedFruit, v_vy, Td, n_arm):
     print('Fruit index lists showing all neighbors within d distance from fruit index i', indexes)
 
     plt.figure(figsize=(6, 6))
-    plt.plot(sortedFruit[1,:], sortedFruit[2,:], "xk", markersize=14)
+    plt.plot(sortedFruit[1,:], sortedFruit[2,:], "ok", markersize=5)
+    plt.xlabel('Distance along orchard row (m)')
+    plt.ylabel('Height from ground (m)')
+    color = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink', 'sienna', 'deepskyblue', 'teal', 'tomato', 'slategrey']
+    color_index = 0
 
     for i in range(len(indexes)):
-        if len(indexes[i]) > n_arm: # because the list includes the fruit's index (tree compared to itself), so one extra
+        if len(indexes[i]) > n_arm+1: # because the list includes the fruit's index (tree compared to itself), so one extra
             problem_cluster_num += 1
 
             for j in indexes[i]:
@@ -109,7 +110,11 @@ def findClustersByRow(sortedFruit, v_vy, Td, n_arm, n_row, z_row_bot_edges, z_ro
        see https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html#scipy.spatial.KDTree
        and https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.query_ball_tree.html#scipy.spatial.KDTree.query_ball_tree
     '''
-    d = (v_vy * Td) # find all the neighbors that can be picked, half cause radius(?)
+    d_cluster = (v_vy * Td)  # find all the neighbors that can be picked, half cause radius(?)
+
+    all_cluster_list     = list()
+    fruits2remove_list   = list()
+    # fruits2remove_list = [134,135,136,137,140,143]
 
     problem_cluster_num = 0
 
@@ -119,24 +124,78 @@ def findClustersByRow(sortedFruit, v_vy, Td, n_arm, n_row, z_row_bot_edges, z_ro
     for row in range(n_row):
         # check which fruits are in this rows
         this_row = np.where((sortedFruit[2,:] > z_row_bot_edges[0,row]) & (sortedFruit[2,:] < z_row_top_edges[0,row]))
+        # print('this row indexes', this_row[0])
 
+        # the indexes in the cut down coordinates array do not match the ones in coordinates, need to 'transform' them back
+        kd_tree1 = KDTree(coordinates1[this_row[0],:])   
+        kd_tree2 = KDTree(coordinates2[this_row[0],:])
+        indexes = kd_tree1.query_ball_tree(kd_tree2, r=d_cluster)
+
+        # transform the indexes back
+        # print()
         for i in range(len(indexes)):
-            if len(indexes[i]) > n_arm: # because the list includes the fruit's index (tree compared to itself), so one extra
-                problem_cluster_num += 1
+            all_cluster_list.append([this_row[0][i],this_row[0][indexes[i]]])   
 
-                for j in indexes[i]:
-                    # plot only the problem clusters
-                    line_color = str(color[color_index])
-                    plt.plot([coordinates1[i,0], coordinates2[j,0]], [coordinates1[i,1], coordinates2[j,1]], linestyle='-', color=line_color)
+    # print(all_cluster_list)
 
-                color_index +=1 
-                if color_index == 12:
-                    color_index = 0
+    plt.figure(figsize=(6, 6))
+    plt.plot(sortedFruit[1,:], sortedFruit[2,:], "ok", markersize=5)
+    plt.xlabel('Distance along orchard row (m)')
+    plt.ylabel('Height from ground (m)')
+    color = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink', 'sienna', 'deepskyblue', 'teal', 'tomato', 'slategrey']
+    color_index = 0
+
+    # print()
+    # print('sorted fruits list')
+    # print(sortedFruit)
+
+    print()  # helps make the following prints cleaner 
+    for cluster in all_cluster_list:
+        if len(cluster[1]) > n_arm:
+            # if there are more fruits in the cluster than the number of arms+1
+            problem_cluster_num += 1
+            # get the correct index connected to the list of neighbors
+            i = cluster[0]
+            print('Fruits within d distance from fruit index',i, 'are', cluster[1])
+
+            # tag these fruits as removed, going to remove the index fruit which is the one close to all the other ones
+            # fruits2remove_list.append(i)
+
+            for j in cluster[1]:
+                # plot only the problem clusters
+                line_color = str(color[color_index])
+                plt.plot([sortedFruit[1,i], sortedFruit[1,j]], [sortedFruit[2,i], sortedFruit[2,j]], linestyle='-', color=line_color)
+
+            color_index +=1 
+            if color_index == 12:
+                color_index = 0
+                
+    plt.show()
+
+    return(fruits2remove_list)
 
 
+def getRNGSeedList(n_runs):
+    '''
+    Open the random seed list rngseed_list_20200901.csv with 200 seeds for each of the 3 real fruit coordinate axis
+    and 3 fake fruit coordinate axis.
+    '''
+    # keeps track of the row number of the csv being read (each row contains the seeds for one run)
+    csv_i     = 0
 
+    seed_list = list()
 
+    with open('./rngseed_list_20200901.csv') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+        for row in reader:
+            seed_list.append(row)
+            if csv_i == n_runs:
+                break
 
+            csv_i += 1
+
+    # print(seed_list)
+    return(seed_list)
 
 
 
@@ -145,6 +204,9 @@ def main():
     # Base model
     n_arm = 4
     n_row = 3
+
+    # number of runs per variable change
+    n_runs = 1
 
     v_max      = 0.5
     a_max      = 1.
@@ -155,6 +217,7 @@ def main():
     arm_reach  = 1  
 
     v_vy_fruit_cmps = 8  # in cm/s
+    v_vy = v_vy_fruit_cmps / 100 # change to m/s
 
     vehicle_l  = n_arm * cell_l
     vehicle_h  = n_row * cell_h
@@ -201,29 +264,42 @@ def main():
     ## set how z-coord edges are calculated
     # 0     == edges are divided equally along orchard height
     # 1     == edges are divided so each row has equal number of fruit (or close to equal)
-    set_edges = 0
+    set_edges = 1
+
+    if set_distribution == 1:
+        density    = 25.9       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
+    elif set_distribution == 6:
+        density    = 16
+    else: 
+        density    = 15          # figure this out later
 
     ##################### LISTS #####################
     # list for when there are multiple snapshots over the length of travel
     snapshot_list = list()
     snapshot_cell = list()
 
+    seed_list = getRNGSeedList(n_runs)
+
     ##################### RUN MIP PYTHON SCRIPT #####################
     # init the MIP melon object 
-    mip_melon = MIP_melon(n_arm, n_row, 0, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim)
+    mip_melon = MIP_melon(n_arm, n_row, 0, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim, density)
 
     # create the simulated environment just once
-    mip_melon.buildOrchard(1, set_algorithm, set_distribution)
+    mip_melon.buildOrchard(1, set_algorithm, set_distribution, seed_list)
     # create the up/down edges just once
     mip_melon.set_zEdges(set_edges, z_lim, n_row)
+
+    # find number of problem clusters (extend later to know where the clusters are)
+    # findClustersTotal(mip_melon.sortedFruit, v_vy, mip_melon.Td, n_arm)
+    fruits2remove = findClustersByRow(mip_melon.sortedFruit, v_vy, mip_melon.Td, n_arm, n_row, mip_melon.z_row_bot_edges, mip_melon.z_row_top_edges)
+    for fruit_i in fruits2remove: 
+        mip_melon.sortedFruit[4,fruit_i] = 2
 
     # create the arm and fruit object lists
     mip_arm = mip_melon.createArms()
     mip_fruit = mip_melon.createFruits()
 
     printScen("Solving base scenario model")
-
-    total_arms = n_arm * n_row
 
     FPT = 0
     solution_found = 0 # changes to 1 if at least one solution fits desired min values
@@ -235,8 +311,6 @@ def main():
 
         fruit_picked_by = mip_melon.solve_melon_mip(mip_arm, mip_fruit, v_vy_fruit_cmps, set_MIPsettings)
 
-        v_vy = v_vy_fruit_cmps / 100 # change to m/s
-
         chosen_j = np.copy(mip_melon.curr_j)
 
         total_picked = np.sum(mip_melon.curr_j)
@@ -245,9 +319,6 @@ def main():
 
         ## solve for the mean and variance of fruits in each row 
         distCenterline(n_row, mip_melon.z_row_bot_edges, mip_melon.z_row_top_edges, mip_melon.sortedFruit)
-
-        ## find number of problem clusters (extend later to know where the clusters are)
-        findClustersTotal(mip_melon.sortedFruit, v_vy, mip_melon.Td, n_arm)
 
         print()
         print('FPE:', FPE*100, '%, and FPT:', FPT, 'fruit/s') 

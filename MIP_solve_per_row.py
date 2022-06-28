@@ -13,6 +13,29 @@ from MIP_melon import *            # import module that solves the extended MIP 
 def printScen(scenStr):
     sLen = len(scenStr)
     print("\n" + "*"*sLen + "\n" + scenStr + "\n" + "*"*sLen + "\n")
+
+
+def getRNGSeedList(n_runs):
+            '''
+            Open the random seed list rngseed_list_20200901.csv with 200 seeds for each of the 3 real fruit coordinate axis
+            and 3 fake fruit coordinate axis.
+            '''
+            # keeps track of the row number of the csv being read (each row contains the seeds for one run)
+            csv_i     = 0
+
+            seed_list = list()
+
+            with open('./rngseed_list_20200901.csv') as csvfile:
+                reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+                for row in reader:
+                    seed_list.append(row)
+                    if csv_i == n_runs:
+                        break
+
+                    csv_i += 1
+
+            # print(seed_list)
+            return(seed_list)
     
 
 def main():
@@ -20,6 +43,9 @@ def main():
     # Base model
     n_arm = 4
     n_row = 3
+
+    # number of runs per variable change
+    n_runs = 1
 
     v_max      = 0.5
     a_max      = 1.
@@ -60,7 +86,7 @@ def main():
     # 4     == fruit in vertical columns
     # 5     == "melon" version of columns (user inputs desired no. fruits, z height, and distance between fruit in y-coord)
     # 6     == Raj's digitized fruits, but which can reduce the density to a desired density
-    set_distribution = 6
+    set_distribution = 1
 
     ## set algorithm being used 
     # 1     == melon
@@ -78,6 +104,13 @@ def main():
     # 1     == edges are divided so each row has equal number of fruit (or close to equal)
     set_edges = 1
 
+    if set_distribution == 1:
+        density    = 25.9       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
+    elif set_distribution == 6:
+        density    = 16
+    else: 
+        density    = 15          # figure this out later
+
     ##################### LISTS #####################
     row_mip_list    = list()
     mip_arm_list    = list()
@@ -87,15 +120,17 @@ def main():
     # list for when there are multiple snapshots over the length of travel
     snapshot_list = list()
     snapshot_cell = list()
+    # get a list of seeds according to the number of runs
+    seed_list = getRNGSeedList(n_runs)
 
     ##################### RUN SEPERATE MIP PER ROW #####################
     for row in range(n_row):
         # init the MIP melon object, n_row set to one for each since we're running it per row
-        this_mip = MIP_melon(n_arm, 1, row, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim)
+        this_mip = MIP_melon(n_arm, 1, row, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim, density)
         
         if row == 0:
             # create the simulated environment just once
-            this_mip.buildOrchard(1, set_algorithm, set_distribution)
+            this_mip.buildOrchard(1, set_algorithm, set_distribution, seed_list)
             # create the up/down edges just once
             this_mip.set_zEdges(set_edges, z_lim, n_row)
             
