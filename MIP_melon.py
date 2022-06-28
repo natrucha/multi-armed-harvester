@@ -18,7 +18,7 @@ from IG_data_analysis import *     # import module to analyze the data from the 
 # https://gurobi.github.io/modeling-examples/technician_routing_scheduling/technician_routing_scheduling.html
 
 class MIP_melon(object):
-    def __init__(self, n_arm, n_row, starting_row_n, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim):
+    def __init__(self, n_arm, n_row, starting_row_n, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim, density):
 
         '''
             Mixed integer programming model based on the MIP model in the melon combinatorial scheduling paper. 
@@ -46,12 +46,7 @@ class MIP_melon(object):
 
         self.starting_row_n = starting_row_n # row number at which this MIP run will start, usually set at 0 unless each row is run seperately
 
-        if set_distribution == 1:
-            self.density    = 25.9       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
-        elif set_distribution == 6:
-            self.density    = 16
-        else: 
-            self.density    = 15          # figure this out later
+        self.density = density      # in fruit/m^2
        
         n_fruit         = 80      # in fruit, for melon column distribution
 
@@ -61,8 +56,8 @@ class MIP_melon(object):
         self.cell_h     = cell_h     # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
         self.reach      = 1          # in m, the length that the arm can extend out to pick a fruit
 
-        self.noRel_time_ub  = 15     # no relaxation heuristic max time to solve before moving to branch and bound (varies)
-        self.timLim_time_ub = 20 # 3600/2
+        self.noRel_time_ub  = 15     # in s, no relaxation heuristic max time to solve before moving to branch and bound (varies)
+        self.timLim_time_ub = 60     # in s, the total amount of time the solver runs (includes NoRel)
 
         ## set at function creation
         # v_vy_fruit_cmps = 8  # in cm/s, assumed vehicle velocity along orchard row to build line distribution
@@ -118,10 +113,9 @@ class MIP_melon(object):
         n_runs = 1        
         self.calcTravel_l(set_distribution, vehicle_l, v_vy_fruit_cmps, n_fruit)
             
-
-        self.x_lim   = x_lim
-        self.y_lim   = y_lim
-        self.z_lim   = z_lim
+        self.x_lim   = np.copy(x_lim)
+        self.y_lim   = np.copy(y_lim)
+        self.z_lim   = np.copy(z_lim)
 
         self.y_lim[1] = self.travel_l - self.y_lim[1] # set all the limits outside the class, just add the correct travel length
 
@@ -135,9 +129,8 @@ class MIP_melon(object):
 
 
 ## Functions
-    def buildOrchard(self, n_runs, set_algorithm, set_distribution):
+    def buildOrchard(self, n_runs, set_algorithm, set_distribution, seed_list):
         '''Creates the simulated environment, separated so that MIP run/row can happen'''
-        seed_list = self.getRNGSeedList(n_runs)
 
         for run in range(n_runs):
             # get seeds for x, y, and z RNG (probably unneccessary right now, especially for x)
@@ -150,6 +143,8 @@ class MIP_melon(object):
         fruitD = fruitDistribution(self.x_lim, self.y_lim, self.z_lim) # init fruit distribution script
         [self.numFruit, self.sortedFruit] = self.createFruit(fruitD, set_algorithm, set_distribution, self.density, x_seed, y_seed, z_seed)
 
+        print('Density chosen', self.density)
+        print('x-lim', self.x_lim, 'y-lim', self.y_lim, 'z-lim', self.z_lim)
         print('Total fruit in the orchard row',self.numFruit)
         print()
         print('length of sortedFruit', len(self.sortedFruit[0]))
@@ -188,9 +183,11 @@ class MIP_melon(object):
         fruit = list()
 
         for index in range(self.numFruit):
+            # if the fruit was not removed due to clustering
             y_coord = self.sortedFruit[1][index]
             z_coord = self.sortedFruit[2][index]
-            this_fruit = Fruit(index, y_coord, z_coord)
+            fruit_i = int(self.sortedFruit[3][index])
+            this_fruit = Fruit(fruit_i, y_coord, z_coord)
         #     print('Fruit index', index, 'should match this index', sortedFruit[3][index])
         #     print('with y and z coordinates:', y_coord, z_coord)
 
@@ -321,6 +318,9 @@ class MIP_melon(object):
             m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Z[i] < self.z_row_bot_edges[k,n_row] or Z[i] > self.z_row_top_edges[k,n_row]), name="verticalWorkArea")
         else:
             m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Z[i] < self.z_row_bot_edges[k,l] or Z[i] > self.z_row_top_edges[k,l]), name="verticalWorkArea")
+
+        # If fruit was removed because of clustering, do not pick it
+        m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if self.sortedFruit[4,i] == 2), name="removeCluster")
         
         if set_MIPsettings == 0 or set_MIPsettings == 1:
             m.addConstrs((t[k, l, i] <= max(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinA")
@@ -417,7 +417,7 @@ class MIP_melon(object):
                 else:
                     fruit_picked_by[j.arm_k.arm_n].append(j.fruit_i.index)
 
-        no_pick = np.where(self.sortedFruit[4,:] == 0)
+        no_pick = np.where(self.sortedFruit[4,:] != 1 )
     #     print('not picked indexes:', no_pick[0])
 
         for no_pick_i in no_pick[0]:
@@ -475,30 +475,6 @@ class MIP_melon(object):
 
         else: 
             self.travel_l  = 10 + vehicle_l # in m
-
-
-
-    def getRNGSeedList(self, n_runs):
-            '''
-            Open the random seed list rngseed_list_20200901.csv with 200 seeds for each of the 3 real fruit coordinate axis
-            and 3 fake fruit coordinate axis.
-            '''
-            # keeps track of the row number of the csv being read (each row contains the seeds for one run)
-            csv_i     = 0
-
-            seed_list = list()
-
-            with open('./rngseed_list_20200901.csv') as csvfile:
-                reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-                for row in reader:
-                    seed_list.append(row)
-                    if csv_i == n_runs:
-                        break
-
-                    csv_i += 1
-
-            # print(seed_list)
-            return(seed_list)
     
     
     def createFruit(self, fruitD, set_algorithm, set_distribution, density, x_seed, y_seed, z_seed):
