@@ -40,6 +40,7 @@ class IG_melon_scheduling(object):
         ### robot constants
         self.n_arm  = n_arm    # K in melon paper
         self.n_row  = n_row    # keeping it simple for now
+        print('number of arms:', n_arm, '\nnumber of rows:', n_row)
         self.total_arms = self.n_arm*self.n_row
 
         self.n_fruit_row = np.zeros([n_row]) # for now, this is the number of horizonatal rows
@@ -58,7 +59,9 @@ class IG_melon_scheduling(object):
         self.Td = Td          # in s, fruit handling time
 
         # cell width/height (perpendicular to movement) and length (parallel to movement)
-        self.cell_h = cell_h
+        self.cell_h = cell_h / n_row  # cell_h is coming in like vehicle_h, not cell_h
+        # print('passed cell height', cell_h)
+        # print('cell height divided by number of arms', self.cell_h)
         # self.cell_h = (self.z_lim[1] - self.z_lim[0]) / self.n_row  # w in paper, not true once we know dimensions
         self.cell_l = cell_l                  # length of individual arm cell 
 
@@ -89,8 +92,8 @@ class IG_melon_scheduling(object):
         self.row_bot_edge = np.linspace(0, (self.n_row*self.cell_h - self.cell_h), self.n_row, endpoint=True)
         # row_top_edge = row_bot_edge + self.cell_h
         self.row_top_edge = np.copy(self.row_bot_edge) + self.cell_h
-        # print('each bottom frame z-val:', row_bot_edge)
-        # print('each top frame z-val:', row_top_edge)
+        print('each bottom frame z-val:', self.row_bot_edge)
+        print('each top frame z-val:', self.row_top_edge)
 
         ################# Modulers and Libraries #################
         # Create Fruit distribution
@@ -98,7 +101,7 @@ class IG_melon_scheduling(object):
         # # [self.numFruit, self.sortedFruit] = fruitD.column(self.v_vy, self.v_max, self.a_max, self.t_grab, self.n_row, self.n_arm, self.cell_h, z_seed)
         # [self.numFruit, self.sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
         
-        # # create an array (or list if it'll need to be dynamic later) for node objects
+        # # create an array (or list if it'll need to be dynamic later)     for node objects
         # # node_array  = np.ndarray(self.numFruit+self.n_arm, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
         # self.node_array  = np.ndarray(self.numFruit+self.total_arms, dtype=object)  # self.numFruit+arm_node for the initial dummy nodes for each arm
 
@@ -240,17 +243,17 @@ class IG_melon_scheduling(object):
             # check that the zi value is available to the nth horizontal row of cells
                 
             ## calculate pool/horizontal, n, row value by comparing zi vs cell height 
-            n = math.floor(self.sortedFruit[2,index] / self.cell_h)
+            n = math.floor(self.sortedFruit[2,index] / self.cell_h) - 1 # minus one because of indexing starting at 0
             # print('potential row number:', n)
 
             # fruit could be located higher than the arms can go... 
             # if n < self.n_row:
             #     self.n_fruit_row[n] += 1
-            if n > self.n_row:
+            if n > self.n_row-1:
                 print('ERROR: fruit higher than available rows') # needs to do something else?
 
             # if n_row == 1, then n = 0,1 can still work even though it should not
-            if self.n_row > 1:
+            if self.n_row > 1 and n < self.n_row: # otherwise it's just an error
                 self.n_fruit_row[n] += 1
 
             elif self.n_row == 1 and (n+1) == 1:
