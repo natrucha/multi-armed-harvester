@@ -77,7 +77,7 @@ class MIP_melon(object):
         # horizon_l  = 0. #### SET AT INIT ####
 
         # array to save which arm picked which fruit
-        self.curr_j   = np.zeros([self.n_row, self.n_arm])
+        # self.curr_j   = np.zeros([self.n_row, self.n_arm])
 
 
         #### SET AT INIT ####
@@ -153,6 +153,10 @@ class MIP_melon(object):
         # print(sortedFruit)
 
 
+    def inputOrchard(self, sortedFruit):
+        '''Input existing fruit distribution data to use as the fruit data. Currently useful for snapshots.'''
+        self.sortedFruit = np.copy(sortedFruit)
+
 
     def createArms(self):
         '''Create and populate all the arms' classes then put in appropriate list'''
@@ -177,17 +181,18 @@ class MIP_melon(object):
         return(arm)
 
 
-    def createFruits(self):
+    def createFruits(self, numFruit, sortedFruit):
         '''Create and populate all the fruits' classes then put in appropriate list'''
         ## create fruit object list
         fruit = list()
 
-        for index in range(self.numFruit):
+        for index in range(numFruit):
             # if the fruit was not removed due to clustering
-            y_coord = self.sortedFruit[1][index]
-            z_coord = self.sortedFruit[2][index]
-            fruit_i = int(self.sortedFruit[3][index])
-            this_fruit = Fruit(fruit_i, y_coord, z_coord)
+            y_coord      = sortedFruit[1][index]
+            z_coord      = sortedFruit[2][index]
+            fruit_i      = index  # changed to using this index because adding field of view 'snapshots' means that the indexes need to be 'zerooed'
+            fruit_i_real = int(sortedFruit[3][index])
+            this_fruit   = Fruit(fruit_i, fruit_i_real, y_coord, z_coord)
         #     print('Fruit index', index, 'should match this index', sortedFruit[3][index])
         #     print('with y and z coordinates:', y_coord, z_coord)
 
@@ -383,7 +388,8 @@ class MIP_melon(object):
             print("Optimization terminated with status {}".format(status))
     #         sys.exit(0)
 
-        fruit_picked_by = list()    
+        fruit_picked_by = list()                             # list that saves which arm picks which fruit
+        self.curr_j     = np.zeros([self.n_row, self.n_arm]) # array to save the sum of fruits picked by each arm
 
         for n in range(self.n_row):
             if self.n_row > 1:
@@ -394,6 +400,7 @@ class MIP_melon(object):
                     fruit_picked_by[n].append([])
                 else:
                     fruit_picked_by.append([])
+
 
         ### Print results
         # Assignments    
@@ -409,13 +416,13 @@ class MIP_melon(object):
     #             if set_MIPsettings == 1:
     #                 print('with tw start:', aux_min[j.arm_k.arm_n, j.fruit_i.index].X, 'and tw end:', aux_max[j.arm_k.arm_n, j.fruit_i.index].X)
                 # save picked to sortedFruit
-                self.sortedFruit[4, j.fruit_i.index] = 1
+                self.sortedFruit[4, j.fruit_i.real_index] = 1
                 self.curr_j[n_row, j.arm_k.arm_n] += 1
                 if self.n_row > 1:
-                    fruit_picked_by[n_row][j.arm_k.arm_n].append(j.fruit_i.index)
+                    fruit_picked_by[n_row][j.arm_k.arm_n].append(j.fruit_i.real_index)
 
                 else:
-                    fruit_picked_by[j.arm_k.arm_n].append(j.fruit_i.index)
+                    fruit_picked_by[j.arm_k.arm_n].append(j.fruit_i.real_index)
 
         no_pick = np.where(self.sortedFruit[4,:] != 1 )
     #     print('not picked indexes:', no_pick[0])
@@ -543,7 +550,7 @@ class MIP_melon(object):
         return(H_fruit_index[0])
 
 
-    def calcDensity(self, q_vy, v_vy, n_row, n_arm, cell_l, cell_h, arm_reach, sortedFruit):
+    def calcDensity(self, q_vy, v_vy, n_row, n_arm, cell_l, arm_reach, sortedFruit):
         '''Get the fruit density, d, of each cell'''
         ## should the columns be based on cell length? number of arms? 
         #  should the columns be the same width? increase/decrease the closer to the front of vehicle?
@@ -556,6 +563,7 @@ class MIP_melon(object):
         for n in range(n_row):
             # starting position in the y_axis (front-back on robot)
             col_y = q_vy
+            cell_h = self.z_row_top_edges[n,0] - self.z_row_bot_edges[n,0] # for now all rows are the same
 
             for k in range(n_arm):
                 # print('col', n, 'row', k)
@@ -564,8 +572,9 @@ class MIP_melon(object):
                 index = np.where((sortedFruit[1,:] >= col_y) & (sortedFruit[1,:] < col_y + cell_l) & 
                             (sortedFruit[2,:] >= row_z) & (sortedFruit[2,:] < row_z + cell_h) & 
                             (sortedFruit[4,:] < 1))
-                # save the number of fruit in this cell
-                d[n,k] = len(index[0])
+                # save the number of fruit in this cell and divide all the values by the volume of space in front of each cell 
+                d[n,k] = len(index[0]) / (arm_reach * cell_l * cell_h)
+
                 # print(d)
                 # move to the next column of cells
                 col_y += cell_l
@@ -576,7 +585,7 @@ class MIP_melon(object):
         # before calculating the true density, check total number of fruit
         # print('which sums to', np.sum(d))   # has to be equal to numer of fruit
         # divide all the values by the volume of space in front of each cell 
-        d = d / (arm_reach * cell_l * cell_h)
+        # d = d / (arm_reach * cell_l * cell_h)
 
         # print('fruit density in each cell [fruit/m^3]:')
         # print(d)
@@ -711,9 +720,10 @@ class Arm():
 
 
 class Fruit():
-    def __init__(self, index, y_coord, z_coord):#, job, tStart, tEnd, tDue):
-        self.index = index       # fruit's index when ordered by y-coordinate
-        self.y_coord = y_coord   # y-coordinate of the fruit
+    def __init__(self, index, real_index, y_coord, z_coord):#, job, tStart, tEnd, tDue):
+        self.index = index            # fruit's index when ordered by y-coordinate
+        self.real_index = real_index  # fruit's real index before it's zeroed if using snapshots
+        self.y_coord = y_coord        # y-coordinate of the fruit
         self.z_coord = z_coord
         
     def __str__(self):
