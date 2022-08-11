@@ -292,7 +292,8 @@ def main():
     cell_h     = 2. / n_row # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
     arm_reach  = 1  
 
-    v_vy_fruit_cmps = 8  # in cm/s
+    # v_vy_fruit_cmps = 7  # in cm/s
+    v_vy_fruit_cmps = int(args[3]) # in cm/s
     v_vy = v_vy_fruit_cmps / 100 # change to m/s
 
     vehicle_l  = n_arm * cell_l
@@ -313,14 +314,14 @@ def main():
     view_distance_m = vehicle_l + horizon_m  # in m, the length along the orchard row that the robot can see, moves with the vehicle
 
     ## set fruit distribution flag
-    # 0     == Raj's digitized fruits
+    # 0     == Raj's and Juan's digitized fruits
     # 1     == uniform random  (if algorithm == 1, use melon version)
     # 2     == uniform random, equal cell density
     # 3     == multiple densities separated by some space (only melon for now)
     # 4     == fruit in vertical columns
     # 5     == "melon" version of columns (user inputs desired no. fruits, z height, and distance between fruit in y-coord)
-    # 6     == Raj's digitized fruits, but which can reduce the density to a desired density
-    set_distribution = 6
+    # 6     == Raj's and Juan's digitized fruits, but which can reduce the density to a desired density
+    set_distribution = 0
 
     ## set algorithm being used 
     # 1     == melon
@@ -395,7 +396,7 @@ def main():
         # create the simulated environment
         mip_melon.buildOrchard(1, set_algorithm, set_distribution, this_seed)
         # create the up/down edges just once
-        mip_melon.set_zEdges(set_edges, z_lim, n_row) # later this should be abl eto change per snapshot
+        # mip_melon.set_zEdges(set_edges, z_lim, n_row) # later this should be abl eto change per snapshot
 
         # save the complete dataset of fruits
         total_sortedFruit = np.copy(mip_melon.sortedFruit)
@@ -423,6 +424,9 @@ def main():
             print('------------------------------------')
             print()
 
+            # determine the z_edges for this snapshot
+            mip_melon.set_zEdges(set_edges, z_lim, n_row, this_numFruit, this_sortedFruit)
+
             # create the fruit object lists
             mip_fruit = mip_melon.createFruits(this_numFruit, this_sortedFruit)
 
@@ -434,6 +438,7 @@ def main():
             start_timer = datetime.now() # to figure out how looping through v_vy compares to pure MIP
 
             if set_MIPsettings == 0:
+                # if there are zero fruits, FPE gives a NaN which cascades into only NaN, also, why spend time
                 solution_found = 1 # set as done since there's only one run
 
                 fruit_picked_by = mip_melon.solve_melon_mip(mip_arm, mip_fruit, v_vy_fruit_cmps, set_MIPsettings)
@@ -448,7 +453,14 @@ def main():
                 chosen_j = np.copy(mip_melon.curr_j)
 
                 total_picked = np.sum(chosen_j)
-                FPE = (total_picked / this_numFruit)
+
+                if this_numFruit > 0:
+                    FPE = (total_picked / this_numFruit)
+                else:
+                    # if there are zero fruit, set FPe = 100% since it got everything. 
+                    # FPT will be 0, showing/balancing out what happened
+                    FPE = 1.
+
                 FPT = total_picked / (view_distance_m / v_vy)
                 # total_picked = np.sum(mip_melon.curr_j)
                 # FPE = (total_picked / mip_melon.numFruit)
@@ -555,12 +567,13 @@ def main():
 
                 time_run = datetime.now()-start_timer
 
-        print('########################## END LOOP ###########################')
-        print()
-        print('Looping through v_vy values took:', time_run, 'h:m:s')
-        print()
-        print('###############################################################')
-        print()
+            # it's just printing out the last value right now
+        # print('########################## END LOOP ###########################')
+        # print()
+        # print('Looping through v_vy values took:', time_run, 'h:m:s')
+        # print()
+        # print('###############################################################')
+        # print()
 
 
         #     v_vy = v_vy_cmps / 100 # change to m/s
