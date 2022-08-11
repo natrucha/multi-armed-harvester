@@ -143,12 +143,12 @@ class MIP_melon(object):
         fruitD = fruitDistribution(self.x_lim, self.y_lim, self.z_lim) # init fruit distribution script
         [self.numFruit, self.sortedFruit] = self.createFruit(fruitD, set_algorithm, set_distribution, self.density, x_seed, y_seed, z_seed)
 
-        print('Density chosen', self.density)
+        # print('Density chosen', self.density)
         print('x-lim', self.x_lim, 'y-lim', self.y_lim, 'z-lim', self.z_lim)
         print('Total fruit in the orchard row',self.numFruit)
-        print()
-        print('length of sortedFruit', len(self.sortedFruit[0]))
-        print()
+        # print()
+        # print('length of sortedFruit', len(self.sortedFruit[0]))
+        # print()
         # print('List of the x, y, and z coordinates of the sorted fruit')
         # print(sortedFruit)
 
@@ -459,8 +459,10 @@ class MIP_melon(object):
     def calcTravel_l(self, set_distribution, vehicle_l, v_vy_fruit_cmps, n_fruit):
         '''Calculates travel length for the orchard row size for the chosen distribution and vehicle length'''
         if set_distribution == 0:
-            self.travel_l  = 12 + vehicle_l # in m
-            self.density   = 48.167         # in fruit/m^2 (on avg.), constant
+            self.travel_l  = 16.5 + vehicle_l # in m, for Juan's data
+            # self.travel_l  = 12 + vehicle_l # in m, for Raj's data
+            self.density   = 53.97            # in fruit/m^2 (on avg.), constant, for Juan's data
+            # self.density   = 48.167         # in fruit/m^2 (on avg.), constant, for Raj's data
             n_runs    = 1
 
         elif set_distribution == 1:
@@ -486,8 +488,14 @@ class MIP_melon(object):
     
     def createFruit(self, fruitD, set_algorithm, set_distribution, density, x_seed, y_seed, z_seed):
             if set_distribution == 0:
-                csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
-                [numFruit, sortedFruit] = fruitD.csvFile(csv_file, 0)
+                # csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
+                csv_file = './TREE_FRUIT_DATA/20220811_apples_Juan.csv'
+                if csv_file == './TREE_FRUIT_DATA/20220811_apples_Juan.csv':
+                    is_meter = 1
+                elif csv_file == './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv':
+                    is_meter = 0
+
+                [numFruit, sortedFruit] = fruitD.csvFile(csv_file, is_meter)
 
             elif set_distribution == 1:
                 if set_algorithm == 1:
@@ -649,60 +657,73 @@ class MIP_melon(object):
             return(state_time)
     
     
-    def set_zEdges(self, set_edges, z_lim, n_row):
+    def set_zEdges(self, set_edges, z_lim, n_row, numFruit, sortedFruit):
         '''
         Calculate the z-coord for each horizontal row, assuming the whole row shares these edges.
         Returns a n_row x n_arm matrix for both the bottom and top edges of each cell. 
         '''   
         # edges for the nth horizontal row of cells
+
+        if numFruit >= 1:
+            # if there are fruits
         
-        if set_edges == 0: 
-            # divided equally by distance along orchard height
-            # row bottom edge = n*self.cell_h
-            bottom = np.linspace(0, (n_row*self.cell_h - self.cell_h), self.n_row, endpoint=True)
+            if set_edges == 0: 
+                # divided equally by distance along orchard height
+                # row bottom edge = n*self.cell_h
+                bottom = np.linspace(0, (n_row*self.cell_h - self.cell_h), self.n_row, endpoint=True)
 
-            bot_edge = np.tile(bottom, (self.n_arm, 1))
-            top_edge = np.copy(bot_edge) + self.cell_h
-        #     print('bottom edges:', bot_edge)
-        #     print()
-        #     print('top edges:', top_edge)
-        #     print()
-        elif set_edges == 1:
-            # divided by number of fruit
-            
-            # make zero arrays for top and bottom. Since edges shared along horizontal row, can tile it by n_arm
-            top    = np.zeros(n_row)
-            bottom = np.zeros(n_row)
-            
-            fruit_in_row = math.floor(self.numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
-            print('number of fruit in each row, rounded down', fruit_in_row)
-            
-            # get z-coord array
-            z_coord = np.array(self.sortedFruit[2]) 
-            # sort the array
-            z_sorted = np.sort(z_coord)
-    #         print('sorted z-coord', z_sorted)
-            
-            for row in range(n_row-1):
-                top[row]      = z_sorted[fruit_in_row*(row+1)]+0.0001
-                bottom[row+1] = z_sorted[fruit_in_row*(row+1)]+0.0001 
+                bot_edge = np.tile(bottom, (self.n_arm, 1))
+                top_edge = np.copy(bot_edge) + self.cell_h
+            #     print('bottom edges:', bot_edge)
+            #     print()
+            #     print('top edges:', top_edge)
+            #     print()
+            elif set_edges == 1:
+                # divided by number of fruit
                 
-            top[-1] = z_lim[1]
+                # make zero arrays for top and bottom. Since edges shared along horizontal row, can tile it by n_arm
+                top    = np.zeros(n_row)
+                bottom = np.zeros(n_row)
+
+                fruit_in_row = math.floor(numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
+                # fruit_in_row = math.floor(self.numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
+                print('number of fruit in each row, rounded down', fruit_in_row)
                 
-            bot_edge = np.tile(bottom, (self.n_arm, 1))
-            top_edge = np.tile(top, (self.n_arm, 1))
-            
+                # get z-coord array
+                z_coord = np.array(sortedFruit[2])
+                # z_coord = np.array(self.sortedFruit[2]) 
+                # sort the array
+                z_sorted = np.sort(z_coord)
+        #         print('sorted z-coord', z_sorted)
+                
+                for row in range(n_row-1):
+                    top[row]      = z_sorted[fruit_in_row*(row+1)]+0.0001
+                    bottom[row+1] = z_sorted[fruit_in_row*(row+1)]+0.0001 
+                    
+                top[-1] = z_lim[1]
+                    
+                bot_edge = np.tile(bottom, (self.n_arm, 1))
+                top_edge = np.tile(top, (self.n_arm, 1))
+                
+            else:
+                print('Not an edge setting, please try again')
+                return([0, 0])
+
+            self.z_row_bot_edges = bot_edge
+            self.z_row_top_edges = top_edge
+
+            print('bottom z-axis edges', self.z_row_bot_edges)
+            print()
+            print('top z-axis edges', self.z_row_top_edges)
+            print()
+        
         else:
-            print('Not an edge setting, please try again')
-            return([0, 0])
-
-        self.z_row_bot_edges = bot_edge
-        self.z_row_top_edges = top_edge
-
-        print('bottom z-axis edges', self.z_row_bot_edges)
-        print()
-        print('top z-axis edges', self.z_row_top_edges)
-        print()
+            # there are no fruit so leave edges as before
+            print('     No fruit in view, edges left as before:')
+            print('bottom z-axis edges', self.z_row_bot_edges)
+            print()
+            print('top z-axis edges', self.z_row_top_edges)
+            print()
 
         # return([bot_edge, top_edge])
 
