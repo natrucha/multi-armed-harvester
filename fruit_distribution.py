@@ -46,7 +46,7 @@ class fruitDistribution(object):
         '''
             Import fruit coordinates from given CSV file, where each fruit is a row, columns are x, y, z
             coordinates. 
-
+            4.765 +/-2.612
             file_name has to be string with '...' 
 
             is_meter = 0 means ft, 1 is meter (other values for other measurements?).
@@ -73,10 +73,16 @@ class fruitDistribution(object):
         z = np.array(z_list) 
 
         if is_meter == 0:
-            # if is_meter is zero, convert from feet to meters
+            # if is_meter is zero (not in meters), convert from feet to meters
             x = x * 0.3048
             y = y * 0.3048
             z = z * 0.3048
+
+        # calculate the real density in the file instead (make it volumn late)
+        area = abs(y.max() - y.min()) * abs(z.max() - z.min())
+
+        density = len(y) / area
+        print('\nThe density of fruits in the file is:', density, 'f/m^2 \n')
 
         # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
         # something like 0.2 m away in the x-direction
@@ -112,6 +118,9 @@ class fruitDistribution(object):
         # print(index_out_of_z_bounds[0])
 
         sortedFruit = self.sortNstack(x, y, z)
+
+        if len(sortedFruit[0]) != numFruit:
+            numFruit = len(sortedFruit[0])
 
         return([numFruit, sortedFruit])        
 
@@ -153,10 +162,15 @@ class fruitDistribution(object):
         z = np.array(z_list) 
 
         # in Raj's data set, the average denisty is around 48 fruit/m^2
-        Raj_density = 48
+        # Raj_density = 48
+        # calculate the real density in the file instead (make it volumn late)
+        area = abs(y.max() - y.min()) * abs(z.max() - z.min())
+
+        density = numFruit / area
+        print('\nThe original density of the file is:', density, 'f/m^2 \n  The desired density is:', desired_density, 'f/m^2 \n')
 
         # if we want the final density to be 20 fruit/m^2, that's 42% of the density, so we want to remove 1-20/48 
-        percent_2_remove = 1 - desired_density/Raj_density
+        percent_2_remove = 1 - desired_density/density
         # print('percent of fruit to remove', percent_2_remove, 'out of total', numFruit, 'fruit')
         # print()
         total_2_remove  = math.floor(numFruit * percent_2_remove)
