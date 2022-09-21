@@ -32,6 +32,9 @@ class MIP_melon(object):
         print_out  = 1
         plot_out   = 1
 
+        # set which digitized data file will be used, 'raj' or 'juan'
+        self.data_name = 'raj'
+
         ## settings
         self.Td    = 2.      # fruit handling time
         self.M     = 80     # arbitrarily large number, set 600 from paper    
@@ -41,20 +44,21 @@ class MIP_melon(object):
         # a_max      = 1.
         # t_grab     = 0.1 
 
-        self.n_row      = n_row      # total number of horizontal rows with cells containg one arm per cell
-        self.n_arm      = n_arm      # number of arms in one horizontal row
+        self.n_row          = n_row      # total number of horizontal rows with cells containg one arm per cell
+        self.n_arm          = n_arm      # number of arms in one horizontal row
 
         self.starting_row_n = starting_row_n # row number at which this MIP run will start, usually set at 0 unless each row is run seperately
 
         self.density = density      # in fruit/m^2
        
-        n_fruit         = 80      # in fruit, for melon column distribution
+        n_fruit             = 80      # in fruit, for melon column distribution
 
-        self.FPE_min    = 0.95
+        self.FPE_min        = 0.95
 
-        self.cell_l     = cell_l     # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel
-        self.cell_h     = cell_h     # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
-        self.reach      = 1          # in m, the length that the arm can extend out to pick a fruit
+        self.cell_l         = cell_l     # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel
+        self.pick_travel_l  = 0.       # in m, the amount o fdistance within the cell the arm can travel due to frame, motor placement, etc. assume centered
+        self.cell_h         = cell_h     # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
+        self.reach          = 1          # in m, the length that the arm can extend out to pick a fruit
 
         self.noRel_time_ub  = 15     # in s, no relaxation heuristic max time to solve before moving to branch and bound (varies)
         self.timLim_time_ub = 60     # in s, the total amount of time the solver runs (includes NoRel)
@@ -129,6 +133,12 @@ class MIP_melon(object):
 
 
 ## Functions
+    def addArmTravelLimits(self, pick_travel_length):
+        '''The arm will only be able to travel some length of the total cell length (restricted by frame and motor placement)'''
+        self.pick_travel_l = pick_travel_length
+
+
+
     def buildOrchard(self, n_runs, set_algorithm, set_distribution, seed_list):
         '''Creates the simulated environment, separated so that MIP run/row can happen'''
 
@@ -162,6 +172,9 @@ class MIP_melon(object):
         '''Create and populate all the arms' classes then put in appropriate list'''
         ## create arm object list
         arm = list()
+
+        # check if being updated 
+        # print('starting row number:', self.starting_row_n)
 
         if self.starting_row_n + 1 > self.n_row:
             row_n = self.starting_row_n + 1
@@ -207,9 +220,20 @@ class MIP_melon(object):
         ## create job object list
         job = list()
 
+        print()
+        print('############### OFFSET WITHIN CELL ###############')
+        if self.pick_travel_l < cell_l:
+            print('cell_l > pick_travel_l, offset added and assumed centered')
+        elif self.pick_travel_l > cell_l:
+            print('ERROR: cell_l < pick_travel_l, setting them to be equal')
+        else:
+            print('cell_l == pick_travel_l, no offset needed')
+        print('cell_l = ', cell_l, 'while pick_travel_l =', self.pick_travel_l)
+        print()
+
         for k in arm:
             for i in fruit:  
-                this_job = Job(i, k, v_vy_curr, cell_l)
+                this_job = Job(i, k, v_vy_curr, cell_l, self.pick_travel_l)
                 job.append(this_job)
                 # print('for arm', this_job.arm_k.arm_n, 'in row', this_job.arm_k.row_n,'and fruit', this_job.fruit_i.index)
                 # print('TW starts at', this_job.TW_start, 'and TW ends at', this_job.TW_end)  
@@ -458,11 +482,15 @@ class MIP_melon(object):
 
     def calcTravel_l(self, set_distribution, vehicle_l, v_vy_fruit_cmps, n_fruit):
         '''Calculates travel length for the orchard row size for the chosen distribution and vehicle length'''
+        
         if set_distribution == 0:
-            self.travel_l  = 16.5 + vehicle_l # in m, for Juan's data
-            # self.travel_l  = 12 + vehicle_l # in m, for Raj's data
-            self.density   = 53.97            # in fruit/m^2 (on avg.), constant, for Juan's data
-            # self.density   = 48.167         # in fruit/m^2 (on avg.), constant, for Raj's data
+            # travel l changes as the vehicle length changes?
+            if self.data_name == 'juan':
+                self.travel_l  = 16.5 + vehicle_l # in m, for Juan's data
+                self.density   = 53.97            # in fruit/m^2 (on avg.), constant, for Juan's data
+            elif self.data_name == 'raj':
+                self.travel_l  = 12 + vehicle_l # in m, for Raj's data
+                self.density   = 48.167         # in fruit/m^2 (on avg.), constant, for Raj's data
             n_runs    = 1
 
         elif set_distribution == 1:
@@ -488,11 +516,12 @@ class MIP_melon(object):
     
     def createFruit(self, fruitD, set_algorithm, set_distribution, density, x_seed, y_seed, z_seed):
             if set_distribution == 0:
-                # csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
-                csv_file = './TREE_FRUIT_DATA/20220811_apples_Juan.csv'
-                if csv_file == './TREE_FRUIT_DATA/20220811_apples_Juan.csv':
+ 
+                if self.data_name == 'juan':
+                    csv_file = './TREE_FRUIT_DATA/20220811_apples_Juan.csv'
                     is_meter = 1
-                elif csv_file == './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv':
+                elif self.data_name == 'raj':
+                    csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
                     is_meter = 0
 
                 [numFruit, sortedFruit] = fruitD.csvFile(csv_file, is_meter)
@@ -519,7 +548,6 @@ class MIP_melon(object):
 
             # elif set_distribution == 4: 
             #     [numFruit, sortedFruit] = fruitD.column(v_vy, v_max, a_max, t_grab, self.n_row, self.n_arm, self.cell_h, z_seed)
-                
             elif set_distribution == 5:
                 z_coord = (self.cell_h / 2) + 0.7
                 [numFruit, sortedFruit] = fruitD.columnUniform_melon(n_fruit, self.d_y, z_coord)
@@ -539,6 +567,7 @@ class MIP_melon(object):
     
     
     def calc_TW(self, arm_n, y_coord, v_vy):
+        #### INCORRECT: wall setup has the backmost cell be the 0th cell, this is based on melon paper setup
         TW_start = (y_coord + (arm_n - 1)*self.cell_l) / v_vy
         TW_end   = (y_coord + arm_n*self.cell_l) / v_vy
         return([TW_start, TW_end])
@@ -571,7 +600,9 @@ class MIP_melon(object):
         for n in range(n_row):
             # starting position in the y_axis (front-back on robot)
             col_y = q_vy
-            cell_h = self.z_row_top_edges[n,0] - self.z_row_bot_edges[n,0] # for now all rows are the same
+            cell_h = self.z_row_top_edges[0,n] - self.z_row_bot_edges[0,n] # for now all rows are the same
+            # print('Cell height for this', n, 'loop', cell_h)
+            # print('bottom', self.z_row_bot_edges[0,n], 'top', self.z_row_top_edges[0,n], '\n')
 
             for k in range(n_arm):
                 # print('col', n, 'row', k)
@@ -697,7 +728,7 @@ class MIP_melon(object):
         #         print('sorted z-coord', z_sorted)
                 
                 for row in range(n_row-1):
-                    top[row]      = z_sorted[fruit_in_row*(row+1)]+0.0001
+                    top[row]      = z_sorted[fruit_in_row*(row+1)]-0.0001
                     bottom[row+1] = z_sorted[fruit_in_row*(row+1)]+0.0001 
                     
                 top[-1] = z_lim[1]
@@ -752,13 +783,14 @@ class Fruit():
 
 
 class Job():
-    def __init__(self, fruit_i, arm_k, v_vy, cell_l):
+    def __init__(self, fruit_i, arm_k, v_vy, cell_l, pick_travel_l):
         self.fruit_i  = fruit_i
         self.arm_k    = arm_k
         self.v_vy     = v_vy
+        offset        = (cell_l - pick_travel_l) / 2  # assume centered
         # k+1 was added because the MIP model in paper assumes k starts at 1
-        self.TW_start = (self.fruit_i.y_coord + (self.arm_k.arm_n - 1 + 1)*cell_l) / (v_vy/100)
-        self.TW_end   = (self.fruit_i.y_coord + (self.arm_k.arm_n + 1)*cell_l) / (v_vy/100)
+        self.TW_start = (self.fruit_i.y_coord + (self.arm_k.arm_n)*cell_l + 1/2 * offset) / (v_vy/100)
+        self.TW_end   = (self.fruit_i.y_coord + (self.arm_k.arm_n + 1)*cell_l - 1/2 * offset) / (v_vy/100)
         
 class Job_v_vy():
     # for basic MIP with vehicle velocity as a variable
@@ -794,4 +826,4 @@ class Snapshot(object):
         self.sortedFruit     = sortedFruit
 
     def __str__(self):
-        return f"Arm: {self.arm_n}\n Horizontal Row Number: {self.row_n}"
+        return f"Arm: {self.n_arm}\n Horizontal Row Number: {self.n_row}"
