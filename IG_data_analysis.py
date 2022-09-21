@@ -162,7 +162,7 @@ class IG_data_analysis(object):
             
         for snapshot_percent in self.state_time:
             self.state_percent = self.state_percent + snapshot_percent
-            # print('snapshot state percent:', self.state_percent)
+            print('snapshot state percent:', self.state_percent)
         # print('snapshot state times:')
         # print(self.state_percent)
         
@@ -235,7 +235,7 @@ class IG_data_analysis(object):
         total_fruit = len(real_sortedFruit[4,:])
         total_time  = (y_lim[1] - y_lim[0]) / v_vy
 
-        picked_index = np.where(real_sortedFruit[4,:] > 0)
+        picked_index = np.where(real_sortedFruit[4,:] == 1)
 
         real_FPE = len(picked_index[0]) / total_fruit * 100
         real_FPT = len(picked_index[0]) / total_time
@@ -270,7 +270,7 @@ class IG_data_analysis(object):
 
 
     def plot2DSchedule(self, snapshot_list):
-        '''Plot the path of the schedule in 2D based on y and z axes based on the list of desired snapshots'''
+        '''Plot the path of the schedule in 2D based on y and z axes based on the list of *desired* snapshots'''
 
         fig, ax = plt.subplots()
 
@@ -321,6 +321,7 @@ class IG_data_analysis(object):
                             plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o')
 
         elif self.n_row == 1 and self.algorithm == 1:  # if using the melon algorithm
+        # elif self.n_row == 1 and self.algorithm == 1:  # if using the melon algorithm
             for snapshot_i in snapshot_list:
                 for k in range(self.n_arm,-1,-1):
                 # for k in range(self.n_arm+1):
