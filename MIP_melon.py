@@ -18,7 +18,8 @@ from IG_data_analysis import *     # import module to analyze the data from the 
 # https://gurobi.github.io/modeling-examples/technician_routing_scheduling/technician_routing_scheduling.html
 
 class MIP_melon(object):
-    def __init__(self, n_arm, n_row, starting_row_n, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim, density):
+    def __init__(self, q_vy, n_arm, n_row, starting_row_n, set_distribution, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, hor_l, x_lim, y_lim, z_lim, density):
+        # def __init__(self, q_vy, n_arm, n_row, starting_row_n, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim, density)
 
         '''
             Mixed integer programming model based on the MIP model in the melon combinatorial scheduling paper. 
@@ -29,7 +30,7 @@ class MIP_melon(object):
 
         ## Constants 
         ## to print out from data analysis
-        print_out  = 1
+        self.print_out  = 1
         plot_out   = 1
 
         # set which digitized data file will be used, 'raj' or 'juan'
@@ -37,8 +38,9 @@ class MIP_melon(object):
 
         ## settings
         self.Td    = 2.      # fruit handling time
-        self.M     = 80     # arbitrarily large number, set 600 from paper    
-        self.q_vy  = 0.      # in m, backmost, lowest coordinate of the vehicle
+        self.M     = 80      # arbitrarily large number, set 600 from paper    
+        self.q_vy  = q_vy    # in m, backmost, lowest coordinate of the vehicle
+        self.q_vy0 = q_vy    # in m, the actual start (snapshots require negatve values)
 
         # v_max      = 0.5
         # a_max      = 1.
@@ -56,9 +58,11 @@ class MIP_melon(object):
         self.FPE_min        = 0.95
 
         self.cell_l         = cell_l     # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel
-        self.pick_travel_l  = 0.       # in m, the amount o fdistance within the cell the arm can travel due to frame, motor placement, etc. assume centered
+        # pick travel length gets set seperately in addArmTravelLimits function
+        self.pick_travel_l  = 0.         # in m, the amount of distance within the cell the arm can travel due to frame, motor placement, etc. assume centered
         self.cell_h         = cell_h     # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
         self.reach          = 1          # in m, the length that the arm can extend out to pick a fruit
+        self.hor_l          = hor_l      # in m, the length of the view horizon
 
         self.noRel_time_ub  = 15     # in s, no relaxation heuristic max time to solve before moving to branch and bound (varies)
         self.timLim_time_ub = 60     # in s, the total amount of time the solver runs (includes NoRel)
@@ -74,7 +78,7 @@ class MIP_melon(object):
         # v_vy_cmps_try = np.arange(self.v_vy_lb_cmps, self.v_vy_ub_cmps+1)
         # print('velocities being attempted:', v_vy_cmps_try)
 
-        vehicle_l  = self.n_arm * self.cell_l
+        self.vehicle_l  = self.n_arm * self.cell_l
         # vehicle_h  = self.n_row * self.cell_h #### SET AT INIT ####
 
         ## for future addition of snapshots
@@ -114,14 +118,12 @@ class MIP_melon(object):
         n_snapshots = 1 # for now a constant
 
         ## Get fruit list based on desired distribution
-        n_runs = 1        
-        self.calcTravel_l(set_distribution, vehicle_l, v_vy_fruit_cmps, n_fruit)
-            
         self.x_lim   = np.copy(x_lim)
         self.y_lim   = np.copy(y_lim)
         self.z_lim   = np.copy(z_lim)
 
-        self.y_lim[1] = self.travel_l - self.y_lim[1] # set all the limits outside the class, just add the correct travel length
+        # calculate the real y_lim[1] based on the fruit distribution 
+        self.calcYlimMax(set_distribution, self.vehicle_l, v_vy_fruit_cmps, n_fruit) 
 
         # # create fruit distribution and get total number of fruits
         # fruitD = fruitDistribution(x_lim, self.y_lim, z_lim)
@@ -134,8 +136,14 @@ class MIP_melon(object):
 
 ## Functions
     def addArmTravelLimits(self, pick_travel_length):
-        '''The arm will only be able to travel some length of the total cell length (restricted by frame and motor placement)'''
-        self.pick_travel_l = pick_travel_length
+        '''The arm will only be able to travel some length of the total cell length (restricted by frame and motor placement). Set that value.'''
+        self.pick_travel_l = pick_travel_length # in m
+
+
+    
+    def setTravelLength(self, l_step_m):
+        '''Set the length of travel for this run (either snapshot or overall)'''
+        self.travel_l = l_step_m # in m, the travel length over this snapshot (or overall run)
 
 
 
@@ -151,7 +159,7 @@ class MIP_melon(object):
 
         # create fruit distribution and get total number of fruits
         fruitD = fruitDistribution(self.x_lim, self.y_lim, self.z_lim) # init fruit distribution script
-        [self.numFruit, self.sortedFruit] = self.createFruit(fruitD, set_algorithm, set_distribution, self.density, x_seed, y_seed, z_seed)
+        [self.numFruit, self.sortedFruit] = self.createFruitDistribution(fruitD, set_algorithm, set_distribution, self.density, x_seed, y_seed, z_seed)
 
         # print('Density chosen', self.density)
         print('x-lim', self.x_lim, 'y-lim', self.y_lim, 'z-lim', self.z_lim)
@@ -195,20 +203,24 @@ class MIP_melon(object):
 
 
     def createFruits(self, numFruit, sortedFruit):
-        '''Create and populate all the fruits' classes then put in appropriate list'''
+        '''Create and populate all the fruits' classes then put in appropriate list. Fruit indexes are 'zeroed' so that it works with snapshots'''
         ## create fruit object list
         fruit = list()
+
+        # currently only works by starting index at 0... did I plan that?
 
         for index in range(numFruit):
             # if the fruit was not removed due to clustering
             y_coord      = sortedFruit[1][index]
             z_coord      = sortedFruit[2][index]
-            fruit_i      = index  # changed to using this index because adding field of view 'snapshots' means that the indexes need to be 'zerooed'
+            # use a 'zeroed' index so that it works with snapshots
+            fruit_i      = index  
+            # but make sure to save the fruit's 'real' index 
             fruit_i_real = int(sortedFruit[3][index])
+            # create the object
             this_fruit   = Fruit(fruit_i, fruit_i_real, y_coord, z_coord)
-        #     print('Fruit index', index, 'should match this index', sortedFruit[3][index])
-        #     print('with y and z coordinates:', y_coord, z_coord)
-
+            # print('Fruit index', index, 'should match this index only if no snapshots', sortedFruit[3][index])
+            # print('with y and z coordinates:', y_coord, z_coord)
             fruit.append(this_fruit)
 
         # print(fruit)
@@ -220,8 +232,7 @@ class MIP_melon(object):
         ## create job object list
         job = list()
 
-        print()
-        print('############### OFFSET WITHIN CELL ###############')
+        print('Offset within the cell:')
         if self.pick_travel_l < cell_l:
             print('cell_l > pick_travel_l, offset added and assumed centered')
         elif self.pick_travel_l > cell_l:
@@ -233,7 +244,7 @@ class MIP_melon(object):
 
         for k in arm:
             for i in fruit:  
-                this_job = Job(i, k, v_vy_curr, cell_l, self.pick_travel_l)
+                this_job = Job(i, k, self.q_vy, v_vy_curr, cell_l, self.pick_travel_l)
                 job.append(this_job)
                 # print('for arm', this_job.arm_k.arm_n, 'in row', this_job.arm_k.row_n,'and fruit', this_job.fruit_i.index)
                 # print('TW starts at', this_job.TW_start, 'and TW ends at', this_job.TW_end)  
@@ -249,34 +260,44 @@ class MIP_melon(object):
         N = [i.index for i in fruit]    # list of fruit indexes
         Y = [i.y_coord for i in fruit]  # list of fruits' y-coordinate (x-coordinate in the paper)
         Z = [i.z_coord for i in fruit]  # list of fruits' z-coordinate
-        
-        # print('number of arms in each horizontal row:',K, 'with length', len(K))
-        # print()
-        # print('number of horizontal rows:',L, 'with length', len(L))
-        # print()
-        print('number of fruits:',N, 'with length', len(N))
-        print()
-        # print('fruit y-coordinate:', Y, 'with length', len(Y))
-        # print()
-        # print('fruit z-coordinate:', Z, 'with length', len(Z))
-        # print()
 
         total_fruit = len(N) # needed to constraint FPE to a high picking percentage
 
         self.job = self.createJobs(arm, fruit, v_vy_curr, self.cell_l)
+
+        if self.print_out == 1:
+            # print('number of arms in each horizontal row:',K, 'with length', len(K))
+            # print()
+            # print('number of horizontal rows:',L, 'with length', len(L))
+            # print()
+            print('number of fruits:\n',N, '\nwith length', len(N))
+            print()
+            # print('fruit y-coordinate:', Y, 'with length', len(Y))
+            # print()
+            # print('fruit z-coordinate:', Z, 'with length', len(Z))
+            # print()
+            # print('number of jobs:', len(self.job))
+            # print()
         
         if set_MIPsettings == 0 or set_MIPsettings == 1:
             TW_start = {i : [j.TW_start for j in self.job if j.fruit_i.index == i] for i in N}
             TW_end   = {i : [j.TW_end for j in self.job if j.fruit_i.index == i] for i in N}
 
+            # also save the real index of the 0th fruit (to get the difference)
+            offset_fruit_index = self.job[0].fruit_i.real_index
+            # print('job\'s first real index:', offset_fruit_index, '\n')
+
+
         if len(N) != len(Y) or len(N) != len(Z) or len(Y) != len(Z):
-            print('Error: Indexes for fruit index, y, and z-coordinates do not match')
+            print('Error: Indexes for fruit index, y, and z-coordinates do not match, exiting out of system')
             print()
+            sys.exit(0)
 
         if len(TW_start) != len(TW_end) or len(TW_start) != len(N) or len(self.job) != len(N)*len(K)*len(L):
-            print('Error: The number of fruit and the number of jobs or TW times do not match')
+            print('Error: The number of fruit and the number of jobs or TW times do not match, exiting out of system')
             print('Number of jobs', len(self.job), 'and number of fruits*arms', len(N)*len(K)*len(L))
             print()
+            sys.exit(0)
 
 
         ### Create model
@@ -300,12 +321,32 @@ class MIP_melon(object):
 
 
         ### Decision variables
-        # Arm-fruit assignment (is fruit i picked by arm k)
+        # Arm-fruit assignment (is fruit i picked by arm k in row l)
         x = m.addVars(K, L, N, vtype=GRB.BINARY, name="x")
 
-        # Time arm k, l reaches fruit i
-        t_ub = (self.travel_l + self.cell_l) / (v_vy_curr/100)
+        # upper bound when arm can pick the fruit, set at the time when the vehicle will reach the end of it's travel length
+        # print('\nthe velocity being used to calculate time bounds:', v_vy_curr) 
+        distance_travelled = abs(self.q_vy - self.q_vy0) # in m, the distance the system has travelled from the start
 
+        if self.travel_l >= self.vehicle_l:
+            # if the travel length is largr than the vehicle, we have less problems, it seems like
+            t_ub = (self.travel_l + self.cell_l + self.hor_l + distance_travelled) / (v_vy_curr/100)
+        elif self.travel_l < self.vehicle_l and self.travel_l > 0:
+            # when the travel length is smaller than the vehicle, results in infeasible results?
+            t_ub = (self.vehicle_l + self.cell_l + self.hor_l + distance_travelled) / (v_vy_curr/100)
+            t_move = (self.travel_l) / (v_vy_curr/100)
+
+        elif self.travel_l <= 0:
+            print('ERROR: travel length is zero, exiting out of system')
+            sys.exit(0)
+
+        if self.print_out == 1:
+            print('\nThe travel length being processed is {:.3f} m'.format(self.travel_l))
+            print(f'The distance travelled from the start: %4.2f m' % distance_travelled)
+            print(f'The potential travel distance window without the horizon: %4.2f s' % t_move)
+            print('The upper bound for when an arm can pick a fruit is {:.3f} sec\n'.format(t_ub))
+
+        # Time arm k, l reaches fruit i
         t = m.addVars(K, L, N, lb=0, ub=t_ub, name="t")
         
         if set_MIPsettings == 2:
@@ -348,12 +389,18 @@ class MIP_melon(object):
         else:
             m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Z[i] < self.z_row_bot_edges[k,l] or Z[i] > self.z_row_top_edges[k,l]), name="verticalWorkArea")
 
-        # If fruit was removed because of clustering, do not pick it
-        m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if self.sortedFruit[4,i] == 2), name="removeCluster")
+        # If fruit was removed because it's scheduled and picked, do not schedule it again
+        m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if self.sortedFruit[4,i+offset_fruit_index] == 2), name="removeScheduledAndPicked")
+
+        # if there is a horizon, the travel distance is not the same as the view distance. Don't harvest fruits that have not been realistically reached
+        m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if TW_start[i][k] >= t_move), name="fruitInHorizon")
         
         if set_MIPsettings == 0 or set_MIPsettings == 1:
-            m.addConstrs((t[k, l, i] <= max(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinA")
-            m.addConstrs((t[k, l, i] >= min(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinB")
+            # if TW_end is negative, we have passed the point of picking
+            m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if TW_end[i][k] <= 0), name="fruitPassed")
+            
+            m.addConstrs((t[k, l, i] >= min(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinStart")
+            m.addConstrs((t[k, l, i] <= max(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinEnd")
             
             # If fruit z-coord is outside of arm's range, do not pick it
     #         m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Z[i] < z_row_bot_edges[k,l] or Z[i] > z_row_top_edges[k,l]), name="verticalWorkArea")
@@ -413,20 +460,30 @@ class MIP_melon(object):
     #         sys.exit(0)
 
         fruit_picked_by = list()                             # list that saves which arm picks which fruit
+        fruit_picked_at = list()                             # list that saves at what time an arm picks a fruit, based on fruit_picked_by "topography"
         self.curr_j     = np.zeros([self.n_row, self.n_arm]) # array to save the sum of fruits picked by each arm
 
         for n in range(self.n_row):
             if self.n_row > 1:
                 fruit_picked_by.append([])
+                fruit_picked_at.append([])
 
             for k in range(self.n_arm+1):
                 if self.n_row > 1:
                     fruit_picked_by[n].append([])
+                    fruit_picked_at[n].append([])
                 else:
                     fruit_picked_by.append([])
+                    fruit_picked_at.append([])
 
 
         ### Print results
+        # print()
+        # print('###############################')
+        # print('how time picked is saved')
+        # print(t)
+        # print()
+        # print('###############################')
         # Assignments    
     #     print()
         for j in self.job:
@@ -435,20 +492,27 @@ class MIP_melon(object):
             else:
                 n_row = j.arm_k.row_n
 
+            # if j.fruit_i.real_index == 3:
+            #     # check calculated harvest time for one fruit
+            #     print('for fruit 3 and arm', j.arm_k.arm_n,'harvest time is', t[j.arm_k.arm_n, n_row, j.fruit_i.index].X)
+
             if x[j.arm_k.arm_n, n_row, j.fruit_i.index].X > 0:
+                # if fruit was scheduled to be harvested
     #             print('fruit', j.fruit_i.index, 'assigned to arm', j.arm_k.arm_n, 'at t = ', t[j.arm_k.arm_n, j.fruit_i.index].X)
     #             if set_MIPsettings == 1:
     #                 print('with tw start:', aux_min[j.arm_k.arm_n, j.fruit_i.index].X, 'and tw end:', aux_max[j.arm_k.arm_n, j.fruit_i.index].X)
                 # save picked to sortedFruit
-                self.sortedFruit[4, j.fruit_i.real_index] = 1
+                self.sortedFruit[4, j.fruit_i.real_index] = 1  # save to the real index on sortedFruit
                 self.curr_j[n_row, j.arm_k.arm_n] += 1
                 if self.n_row > 1:
                     fruit_picked_by[n_row][j.arm_k.arm_n].append(j.fruit_i.real_index)
+                    fruit_picked_at[n_row][j.arm_k.arm_n].append(t[j.arm_k.arm_n, n_row, j.fruit_i.index].X)
 
                 else:
                     fruit_picked_by[j.arm_k.arm_n].append(j.fruit_i.real_index)
+                    fruit_picked_at[j.arm_k.arm_n].append(t[j.arm_k.arm_n, n_row, j.fruit_i.index].X)
 
-        no_pick = np.where(self.sortedFruit[4,:] != 1 )
+        no_pick = np.where(self.sortedFruit[4,:] == 0)  # flag for scheduled == 1, scheduled and picked == 2
     #     print('not picked indexes:', no_pick[0])
 
         for no_pick_i in no_pick[0]:
@@ -466,38 +530,42 @@ class MIP_melon(object):
         print('set M value:', self.M)
         print()
 
-
         # check that TW and t^k_i match indexes and arms
-    #     print()
-    #     for k in K:
-    #         for i in N:
-    #             print('TW start:', TW_start[i][k], 'TW end:', TW_end[i][k], 'and t^k_i', t[k, i].X)
+        # print()
+        # for i in N:
+        #     for k in K:
+        #         row = 0
+        #         # for row in range(self.n_row):
+        #         # TW start and end are the same for every row, but not t, so depending on what's being checked, add or remove this for loop and add to t[].X
+        #         print('For row', row, 'arm',k, 'and fruit', i, 'TW start:', TW_start[i][k], 'TW end:', TW_end[i][k], 'and t^k_i', t[k, row, i].X)
+        #     print('Fruit harvested?', self.sortedFruit[4,i])
+        #     print('----')
 
         # print('fruit picked by [0]', fruit_picked_by[0])
         # print('fruit picked by [1]', fruit_picked_by[1])
         
-        return(fruit_picked_by)
+        return([fruit_picked_by, fruit_picked_at])
 
 
 
-    def calcTravel_l(self, set_distribution, vehicle_l, v_vy_fruit_cmps, n_fruit):
-        '''Calculates travel length for the orchard row size for the chosen distribution and vehicle length'''
-        
+    def calcYlimMax(self, set_distribution, vehicle_l, v_vy_frq_vyuit_cmps, n_fruit):
+        '''Calculates the end of the orchard's coordinate based on the set fruit distribution'''
+        # no snapshots, so the travel length is static at the orchard row's length
         if set_distribution == 0:
             # travel l changes as the vehicle length changes?
             if self.data_name == 'juan':
-                self.travel_l  = 16.5 + vehicle_l # in m, for Juan's data
+                y_max  = 16.5 # in m, for Juan's data
                 self.density   = 53.97            # in fruit/m^2 (on avg.), constant, for Juan's data
             elif self.data_name == 'raj':
-                self.travel_l  = 12 + vehicle_l # in m, for Raj's data
+                y_max  = 10.9 # in m, for Raj's data
                 self.density   = 48.167         # in fruit/m^2 (on avg.), constant, for Raj's data
             n_runs    = 1
 
         elif set_distribution == 1:
-            self.travel_l  = 6 + vehicle_l # in m, usually 5 m + length
+            y_max  = 6 # in m, usually 5 m + length
 
         elif set_distribution == 3:
-            self.travel_l  = 30 + vehicle_l # in m
+            y_max  = 30 # in m
             
         elif set_distribution == 5:
             v_vy_fruit_mps = v_vy_fruit_cmps / 100
@@ -505,16 +573,20 @@ class MIP_melon(object):
         #     d_y  = Td*v_vy_fruit*(n_fruit+1)/(n_fruit+2) # kind of works 3/4 or 5/8 fruit with 1 arm: (Td/2)*v_vy
             print('with Td', self.Td, 'and v_vy for fruit distribution', v_vy_fruit_cmps, 'cm/s')
             print('d_y for this line of fruit:', self.d_y, 'so the total distance they take up:', self.d_y*n_fruit)
-            self.travel_l  = self.d_y * n_fruit + vehicle_l # in m
+            y_max  = self.d_y * n_fruit # in m
             
         elif set_distribution == 6:
-            self.travel_l = 6 + vehicle_l # in m, should watch out because the total distance is actually 12
+            y_max = 6 # in m, should watch out because the total distance is actually 12
 
         else: 
-            self.travel_l  = 10 + vehicle_l # in m
+            print('ERROR: that distribution', set_distribution, 'does not exist, exiting out')
+            sys.exit(0)
+
+        self.y_lim[1] = y_max #+ self.y_lim[1] # correct the travel length 
+
     
     
-    def createFruit(self, fruitD, set_algorithm, set_distribution, density, x_seed, y_seed, z_seed):
+    def createFruitDistribution(self, fruitD, set_algorithm, set_distribution, density, x_seed, y_seed, z_seed):
             if set_distribution == 0:
  
                 if self.data_name == 'juan':
@@ -566,21 +638,21 @@ class MIP_melon(object):
             return([numFruit, sortedFruit])
     
     
-    def calc_TW(self, arm_n, y_coord, v_vy):
-        #### INCORRECT: wall setup has the backmost cell be the 0th cell, this is based on melon paper setup
-        TW_start = (y_coord + (arm_n - 1)*self.cell_l) / v_vy
-        TW_end   = (y_coord + arm_n*self.cell_l) / v_vy
-        return([TW_start, TW_end])
+    # def calc_TW(self, arm_n, y_coord, v_vy):
+    #     #### INCORRECT: wall setup has the backmost cell be the 0th cell, this is based on melon paper setup
+    #     TW_start = (y_coord + (arm_n - 1)*self.cell_l) / v_vy
+    #     TW_end   = (y_coord + arm_n*self.cell_l) / v_vy
+    #     return([TW_start, TW_end])
 
 
-    def getHorizonIndex(self, sortedFruit, q_vy, vehicle_l, horizon_l):
+    def getHorizonIndex(self, sortedFruit, q_vy, vehicle_l):
         '''
         Saves this snapshot's horizon fruit indexes based on the sortedFruit indexes to 
         compare and remove picked fruit.
         '''
         # edges of the horizon based on vehicle location and length
         horizon_back  = q_vy + vehicle_l
-        horizon_front = horizon_back + horizon_l
+        horizon_front = horizon_back + self.hor_l
 
         H_fruit_index = np.where((sortedFruit[1,:] >= horizon_back) & (sortedFruit[1,:] < horizon_front))
 
@@ -632,11 +704,11 @@ class MIP_melon(object):
         return(d)
 
 
-    def calcR(self, v_vy, fruit_in_horizon, horizon_l, vehicle_h, arm_reach):
+    def calcR(self, v_vy, fruit_in_horizon, vehicle_h, arm_reach):
         '''Calculate the R value given a speed and horizon volume and density'''
         try:
-            density_H = fruit_in_horizon / (horizon_l * vehicle_h * arm_reach)
-            time_H    = horizon_l / v_vy
+            density_H = fruit_in_horizon / (self.hor_l * vehicle_h * arm_reach)
+            time_H    = self.hor_l / v_vy
 
             R         = density_H / time_H # in fruit / (m^3 * s)
 
@@ -719,6 +791,7 @@ class MIP_melon(object):
                 fruit_in_row = math.floor(numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
                 # fruit_in_row = math.floor(self.numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
                 print('number of fruit in each row, rounded down', fruit_in_row)
+                print()
                 
                 # get z-coord array
                 z_coord = np.array(sortedFruit[2])
@@ -783,15 +856,30 @@ class Fruit():
 
 
 class Job():
-    def __init__(self, fruit_i, arm_k, v_vy, cell_l, pick_travel_l):
+    def __init__(self, fruit_i, arm_k, q_vy, v_vy, cell_l, pick_travel_l):
         self.fruit_i  = fruit_i
         self.arm_k    = arm_k
         self.v_vy     = v_vy
         offset        = (cell_l - pick_travel_l) / 2  # assume centered
         # k+1 was added because the MIP model in paper assumes k starts at 1
-        self.TW_start = (self.fruit_i.y_coord + (self.arm_k.arm_n)*cell_l + 1/2 * offset) / (v_vy/100)
-        self.TW_end   = (self.fruit_i.y_coord + (self.arm_k.arm_n + 1)*cell_l - 1/2 * offset) / (v_vy/100)
-        
+        # self.TW_start = (self.fruit_i.y_coord + (self.arm_k.arm_n)*cell_l + 1/2 * offset) / (v_vy/100)
+        # self.TW_end   = (self.fruit_i.y_coord + (self.arm_k.arm_n + 1)*cell_l - 1/2 * offset) / (v_vy/100)
+
+        # fix to start the back of the vehicle as (0,0)
+        self.TW_start = (self.fruit_i.y_coord - (q_vy + (self.arm_k.arm_n + 1)* cell_l) ) / (v_vy/100) 
+        if self.TW_start < 0:
+            # correction since it cannot be harvested at negative values, so make the window smaller by making it able to start at 0? -> might require the addition of q_vy_start
+            self.TW_start = 0
+
+        self.TW_end   = (self.fruit_i.y_coord - (q_vy + self.arm_k.arm_n * cell_l) ) / (v_vy/100)
+        if self.TW_end <= 0:
+            # if TW_end is less than zero, the fruit cannot be harvested so just set it all to zero
+            # was causing problems for the TW constraints because the max and min were not always the start and end. 
+            self.TW_start = 0
+            self.TW_end = 0
+
+
+         
 class Job_v_vy():
     # for basic MIP with vehicle velocity as a variable
     def __init__(self, fruit_i, arm_k):
