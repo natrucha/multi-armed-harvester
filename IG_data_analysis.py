@@ -235,7 +235,7 @@ class IG_data_analysis(object):
         total_fruit = len(real_sortedFruit[4,:])
         total_time  = (y_lim[1] - y_lim[0]) / v_vy
 
-        picked_index = np.where(real_sortedFruit[4,:] == 1)
+        picked_index = np.where(real_sortedFruit[4,:] > 1)  # scheduled *and* harvested is flagged as 2, 1 means it was only scheduled
 
         real_FPE = len(picked_index[0]) / total_fruit * 100
         real_FPT = len(picked_index[0]) / total_time
