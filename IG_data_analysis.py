@@ -287,38 +287,46 @@ class IG_data_analysis(object):
             for snapshot_i in snapshot_list:
                 for n in range(self.n_row):
                     for k in range(self.n_arm+1):
-                        x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][n][k]]
-                        y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][n][k]]
+                        try:
+                            # some snapshots will have empty lists which lead to an IndexError
+                            x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][n][k]]
+                            y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][n][k]]
 
-                        # add modulo later so it works with n and k > 3 
-                        if k == self.n_arm:
-                            line_color = 'gold'
-                            linestyle = ''
-                            arm_label = 'unpicked'
-                        elif k == 0:
-                            line_color = str(color[k])
-                            linestyle = line_type[n]
-                            arm_label = 'back arm'
-                        elif k == self.n_arm-1:
-                            line_color = str(color[k])
-                            linestyle = line_type[n]
-                            arm_label = 'front arm'
-                        else:
-                            line_color = str(color[k])
-                            linestyle = line_type[n]
-                            arm_label = 'middle arm ' + str(k)
+                                # add modulo later so it works with n and k > 3 
+                            if k == self.n_arm:
+                                line_color = 'gold'
+                                linestyle = ''
+                                arm_label = 'unpicked'
+                            elif k == 0:
+                                line_color = str(color[k])
+                                linestyle = line_type[n]
+                                arm_label = 'back arm'
+                            elif k == self.n_arm-1:
+                                line_color = str(color[k])
+                                linestyle = line_type[n]
+                                arm_label = 'front arm'
+                            else:
+                                line_color = str(color[k])
+                                linestyle = line_type[n]
+                                arm_label = 'middle arm ' + str(k)
 
-                        if snapshot_i == 0 and n == 0:
-                            # limits the labels for the legend
-                            # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-                            #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
+                            if snapshot_i == 0 and n == 0:
+                                # limits the labels for the legend
+                                # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+                                #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
 
-                            plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o', label=arm_label)
+                                plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o', label=arm_label)
 
-                        else:
-                            # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
-                            #         self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
-                            plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o')
+                            else:
+                                # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
+                                #         self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
+                                plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o')
+                        
+                        except IndexError:
+                            print('\nWARNING: current row', n, 'and column', k, 'in snapshot', snapshot_i, 'has an empty list and has to be skipped')
+                            # return(0)
+
+                        
 
         elif self.n_row == 1 and self.algorithm == 1:  # if using the melon algorithm
         # elif self.n_row == 1 and self.algorithm == 1:  # if using the melon algorithm
