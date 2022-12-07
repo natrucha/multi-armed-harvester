@@ -390,9 +390,6 @@ def main():
     total_picked = 0
 
     l_hor_m  = 0.3                  # in m, the extra length (horizon) in front of the robot that the robot can see
-    l_view_m = vehicle_l + l_hor_m  # in m, the length along the orchard row that the robot can see, moves with the vehicle
-
-    q_hy     = q_vy + vehicle_l     # in m, the 0 y-axis coordinate (backmost part or "start") of the horizon
 
     ## set fruit distribution flag
     # 0     == Raj's and Juan's digitized fruits
@@ -422,8 +419,9 @@ def main():
 
     ## set if the vehicle can see the whole dataset or just what's in front
     # 0     == robot sees the whole dataset
-    # 1     == robot only sees what's in front of it plus a horizon
-    set_view_field = 1
+    # 1     == robot only sees what's in front of it
+    # 2     == robot only sees what's in front of it plus a horizon
+    set_view_field = 2
 
     ## set if solving per row or the whole view at once 
     # 0     == solve all rows at once 
@@ -443,6 +441,12 @@ def main():
         density    = 16
     else: 
         density    = 15          # figure this out later
+
+    if set_view_field != 2:
+        # there should be no horizon if the view field doesn't call for it
+        l_hor_m = 0 
+
+    l_view_m = vehicle_l + l_hor_m  # in m, the length along the orchard row that the robot can see, moves with the vehicle
 
     ##################### LISTS #####################
     run_list      = list()   # saves the results of each run for analysis
@@ -472,14 +476,21 @@ def main():
         mip_melon.addArmTravelLimits(pick_travel_length) 
 
         # set the number of snapshots if the vehicle cannot see the whole dataset and change the step length accordingly
-        if set_view_field == 1:
-            l_step_m = l_hor_m  # in m, the travel length, now the step length taken before for a snapshot 
-            n_snapshots = math.ceil((mip_melon.y_lim[1] - mip_melon.y_lim[0]) / l_step_m)  # set just to do the area in front of the vehicle
-
-        else: 
+        if set_view_field == 0:
+            # global view
             n_snapshots = 1 
             l_view_m = mip_melon.y_lim[1] - mip_melon.y_lim[0]
             l_step_m = mip_melon.y_lim[1] + vehicle_l  # in m, the travel length
+
+        elif set_view_field == 1:
+            # limited view, no horizon
+            l_step_m = 0.3  # in m, the travel length, now the step length taken before for a snapshot 
+            n_snapshots = math.ceil((mip_melon.y_lim[1] - mip_melon.y_lim[0]) / l_step_m)  # set just to do the area in front of the vehicle
+
+        else: 
+            # limited view with horizon
+            l_step_m = 0.15  # in m, the travel length, now the step length taken before for a snapshot 
+            n_snapshots = math.ceil((mip_melon.y_lim[1] - mip_melon.y_lim[0]) / l_step_m)  # set just to do the area in front of the vehicle
 
         mip_melon.setTravelLength(l_step_m)
 
@@ -556,15 +567,17 @@ def main():
                 print('number of fruits in this snaphsot (also counts sched+pick):', this_numFruit)
                 print('actual number of fruits in this snaphsot (removed sched+pick) :', this_available_numFruit)
                 print()
-                print('the indexes of the fruits in the horizon are:\n', horizon_indexes)
-                print()
                 print('the density of fruits in each cell in this snapshot is:\n{:.2}'.format(d_tot))
                 print()
                 print('the density of fruits in each cell in this snapshot is:\n', d)
                 print()
                 print('the density of fruits in each row in this snapshot is:\n', d_row)
-                print()
-                print('the R value of this snapshot is: {:.2} \n'.format(R))
+                if set_view_field == 2:
+                    # horizon indexes only make sense here
+                    print()
+                    print('the indexes of the fruits in the horizon are:\n', horizon_indexes)
+                    print()
+                    print('the R value of this snapshot is: {:.2} \n'.format(R))
 
             printScen("Solving base scenario model")
 
@@ -597,11 +610,9 @@ def main():
 
                     # print('original curr_j\n', mip_melon.curr_j)
 
-                    # queue manager for added dynamicism, only for arm [0,0]
-                    # MIP_queu_manager(sortedFruit, row_n, column_n, fruit_queue, time_reached, q_vy, q_hy, q_cy)
                     for row in range(n_row):
                         for column in range(n_arm):
-                            print(f'for arm in row %d and column %d:' %(n_row, n_arm))
+                            # print(f'for arm in row %d and column %d:' %(n_row, n_arm))
                             fruit_picked_a = this_fruit_picked_by[row][column]
                             fruit_when     = this_fruit_picked_at[row][column]  # if fruit_picked_a doesn't work, neither will this
                             # print('this arm is picking', fruit_picked_a, 'at', fruit_when)
@@ -701,20 +712,21 @@ def main():
                 snapshot_list.append(snapshot)
                 ## continue filling if needed: PCT, state_time, fruit_picked_by, fruit_list (all lists?)
 
+                this_global_FPE = len(where_pi[0]) / len(mip_melon.sortedFruit[4,:])
 
                 if print_out == 1:
                     print()
                     print()
                     print('velocity set at {:.3f} m/s'.format(v_vy)) 
                     print('Number of fruits picked by each arm: *bottom* \n *back* ', chosen_j, ' *front* \n *top*')
-                    print('FPE, {:.3f}%'.format(FPE*100), ', and FPT {:.3f}'.format(FPT))   
+                    print('Global FPE , {:.3f}%'.format(this_global_FPE*100))  
+                    print('Local FPE, {:.3f}%'.format(FPE*100), ', and FPT {:.3f}'.format(FPT))  
                     print()
                     print('A total of', total_picked, 'fruits were harvested out of', this_available_numFruit)         
                     print()
 
             # update the vehicle's location
             mip_melon.q_vy += l_step_m
-            q_hy           += l_step_m
 
             time_run = datetime.now()-start_timer
             time_snap_list.append(time_run)
