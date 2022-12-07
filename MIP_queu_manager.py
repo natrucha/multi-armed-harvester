@@ -47,8 +47,8 @@ class MIP_queu_manager(object):
         '''
 
         index_picked = np.where(when < t_move)
-        print('comparing when fruits would be harvested\n', when) 
-        print(f'to when they could not be picked anymore: %4.2f' % t_move)
+        # print('comparing when fruits would be harvested\n', when) 
+        # print(f'to when they could not be picked anymore: %4.2f' % t_move)
         # print('indexes that can be picked within travel time', index_picked[0])  # print the real indexes based on the given queue of fruis instead
         picked_queue = queue[index_picked]
 
@@ -56,10 +56,10 @@ class MIP_queu_manager(object):
         # print('indexes that cannot be picked within travel time', index_not_picked[0]) # print the real indexes based on the given queue of fruis instead
         unpicked_queue = queue[index_not_picked]
 
-        if len(picked_queue) > 0:
-            # only print if there are fruits being picked
-            print('queue of fruits harvested within the limited travel time:\n', picked_queue) 
-        print()
+        # if len(picked_queue) > 0:
+        #     # only print if there are fruits being picked
+        #     print('queue of fruits harvested within the limited travel time:\n', picked_queue) 
+        # print()
 
         return([picked_queue, unpicked_queue])
 
