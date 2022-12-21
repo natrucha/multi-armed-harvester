@@ -146,6 +146,83 @@ class MIP_melon(object):
 
 
 
+    def calcMeanTd(self, fruit_picked_by, fruit, total_picked):
+        '''
+           Calculates the mean Td of the snapshot based on the harvested fruits. Pass the final fruit_picked_by
+           list, the one that already went through queue management, etc.
+
+           Can only be run after scheduling has finished.
+
+           *** Depends on no cycles (figure out cylces later) *** 
+           Assumes that fruit_picked_by contains the picking order (smallest to largest) which may not be true later
+           Might need to switch MIP to sahe order if cycles added.
+        '''
+        # # list of fruit extension times in fruit object
+        N  = [i.real_index for i in fruit]    # list of fruit indexes
+        TX = [i.Tx for i in fruit]            # list of precalculated fruit extension times
+
+        sum_of_ext_times  = 0 # in s, the sum of extension times
+        sum_of_move_times = 0 # in s, the sum of move times
+
+        print('fruit picked by test in calcMeanTd')
+        # print(TX)
+
+        for i_row in range(self.n_row):
+            for i_arm in range(self.n_arm):
+                # skips not picked list
+                num_fruits = len(fruit_picked_by[i_row][i_arm])
+                # print('the fruits in this row/arm:', fruit_picked_by[i_row][i_arm])
+                
+                if num_fruits > 1:
+                    # get extension time of the first fruit in the list, even if only one fruit
+                    zero_TX_i = N.index(fruit_picked_by[i_row][i_arm][0])
+                    sum_of_ext_times += TX[zero_TX_i]
+                    # print('TX[0] %.2f' % TX[fruit_picked_by[i_row][i_arm][0]])
+
+                    # needs to take into account the order of harvest (move from what fruit to waht fruit)
+                    for i_list in range(num_fruits-1):
+                        curr_i = fruit_picked_by[i_row][i_arm][i_list]
+                        next_i = fruit_picked_by[i_row][i_arm][i_list+1] 
+                        # print('current i: %d and next i: %d' % (curr_i, next_i))
+
+                        curr_TX_i = N.index(curr_i)
+                        next_TX_i = N.index(next_i)
+                        # print('which are %d and %d in N' % (curr_TX_i, next_TX_i))
+
+                        curr_move = self.fruit_travel_matrix[curr_i, next_i]
+                        # print('with move time %.2f' % curr_move)
+
+                        if i_list == 0:
+                            # get the extension of the first fruit 
+                            sum_of_ext_times  += TX[curr_TX_i]
+                            # print('TX[%d] %.4f' % (curr_TX_i, TX[curr_TX_i]))
+
+                        # add the extension time for the next fruit (i+1) 
+                        # since we already have the 0th fruit, avoids any doubling of the extension time
+                        sum_of_ext_times  += TX[next_TX_i]
+                        # print('with extension time %.2f' % TX[next_TX_i])
+                        sum_of_move_times += curr_move
+
+                elif num_fruits > 0:
+                    # just worry about the one extension
+                    zero_TX_i = N.index(fruit_picked_by[i_row][i_arm][0])
+                    sum_of_ext_times += TX[zero_TX_i]
+                    
+
+        print('\nThe sum of extension times is %.2f s' % sum_of_ext_times)
+        print('The sum of move times is %.2f s\n' % sum_of_move_times)
+
+        # get the total fruit handling time
+        sum_Td_times = sum_of_ext_times + sum_of_move_times
+
+        # divide by the number of harvested fruits to get the average
+        mean_Td = sum_Td_times / total_picked
+        print('Mean Td time for the snapshot %.2f' % mean_Td)
+
+        return(mean_Td)
+
+
+
     def timeBtwFruits(self):
         '''
            Create a matrix that saves the time it takes to move between every two fruits in the snapshot. Time calculated as max(Ty, Tz) using the trajectory.py
@@ -194,8 +271,8 @@ class MIP_melon(object):
                     self.fruit_travel_matrix[i,j] = max(T_y, T_z)
                     self.fruit_travel_matrix[j,i] = max(T_y, T_z)
 
-        print('travel times between fruits:')
-        print(self.fruit_travel_matrix)
+        # print('travel times between fruits:')
+        # print(self.fruit_travel_matrix)
 
 
 
@@ -319,7 +396,7 @@ class MIP_melon(object):
         # lists:
         K  = [*range(self.n_arm)]        # list of arms in each horizontal row
         L  = [*range(self.n_row)]        # list of horizontal row numbers, uses the argument-unpacking operator *
-        N  = [i.index for i in fruit]    # list of fruit indexes
+        N  = [i.index for i in fruit]    # list of fruit indexes starting at 0, with an offset when needed
         Y  = [i.y_coord for i in fruit]  # list of fruits' y-coordinate (x-coordinate in the paper)
         Z  = [i.z_coord for i in fruit]  # list of fruits' z-coordinate
         TX = [i.Tx for i in fruit]       # list of fruit extension times

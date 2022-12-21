@@ -444,6 +444,10 @@ def main():
     print_out = 1
     plot_out  = 1
 
+    ## set Td to be constant or variable? -> see if needed as a flag
+    # 0     == Td constant
+    # 1     == Td variable based on vacuum
+
     # set density if specific to the set_distibution setting
     if set_distribution == 1:
         density    = float(args[2])       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
@@ -926,7 +930,8 @@ def main():
                     snapshot_time_array[i_snap] = l_step_m / v_vy  # in s, l_step in m, v_vy in m/s
 
                     # calculate the mean Td for the snapshot, not working yet
-                    mip_melon.calcMeanTd(fruit_picked_by, mip_fruit, total_picked)
+                    this_mean_Td = mip_melon.calcMeanTd(fruit_picked_by, mip_fruit, total_picked)
+                    mean_Td_array[i_snap] = this_mean_Td
 
                     # calculate the global FPE for this snapshot
                     this_global_FPE = len(where_pi[0]) / len(mip_melon.sortedFruit[4,:])
@@ -950,6 +955,7 @@ def main():
                         # print('updates to the sortedFruit list\n', mip_melon.sortedFruit[4,:])
                         print()
                         print('Velocity chosen for this run {:.3f} m/s'.format(v_vy)) 
+                        print('Mean snapshot Td for all arms %.3f s' % this_mean_Td)
                         print('Number of fruits picked by each arm: *bottom* \n *back* ', chosen_j, ' *front* \n *top*')
                         print('Global FPE , {:.3f}%'.format(this_global_FPE*100))  
                         print('Global FPT , {:.3f} fruits/s'.format(this_global_FPT))
