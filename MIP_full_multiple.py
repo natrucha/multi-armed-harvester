@@ -871,37 +871,79 @@ def main():
                         # FPT will be 0, showing/balancing out what happened
                         curr_FPE = 1.
 
+                    print()
+
+                    if curr_FPE >= FPE_min or v_vy_curr_cmps == v_vy_lb_cmps:
+                        # if the correct FPE and FPT is found, or it's the first run but there are still too many fruits to pick even at the lowest speed
+                        if curr_FPT > FPT or v_vy_curr_cmps == v_vy_lb_cmps:
+                            # a new solution can be used, though check if there are any fruits available to see if velocity should beset to upper bound and break out of loop
+                            FPE          = curr_FPE
+                            FPT          = curr_FPT
+                            total_picked = curr_total_picked
+                            chosen_j     = np.copy(curr_chosen_j)   # save the curr_j variable for the chosen run
+                            fruit_picked_by = curr_fruit_picked_by.copy() # copy the chosen run's fruit picked by list
+
+                            if this_available_numFruit > 0:
+                                # if there are fruits, the solution works and should be saved as is
+                                print('***** NEW SOLUTION SAVED *****')
+                                solution_found = 1
+                                v_vy           = v_vy_mps # in m
+                                
+                            else:
+                                print('***** NO FRUITS AVAILABLE, BREAKING OUT *****')
+                                # there are probably no fruits in this run, need to break out with speed at highest value
+                                solution_found = 1    # technically, a solution was found, it's just not great
+                                v_vy           = v_vy_ub_cmps / 100 # in mv_vy_mps
+
+                                # nothing picked, so zero out chosen_j -> check first if necessary
+                                zero_j = np.zeros([n_row, n_arm])
+                                print('chosen_j should be zeroed out:')
+                                print(chosen_j)
+                                if chosen_j == zero_j:
+                                    print('chosen_j is zeroed out')
+
+                                # clear the sortedFruit changes made in this run or the scheduled but not harvested results bleed over to the following runs
+                                # fruit_picked_by has been saved and will be used to mark fruits as harvested if this ends up being the final solution
+                                for row in range(n_row):
+                                    for column in range(n_arm):
+                                        mip_melon.sortedFruit[4,curr_fruit_picked_by[row][column]] = 0
+
+                                print('########################### FORCED END RUN ###########################')
+                                print()
+                                break
+
+                                # move some stuff over here. Have fun!!!!!  
+                        
+                        else:
+                            # no improvement in FPT means that this is not a viable solution, keep looping
+                            solution_found = 0
+
                     # compare the FPE with FPE_min to see if this velocity works
-                    if curr_FPE < FPE_min - 0.03: 
+                    elif curr_FPE < FPE_min: 
+                        print('***** NO IMPROVEMENT IN FPE POSSIBLE, BREAKING OUT *****')
                         # there is no way FPE rises as velocity rises, so either a solution was found, or it wasn't 
+                        # solution_found = 0
+
                         # clear the sortedFruit changes made in this run or the scheduled but not harvested results bleed over to the following runs
                         # fruit_picked_by has been saved and will be used to mark fruits as harvested if this ends up being the final solution
                         for row in range(n_row):
                             for column in range(n_arm):
-                                mip_melon.sortedFruit[4,curr_fruit_picked_by[row][column]] = 0
+                                mip_melon.sortedFruit[4,curr_fruit_picked_by[row][column]] = 0 # try removing all curr_fruit_picked_by since fruit_picked_by may not be updated
 
                         print('########################### FORCED END RUN ###########################')
                         print()
                         break 
 
-                    elif curr_FPE >= FPE_min:
-                        if curr_FPT > FPT:
-                            # a new solution can be used
-                            solution_found = 1
-                            print('***** A NEW SOLUTION WAS FOUND *****')
+                    else:
+                        print('***** POSSIBLY AN ERROR, FIGURE OUT HOW IT GOT HERE *****')
+                        # no clue when this would be possible
+                        solution_found = 0
 
-                            FPE          = curr_FPE
-                            FPT          = curr_FPT
-                            v_vy         = v_vy_mps # in m
-                            total_picked = curr_total_picked
-                            chosen_j     = np.copy(curr_chosen_j)   # save the curr_j variable for the chosen run
-                            fruit_picked_by = curr_fruit_picked_by.copy() # copy the chosen run's fruit picked by list
-
-                            # clear the sortedFruit changes made in this run or the scheduled but not harvested results bleed over to the following runs
-                            # fruit_picked_by has been saved and will be used to mark fruits as harvested if this ends up being the final solution
-                            for row in range(n_row):
-                                for column in range(n_arm):
-                                    mip_melon.sortedFruit[4,fruit_picked_by[row][column]] = 0
+                    # clear the sortedFruit changes made in this run or the scheduled but not harvested results bleed over to the following runs
+                    # fruit_picked_by has been saved and will be used to mark fruits as harvested if this ends up being the final solution
+                    for row in range(n_row):
+                        for column in range(n_arm):
+                            mip_melon.sortedFruit[4,curr_fruit_picked_by[row][column]] = 0 # try removing all curr_fruit_picked_by since it may not update 
 
                 if solution_found == 1:
                     # use fruit_picked_by to manage sortedFruit and switch new scheduled only fruit to scheduled and picked
@@ -965,10 +1007,11 @@ def main():
                         print()
 
                 else:
+                    print('***** NO SOLUTION WAS FOUND THROUGH WHOLE LOOP *****')
                     # oof, umm if nothing is chosen, something has to be chosen and it depends on why. 
                     # if no fruits, should go really fast, if too many fruits should go as slow as possible
                     # save chosen velocity
-                    chosen_v_vy_mps_array[i_snap] = v_vy_lb_cmps / 100 # in m/s, for now as slow as possible?
+                    chosen_v_vy_mps_array[i_snap] = v_vy_ub_cmps / 100 # in m/s, for now as slow as possible?
 
                     # nothing picked, so zero out 
                     chosen_j = np.zeros([n_row, n_arm])
@@ -978,7 +1021,7 @@ def main():
                     # np.where isn't working so falling back to a for loop
                     for row in range(n_row):
                         for column in range(n_arm):
-                            mip_melon.sortedFruit[4,this_fruit_picked_by[row][column]] = 0
+                            mip_melon.sortedFruit[4,fruit_picked_by[row][column]] = 0  # was using this_fruit_picked_by which is probably wrong
                     
                     # print('fruit_picked_by before clearing\n', fruit_picked_by)
                     fruit_picked_by.clear()
@@ -1012,6 +1055,9 @@ def main():
             # update the vehicle's location, currently working for MIP_settings == 0, not 1 or 2
             mip_melon.q_vy += l_step_m
 
+            # reset solution found
+            solution_found = 0 
+
             time_run = datetime.now()-start_timer
             time_snap_list.append(time_run)
 
@@ -1041,6 +1087,7 @@ def main():
         # print()
 
         if solution_found == 0:
+            # for single runs only
             print('NO SOLUTION was found')
             print()
 
