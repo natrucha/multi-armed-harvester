@@ -47,24 +47,24 @@ class MIP_melon(object):
         # a_max      = 1.
         # t_grab     = 0.1 
 
-        self.n_row          = n_row      # total number of horizontal rows with cells containg one arm per cell
-        self.n_arm          = n_arm      # number of arms in one horizontal row
+        self.n_row            = n_row      # total number of horizontal rows with cells containg one arm per cell
+        self.n_arm            = n_arm      # number of arms in one horizontal row
 
-        self.starting_row_n = starting_row_n # row number at which this MIP run will start, usually set at 0 unless each row is run seperately
+        self.starting_row_n   = starting_row_n # row number at which this MIP run will start, usually set at 0 unless each row is run seperately
 
-        self.density = density      # in fruit/m^2
+        self.density          = density      # in fruit/m^2
        
-        n_fruit             = 80      # in fruit, for melon column distribution
+        n_fruit               = 80      # in fruit, for melon column distribution
 
-        self.cell_l         = cell_l     # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel
+        self.cell_l           = cell_l     # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel
         # pick travel length gets set seperately in addArmTravelLimits function
-        self.pick_travel_l  = 0.         # in m, the amount of distance within the cell the arm can travel due to frame, motor placement, etc. assume centered
-        self.cell_h         = cell_h     # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
-        self.reach          = 1          # in m, the length that the arm can extend out to pick a fruit
-        self.hor_l          = hor_l      # in m, the length of the view horizon
+        self.l_real_y_travel  = 0.       # in m, the amount of distance within the cell the arm can travel due to frame, motor placement, etc. assume centered
+        self.cell_h           = cell_h     # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
+        self.reach            = 1          # in m, the length that the arm can extend out to pick a fruit
+        self.hor_l            = hor_l      # in m, the length of the view horizon
 
-        self.noRel_time_ub  = 15     # in s, no relaxation heuristic max time to solve before moving to branch and bound (varies)
-        self.timLim_time_ub = 60     # in s, the total amount of time the solver runs (includes NoRel)
+        self.noRel_time_ub    = 15     # in s, no relaxation heuristic max time to solve before moving to branch and bound (varies)
+        self.timLim_time_ub   = 60     # in s, the total amount of time the solver runs (includes NoRel)
 
         ## set at function creation
         # v_vy_fruit_cmps = 8  # in cm/s, assumed vehicle velocity along orchard row to build line distribution
@@ -134,9 +134,9 @@ class MIP_melon(object):
         
 
 ## Functions
-    def addArmTravelLimits(self, pick_travel_length):
+    def addArmTravelLimits(self, l_real_y_travel):
         '''The arm will only be able to travel some length of the total cell length (restricted by frame and motor placement). Set that value.'''
-        self.pick_travel_l = pick_travel_length # in m
+        self.l_real_y_travel = l_real_y_travel # in m
 
 
     
@@ -366,18 +366,18 @@ class MIP_melon(object):
         job = list()
 
         print('Offset within the cell:')
-        if self.pick_travel_l < cell_l:
+        if self.l_real_y_travel < cell_l:
             print('cell_l > pick_travel_l, offset added and assumed centered')
-        elif self.pick_travel_l > cell_l:
+        elif self.l_real_y_travel > cell_l:
             print('ERROR: cell_l < pick_travel_l, setting them to be equal')
         else:
             print('cell_l == pick_travel_l, no offset needed')
-        print('cell_l = ', cell_l, 'while pick_travel_l =', self.pick_travel_l)
+        print('cell_l = ', cell_l, 'while pick_travel_l =', self.l_real_y_travel)
         print()
 
         for k in arm:
             for i in fruit:  
-                this_job = Job(i, k, self.q_vy, v_vy_curr, cell_l, self.pick_travel_l)
+                this_job = Job(i, k, self.q_vy, v_vy_curr, cell_l, self.l_real_y_travel)
                 job.append(this_job)
                 # print('for arm', this_job.arm_k.arm_n, 'in row', this_job.arm_k.row_n,'and fruit', this_job.fruit_i.index)
                 # print('TW starts at', this_job.TW_start, 'and TW ends at', this_job.TW_end)  

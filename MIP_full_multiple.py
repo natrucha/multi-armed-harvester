@@ -374,7 +374,7 @@ def main():
     cell_l             = 0.7 # 0.3  # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel
     cell_h             = 2. / n_row # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
     arm_reach          = 1 
-    pick_travel_length = cell_l # prototype's = 0.46       # in m, measured on the prototype -> actual arm horizontal travel distance within the cell
+    l_real_y_travel = cell_l # prototype's = 0.46  # in m, measured on the prototype -> actual arm horizontal (y-coordinate) travel distance within the cell
 
     v_vy_fruit_cmps    = int(args[3]) # in cm/s
     v_vy               = v_vy_fruit_cmps / 100 # change to m/s
@@ -492,8 +492,8 @@ def main():
             # start the row at 0th row and then change the row as needed after this and before create arms
             mip_melon = MIP_melon(q_vy, n_arm, 1, 0, set_distribution, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, l_hor_m, x_lim, y_lim, z_lim, density)
 
-        # set the horizontal movement limits within the cell
-        mip_melon.addArmTravelLimits(pick_travel_length) 
+        # set the x-coordinate extension movement limits within the cell. Only affects the Jobs() object if it's not equal to the cell_l 
+        mip_melon.addArmTravelLimits(l_real_y_travel) 
 
         # set the number of snapshots if the vehicle cannot see the whole dataset and change the step length accordingly
         if set_view_field == 0:
@@ -562,14 +562,17 @@ def main():
             mip_arm = mip_melon.createArms()
 
         # separate the fruit indexes according to the snapshot they'll be in, was doing it all at once, can't if dynamic
-        # this_sortedFruit_index = fruitsInView(n_snapshots, l_view_m, total_sortedFruit, cell_l, pick_travel_length)
+        # this_sortedFruit_index = fruitsInView(n_snapshots, l_view_m, total_sortedFruit, cell_l, l_real_y_travel)
 
         for i_snap in range(n_snapshots):
             fruit_picked_by = list()
+
+            # reset solution found
+            solution_found = 0 
  
             # Figure out which fruits go into this snapshot and transform their index to start with zero (save the index start)
-            # this_sortedFruit_index = fruitsInView(mip_melon.q_vy, l_view_m, total_sortedFruit, cell_l, pick_travel_length)
-            this_sortedFruit_index = fruitsInView(mip_melon.q_vy, l_view_m, mip_melon.sortedFruit, cell_l, pick_travel_length)
+            # this_sortedFruit_index = fruitsInView(mip_melon.q_vy, l_view_m, total_sortedFruit, cell_l, l_real_y_travel)
+            this_sortedFruit_index = fruitsInView(mip_melon.q_vy, l_view_m, mip_melon.sortedFruit, cell_l, l_real_y_travel)
 
             this_sortedFruit = np.copy(mip_melon.sortedFruit[:,this_sortedFruit_index])
             # this_sortedFruit = np.copy(total_sortedFruit[:,this_sortedFruit_index[i_snap]])
@@ -1055,9 +1058,6 @@ def main():
             # update the vehicle's location, currently working for MIP_settings == 0, not 1 or 2
             mip_melon.q_vy += l_step_m
 
-            # reset solution found
-            solution_found = 0 
-
             time_run = datetime.now()-start_timer
             time_snap_list.append(time_run)
 
@@ -1086,13 +1086,15 @@ def main():
         # print('###############################################################')
         # print()
 
+
+        ################ RESULS FOR A RUN OF WHOLE ROW ################
         if solution_found == 0:
             # for single runs only
             print('NO SOLUTION was found')
             print()
 
         elif solution_found == 1:
-            # # combine the results based on the various snapshots taken
+            # combine the results based on the various snapshots taken
             results = IG_data_analysis(snapshot_list, snapshot_cell, mip_melon.travel_l, mip_melon.y_lim, set_algorithm, print_out)
             if print_out == 1:
                 results.printSettings()
