@@ -105,8 +105,7 @@ class MIP_melon(object):
 
         # ## set MIP model settings
         # # 0     == basic MIP model from the melon paper with arms not sharing space
-        # # 1     == basic MIP model with velocity as a variable
-        # # 2     == makespan MIP (have seperate code, don't use this until proven the same as the other)
+        # # 1     == makespan MIP (have seperate code, don't use this until proven the same as the other)
         # # set_MIPsettings = set_MIPsettings ## SET AT FUNCTION CREATION
 
         # ## set how z-coord edges are calculated
@@ -365,15 +364,15 @@ class MIP_melon(object):
         ## create job object list
         job = list()
 
-        print('Offset within the cell:')
-        if self.l_real_y_travel < cell_l:
-            print('cell_l > pick_travel_l, offset added and assumed centered')
-        elif self.l_real_y_travel > cell_l:
-            print('ERROR: cell_l < pick_travel_l, setting them to be equal')
-        else:
-            print('cell_l == pick_travel_l, no offset needed')
-        print('cell_l = ', cell_l, 'while pick_travel_l =', self.l_real_y_travel)
-        print()
+        # print('Offset within the cell:')
+        # if self.l_real_y_travel < cell_l:
+        #     print('cell_l > pick_travel_l, offset added and assumed centered')
+        # elif self.l_real_y_travel > cell_l:
+        #     print('ERROR: cell_l < pick_travel_l, setting them to be equal')
+        # else:
+        #     print('cell_l == pick_travel_l, no offset needed')
+        # print('cell_l = ', cell_l, 'while pick_travel_l =', self.l_real_y_travel)
+        # print()
 
         for k in arm:
             for i in fruit:  
@@ -419,7 +418,7 @@ class MIP_melon(object):
             # print('number of jobs:', len(self.job))
             # print()
         
-        if set_MIPsettings == 0 or set_MIPsettings == 1:
+        if set_MIPsettings == 0:
             TW_start = {i : [j.TW_start for j in self.job if j.fruit_i.index == i] for i in N}
             TW_end   = {i : [j.TW_end for j in self.job if j.fruit_i.index == i] for i in N}
 
@@ -450,7 +449,7 @@ class MIP_melon(object):
         ### change needed model parameters
         ### see https://www.gurobi.com/documentation/9.5/refman/python_parameter_examples.html#PythonParameterExamples
         
-        if set_MIPsettings == 2:
+        if set_MIPsettings == 1:
             # if velocity becomes a variable, it is multiplied with another variable requiring the following settings
             m.params.NonConvex = 2
             m.setParam('NonConvex', 2)
@@ -501,7 +500,7 @@ class MIP_melon(object):
 
         # self.TW_end   = (self.fruit_i.y_coord - (q_vy + self.arm_k.arm_n * cell_l) ) / (v_vy/100)
         
-        if set_MIPsettings == 2:
+        if set_MIPsettings == 1:
             # any TW start and end should be less than the total move time since nothing can be picked after this
             tw_s = m.addVars(K, N, lb=0, ub=t_move, name="tw_s")
             tw_e = m.addVars(K, N, lb=0, ub=t_ub, name="tw_e")
@@ -543,7 +542,7 @@ class MIP_melon(object):
         # offset added because the indexes have to start at 0 for every run, but when scheduling snapshots, the index of the fruits may not start at 0
         m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if self.sortedFruit[4,i+offset_fruit_index] == 2), name="removeScheduledAndPicked")
         
-        if set_MIPsettings == 0 or set_MIPsettings == 1:
+        if set_MIPsettings == 0:
             # if TW_end is negative, we have passed the point of picking
             m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if TW_end[i][k] <= 0), name="fruitPassed")
             
@@ -553,7 +552,7 @@ class MIP_melon(object):
             # if there is a horizon, the travel distance is not the same as the view distance. Don't harvest fruits that have not been realistically reached
             m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if TW_start[i][k] >= t_move), name="fruitInHorizon")
 
-        elif set_MIPsettings == 2:
+        elif set_MIPsettings == 1:
             m.addConstrs(((tw_s[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + (k + 1)*self.cell_l))) for i in N for k in K), name="TW_start")
             m.addConstrs(((tw_e[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + k*self.cell_l))) for i in N for k in K), name="TW_end")
 
@@ -584,10 +583,10 @@ class MIP_melon(object):
 
 
         ### Objective function
-        if set_MIPsettings == 0 or set_MIPsettings == 1:
+        if set_MIPsettings == 0:
             m.setObjective(gp.quicksum(x[k, l, i] for i in N for l in L for k in K), GRB.MAXIMIZE)
             
-        elif set_MIPsettings == 2:
+        elif set_MIPsettings == 1:
             m.setObjective((makespan), GRB.MINIMIZE)
 
         ## see https://github.com/jckantor/ND-Pyomo-Cookbook/blob/master/notebooks/04.03-Job-Shop-Scheduling.ipynb
@@ -651,8 +650,6 @@ class MIP_melon(object):
             if x[j.arm_k.arm_n, n_row, j.fruit_i.index].X > 0:
                 # if fruit was scheduled to be harvested
     #             print('fruit', j.fruit_i.index, 'assigned to arm', j.arm_k.arm_n, 'at t = ', t[j.arm_k.arm_n, j.fruit_i.index].X)
-    #             if set_MIPsettings == 1:
-    #                 print('with tw start:', aux_min[j.arm_k.arm_n, j.fruit_i.index].X, 'and tw end:', aux_max[j.arm_k.arm_n, j.fruit_i.index].X)
                 # save picked to sortedFruit
                 self.sortedFruit[4, j.fruit_i.real_index] = 1  # save to the real index on sortedFruit
                 self.curr_j[n_row, j.arm_k.arm_n] += 1
