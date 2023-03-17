@@ -45,16 +45,35 @@ class MIP_queu_manager(object):
             as well as time. Time to travel can determine what the last possible fruit picked will be by the arm if we also give the function at which times 
             the fruits are picked by the arm.
         '''
+        # queue can be a single value if only one fruit is harvested, causing index error exceptions. Check if it has a length to avoid that problem 
+        if not hasattr(queue, "__len__"):  
+            print('There\'s at most one value in the queue')
+            # check if the one value was harvested or not
+            index_picked     = np.where(when < t_move)
+            index_not_picked = np.where(when > t_move)
 
-        index_picked = np.where(when < t_move)
-        # print('comparing when fruits would be harvested\n', when) 
-        # print(f'to when they could not be picked anymore: %4.2f' % t_move)
-        # print('indexes that can be picked within travel time', index_picked[0])  # print the real indexes based on the given queue of fruis instead
-        picked_queue = queue[index_picked]
+            picked_queue   = list()
+            unpicked_queue = list()
 
-        index_not_picked = np.where(when > t_move)
-        # print('indexes that cannot be picked within travel time', index_not_picked[0]) # print the real indexes based on the given queue of fruis instead
-        unpicked_queue = queue[index_not_picked]
+            if len(index_picked[0]) == 1:
+                # the one fruit was harvested so unpicked should stay an empty list
+                picked_queue.append(queue)
+
+            if len(index_not_picked[0]) == 1:
+                # the one fruit was NOT harvested so picked should stay an empty list
+                unpicked_queue.append(queue)
+
+        else:
+            # print('queue of picked fruits', queue)
+            index_picked = np.where(when < t_move)
+            # print('comparing when fruits would be harvested\n', when) 
+            # print(f'to when they could not be picked anymore: %4.2f' % t_move)
+            # print('indexes that can be picked within travel time', index_picked[0])  # print the real indexes based on the given queue of fruis instead
+            picked_queue = queue[index_picked]
+
+            index_not_picked = np.where(when > t_move)
+            # print('indexes that cannot be picked within travel time', index_not_picked[0]) # print the real indexes based on the given queue of fruis instead
+            unpicked_queue = queue[index_not_picked]
 
         # if len(picked_queue) > 0:
         #     # only print if there are fruits being picked
