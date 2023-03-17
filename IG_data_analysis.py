@@ -40,7 +40,7 @@ class IG_data_analysis(object):
         self.schedule_data       = snapshot_list
         self.fruit_per_cell_data = snapshot_cell
 
-        self.n_arm  = 0
+        self.n_col  = 0
         self.n_row = 0
         self.total_arms = 0
 
@@ -75,9 +75,9 @@ class IG_data_analysis(object):
         for index, snapshot in enumerate(self.schedule_data):
             if index == 0:
                 # obtain constant values of the whole run
-                self.n_arm      = snapshot.n_arm
+                self.n_col      = snapshot.n_col
                 self.n_row      = snapshot.n_row
-                self.total_arms = self.n_arm * self.n_row
+                self.total_arms = self.n_col * self.n_row
                 self.horizon_l  = snapshot.horizon_l
                 self.vehicle_l  = snapshot.vehicle_l
                 self.cell_l     = snapshot.cell_l
@@ -124,7 +124,7 @@ class IG_data_analysis(object):
         x_pct = list()
 
         for n in range(self.n_row):
-            for k in range(self.n_arm):
+            for k in range(self.n_col):
                 y = list()
 
                 for i in range(len(self.schedule_data)):
@@ -186,7 +186,7 @@ class IG_data_analysis(object):
         '''Prints out constant robot settings such as number of arms, etc.'''
         if self.print_out == 1:
             print('Settings for these results:')
-            print('Number of rows', self.n_row, 'number of arms:', self.n_arm)
+            print('Number of rows', self.n_row, 'number of arms:', self.n_col)
 
             if self.algorithm == 1:
                 print('Fruit handling time:', self.Td, 'sec')
@@ -253,7 +253,7 @@ class IG_data_analysis(object):
     def avgPCT(self):
         '''Calculates each arm's average PCT over all the snapshots'''
         #### FIGURE OUT HOW TO DEAL WITH NAN ####
-        sum_PCT = np.zeros([self.n_row, self.n_arm])
+        sum_PCT = np.zeros([self.n_row, self.n_col])
 
         for snapshot_PCT in self.PCT:
             sum_PCT = np.nansum(np.dstack((sum_PCT,snapshot_PCT)),2)
@@ -286,14 +286,14 @@ class IG_data_analysis(object):
         if self.n_row > 1:
             for snapshot_i in snapshot_list:
                 for n in range(self.n_row):
-                    for k in range(self.n_arm+1):
+                    for k in range(self.n_col+1):
                         try:
                             # some snapshots will have empty lists which lead to an IndexError
                             x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][n][k]]
                             y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][n][k]]
 
                                 # add modulo later so it works with n and k > 3 
-                            if k == self.n_arm:
+                            if k == self.n_col:
                                 line_color = 'gold'
                                 linestyle = ''
                                 arm_label = 'unpicked'
@@ -301,7 +301,7 @@ class IG_data_analysis(object):
                                 line_color = str(color[k])
                                 linestyle = line_type[n]
                                 arm_label = 'back arm'
-                            elif k == self.n_arm-1:
+                            elif k == self.n_col-1:
                                 line_color = str(color[k])
                                 linestyle = line_type[n]
                                 arm_label = 'front arm'
@@ -329,17 +329,16 @@ class IG_data_analysis(object):
                         
 
         elif self.n_row == 1 and self.algorithm == 1:  # if using the melon algorithm
-        # elif self.n_row == 1 and self.algorithm == 1:  # if using the melon algorithm
             for snapshot_i in snapshot_list:
-                for k in range(self.n_arm,-1,-1):
-                # for k in range(self.n_arm+1):
+                for k in range(self.n_col,-1,-1):
+                # for k in range(self.n_col+1):
                     x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][k]]
                     y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][k]]
 
                     linestyle = line_type[2]
 
                     # add modulo later so it works with n and k > 3 
-                    if k == self.n_arm:
+                    if k == self.n_col:
                         line_color = 'gold'
                         linestyle = ''
                         arm_label = 'unpicked'
@@ -347,7 +346,7 @@ class IG_data_analysis(object):
                         line_color = str(color[k])
                         # linestyle = line_type[n]
                         arm_label = 'front arm (k=0)'     
-                    elif k == self.n_arm-1:
+                    elif k == self.n_col-1:
                         line_color = str(color[k])
                         # linestyle = line_type[n]
                         arm_label = 'back arm (k=' + str(k) + ')'      
@@ -392,15 +391,15 @@ class IG_data_analysis(object):
     #     color     = ['c', 'r', 'b', 'g']
 
     #     for n in range(self.n_row):
-    #         for k in range(self.n_arm+1):
+    #         for k in range(self.n_col+1):
     #             # add modulo later so it works with n and k > 3 
-    #             if k == self.n_arm:
+    #             if k == self.n_col:
     #                 line = 'oy'
     #                 arm_label = 'row ' + str(n) + ', unpicked'
     #             elif k == 0:
     #                 line = 'o' + line_type[n] + color[k]
     #                 arm_label = 'row ' + str(n) + ', back arm'
-    #             elif k == n_arm-1:
+    #             elif k == n_col-1:
     #                 line = 'o' + line_type[n] + color[k]
     #                 arm_label = 'row ' + str(n) + ', front arm'
     #             else:
