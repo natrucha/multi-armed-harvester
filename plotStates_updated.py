@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # https://stackoverflow.com/questions/37288421/how-to-plot-a-chart-in-the-terminal
 
 class plotStates(object):
-    def __init__(self, states_percent, file_name):
+    def __init__(self, states_percent, file_name, C, R):
         '''
            Plot the percent time each arm spends in each of the six given
            states: idle, pick in yz, pick in x, grab, retract, drop off.
@@ -43,62 +43,33 @@ class plotStates(object):
             self.retr_plot.reverse()
             self.unlo_plot.reverse()
 
-        self.plot()
+
+        self.plot(C, R) # provide the number of Columns C and number of Rows R
 
 
-    def plot(self):
+    def plot(self, C, R):
         # stacked bar plot x-labels
         # add no. arms and no. of cells to manipulate the plot x-labels
 
-        data = {'Crop row':
-                   {'rear (k=11)':0,
-                    'k=10':1,
-                    'k=9':2,
-                    'k=8':3,
-                    'k=7':4,
-                    'k=6':5,
-                    'k=5':6,
-                    'k=4':7,
-                    'k=3':8,
-                    'k=2':9,
-                    'k=1':10,
-                    'front (k=0)':11
-                   }
-                }
+        # plot has the rows as the major divisions with the same number of columns in each row, so create the column dictionary once and then the row dictionary which
+        # has a copy of the column dictionary for each row.
+        c_dict = {}
+        for c in range(C):
+            if c == 0:
+                c_label = 'c='+str(c)+' (rear)'
+            else:
+                c_label = 'c='+str(c)
 
-        # data = {'Bottom':
-        #            {'rear':0,
-        #             'mid0':1,
-        #             'mid1':2,
-        #             'front':3
-        #            },
-        # #         'Middle Bt':
-        # #            {'rear':0,
-        # #             'mid0':1,
-        # #             'mid1':2,
-        # #             'mid2':3,
-        # #             'front':4
-        # #            },
-        # #         'Middle Top':
-        # #            {'rear':0,
-        # #             'mid0':1,
-        # #             'mid1':2,
-        # #             'mid2':3,
-        # #             'front':4
-        # #            },
-        #         'Middle':
-        #            {'rear':0,
-        #             'mid0':1,
-        #             'mid1':2,
-        #             'front':3
-        #            },
-        #         'Top':
-        #            {'rear':0,
-        #             'mid0':1,
-        #             'mid1':2,
-        #             'front':3
-        #            },
-        #        }
+            c_dict[c_label] = c
+
+        data = {}
+        for r in range(R):
+            if r == 0:
+                r_label = 'r='+str(r)+' (bottom)'
+            else:
+                r_label = 'r='+str(r)
+
+            data[r_label] = c_dict
 
         # Create a figure with a single subplot
         f, ax = plt.subplots(1, figsize=(10,5))
@@ -151,8 +122,8 @@ class plotStates(object):
                # with per_idle
                bottom=per_idle,
                # labeled
-               label='Active',
-            #    label='PickingYZ',
+            #    label='Active',
+               label='PickingYZ',
                # with alpha
                alpha=0.9,
                # with color
@@ -169,7 +140,7 @@ class plotStates(object):
                # with per_idle
                bottom=[i+j for i,j in zip(per_idle, per_pickyz)],
                # labeled
-            #    label='PickingX',
+               label='PickingX',
                # with alpha
                alpha=0.9,
                # with color
@@ -186,7 +157,7 @@ class plotStates(object):
                # with per_idle
                bottom=[i+j+k for i,j,k in zip(per_idle, per_pickyz, per_pickx)],
                # labeled
-            #    label='Grabbing',
+               label='Grabbing',
                # with alpha
                alpha=0.9,
                # with color
@@ -204,7 +175,7 @@ class plotStates(object):
                # with per_idle and per_pick on bottom
                bottom=[i+j+k+l for i,j,k,l in zip(per_idle, per_pickyz, per_pickx, per_grab)],
                # labeled
-            #    label='Retracting',
+               label='Retracting',
                # with alpha
                alpha=0.9,
                # with color

@@ -428,7 +428,7 @@ def main():
     # 0     == print/plot is off
     # 1     == print/plot is on
     print_out = 1  # turns printing states, indexes, and settings on/off (all or nothing)
-    plot_out  = 0  # turns plotting on/off
+    plot_out  = 1  # turns plotting on/off
     log_out   = 1  # turns logging of gurobi files such as ilp, lp, mlp file creation on/off (not implemented yet)
 
     ## set Td to be constant or variable? -> see if needed as a flag (not currently)
@@ -542,7 +542,7 @@ def main():
         mip_melon.buildOrchard(1, set_algorithm, set_distribution, this_seed)
 
         # save the complete dataset of fruits
-        total_sortedFruit = np.copy(mip_melon.sortedFruit)
+        # total_sortedFruit = np.copy(mip_melon.sortedFruit)
 
         # # find number of problem clusters (extend later to know where the clusters are)
         # # findClustersTotal(mip_melon.sortedFruit, v_vy, mip_melon.Td, n_col)
@@ -576,8 +576,8 @@ def main():
             # return a list of fruit densities in each cell 
             d = mip_melon.calcDensity(mip_melon.q_vy, v_vy, n_row, n_col, cell_l, arm_reach, i_snap_sortedFruit)
             # calculate the row densities
-            d_row = np.average(d, axis=1)
-            d_tot = np.average(d)
+            # d_row = np.average(d, axis=1)
+            # d_tot = np.average(d)
 
             ## using the fruit densities, determine the vehicle speed to set a specific R value?
             # currently, the R value would be 
@@ -635,7 +635,7 @@ def main():
                         # makespan requires velocity upper and lower bounds, as well as a min FPE to find (there are default values: v_ub = 5, v_lb = 1, FPE_min = .5)
                         [i_loop_fruit_picked_by, i_loop_fruit_picked_at, make_v_vy] = mip_melon.solve_melon_mip(mip_arm, mip_fruit, i_snap_available_numFruit, v_vy_curr_cmps, set_MIPsettings, FPE_min=FPE_min, v_vy_lb_cmps=v_vy_lb_cmps, v_vy_ub_cmps=v_vy_ub_cmps)
                         
-                    # set the current velocity as the makespan's chosen velocity
+                    # set the current velocity as the velocity chosen by the makespan
                     v_vy_mps = make_v_vy / 100 # change to m/s to because it starts getting used from here on out
 
                     # print('the fruits scheduled to be picked in this snapshot are:', i_loop_fruit_picked_by)
@@ -853,7 +853,7 @@ def main():
             # print('Global number unpicked:', len(where_no[0]), '\nGlobal number scheduled:', len(where_sh[0]), '\nGlobal number picked', len(where_pi[0]))
 
             # calculate how long each arm was working vs idle
-            state_time = mip_melon.calcStateTime(fruit_picked_by, l_view_m, v_vy, total_arms, n_row, n_col, mip_melon.Td)
+            state_time = mip_melon.calcStateTime(fruit_picked_by, mip_fruit, l_step_m, v_vy, total_arms, n_row, n_col, mip_melon.Td)
 
             # fill in snapshot object and list with current results, object definition in MIP_melon.py
             snapshot = Snapshot(n_col, n_row, l_hor_m, vehicle_l, mip_melon.cell_l, v_max, a_max, set_algorithm, mip_melon.Td, v_vy, FPE, FPT, mip_melon.y_lim, i_snap_numFruit, chosen_j, mip_melon.sortedFruit, fruit_picked_by, state_time)

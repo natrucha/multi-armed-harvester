@@ -179,7 +179,7 @@ class IG_data_analysis(object):
         # Create and save the plot
         state_percent_list = self.state_percent.tolist()
         # print(state_percent_list)
-        plot_states = plotStates(state_percent_list, file_name)
+        plot_states = plotStates(state_percent_list, file_name, self.n_col, self.n_row)
 
 
     def printSettings(self):
