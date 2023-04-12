@@ -853,7 +853,7 @@ def main():
             # print('Global number unpicked:', len(where_no[0]), '\nGlobal number scheduled:', len(where_sh[0]), '\nGlobal number picked', len(where_pi[0]))
 
             # calculate how long each arm was working vs idle
-            state_time = mip_melon.calcStateTime(fruit_picked_by, mip_fruit, l_step_m, v_vy, total_arms, n_row, n_col, mip_melon.Td)
+            state_time = mip_melon.calcStateTime(fruit_picked_by, mip_fruit, l_step_m, v_vy, n_row, n_col)
 
             # fill in snapshot object and list with current results, object definition in MIP_melon.py
             snapshot = Snapshot(n_col, n_row, l_hor_m, vehicle_l, mip_melon.cell_l, v_max, a_max, set_algorithm, mip_melon.Td, v_vy, FPE, FPT, mip_melon.y_lim, i_snap_numFruit, chosen_j, mip_melon.sortedFruit, fruit_picked_by, state_time)

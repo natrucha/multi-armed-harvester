@@ -1,4 +1,4 @@
-from collections import defaultdict
+# from collections import defaultdict
 
 ## see examples in https://www.gurobi.com/resource/modeling-examples-using-the-gurobi-python-api-in-jupyter-notebook/
 import gurobipy as gp
@@ -6,7 +6,7 @@ from gurobipy import GRB
 
 import math
 import numpy as np
-from datetime import datetime
+# from datetime import datetime
 import sys
 
 from fruit_distribution import *   # import module to create the various desired fruit distributions 
@@ -448,7 +448,7 @@ class MIP_melon(object):
         return(R) 
 
 
-    def calcStateTime(self, fruit_picked_by, fruit, travel_l, v_vy, total_arms, n_row, n_col, Td):
+    def calcStateTime(self, fruit_picked_by, fruit, travel_l, v_vy, n_row, n_col):
             '''Calculates the time each arm is in each state so that it can plotState can plot the data'''
             total_time = travel_l / v_vy 
             # print('total move time:', total_time)
@@ -774,21 +774,13 @@ class MIP_melon(object):
             # see https://support.gurobi.com/hc/en-us/community/posts/5628368009233-Soft-Constraints-being-treated-as-Hard-Constraints-
             minFPE_slack     = m.addVar(lb=0, name="FPEslackMin")
             minFPT_slack     = m.addVar(lb=0, name="FPTslackMin")
-            # maxFPE_slack     = m.addVar(lb=0, name="FPEslackMax")
-            # maxFPT_slack     = m.addVar(lb=0, name="FPTslackMax")
-            
+
             # add a starting guess value to the variable
             # see https://www.gurobi.com/documentation/9.5/refman/start.html#attr:Start
             # v_vy.start = 2 # in cm/s
 
             # create a variable that saves the last picking time, or makespan
-            # t_harvested   = m.addVars(K, L, N, lb=0, ub=t_ub, name="t_harvested")   # used to get the makespan of harvested fruits, not all fruits
             x_weighted    = m.addVars(K, L, N, lb=0, name="x_weighted")   # used to get the makespan of harvested fruits, not all fruits
-            # makespan      = m.addVar(lb=0, name="makespan")
-            # t_max_arm     = m.addVars(K, name="t_max")  # max t value for each arm
-            # makespan_norm = m.addVar(lb=0, name='makespan_norm')
-
-            # aux_var       = m.addVars(K, L, N, lb=0, name="fruit2time")
         
 
         ### Constraints
