@@ -582,14 +582,16 @@ def main():
 
             ## calculate multiple R and v_vy values based on multiple slices of the current view
             # return a list of fruit densities in each cell 
-            d = mip_melon.calcDensity(mip_melon.q_vy, v_vy, n_row, n_col, cell_l, arm_reach, i_snap_sortedFruit)
+            # d = mip_melon.calcDensity(mip_melon.q_vy, v_vy, n_row, n_col, cell_l, arm_reach, i_snap_sortedFruit)
+            d = fruit_data.calcDensity(mip_melon.q_vy, n_col, n_row, cell_l, arm_reach, i_snap_sortedFruit)
             # calculate the row densities
             # d_row = np.average(d, axis=1)
             # d_tot = np.average(d)
 
             ## using the fruit densities, determine the vehicle speed to set a specific R value?
             # currently, the R value would be 
-            R = mip_melon.calcR(v_vy, len(horizon_indexes), vehicle_h, arm_reach)  # calculated based on columns and the horizon length
+            # R = mip_melon.calcR(v_vy, len(horizon_indexes), vehicle_h, arm_reach)  # calculated based on columns and the horizon length
+            R = fruit_data.calcR(v_vy, len(horizon_indexes), l_hor_m, vehicle_h, arm_reach)  # calculated based on columns and the horizon length
 
             snapshot_cell.append([d, R])
 

@@ -485,67 +485,67 @@ class fruit_handler(object):
         # print(self.fruit_travel_matrix)
 
 
-# def calcDensity(self, q_vy, v_vy, n_row, n_col, cell_l, arm_reach, sortedFruit):
-#         '''Get the fruit density, d, of each cell'''
-#         ## should the columns be based on cell length? number of arms? 
-#         #  should the columns be the same width? increase/decrease the closer to the front of vehicle?
-#         #  should I calculate R per horizontal row of arms?
 
-#         d = np.zeros([n_row, n_col])  # total number of cells
-#         # starting position on the z-axis (up-down on robot)
-#         row_z = 0.
+    def calcDensity(self, Q, C, R, d_col, arm_reach, sortedFruit):
+        '''Get the fruit density, d, of each cell'''
+        ## should the columns be based on cell length? number of arms? 
+        #  should the columns be the same width? increase/decrease the closer to the front of vehicle?
+        #  should I calculate R per horizontal row of arms?
 
-#         for n in range(n_row):
-#             # starting position in the y_axis (front-back on robot)
-#             col_y = q_vy
-#             cell_h = self.z_row_top_edges[0,n] - self.z_row_bot_edges[0,n] # for now all rows are the same
-#             # print('Cell height for this', n, 'loop', cell_h)
-#             # print('bottom', self.z_row_bot_edges[0,n], 'top', self.z_row_top_edges[0,n], '\n')
+        d = np.zeros([R, C])  # total number of cells
+        # starting position on the z-axis (up-down on robot)
+        row_z = 0.
 
-#             for k in range(n_col):
-#                 # print('col', n, 'row', k)
-#                 # print('back', col_y, 'front', col_y + cell_l)
-#                 # print('bottom', row_z, 'top', row_z + cell_h)
-#                 index = np.where((sortedFruit[1,:] >= col_y) & (sortedFruit[1,:] < col_y + cell_l) & 
-#                             (sortedFruit[2,:] >= row_z) & (sortedFruit[2,:] < row_z + cell_h) & 
-#                             (sortedFruit[4,:] < 1))
-#                 # save the number of fruit in this cell and divide all the values by the volume of space in front of each cell 
-#                 d[n,k] = len(index[0]) / (arm_reach * cell_l * cell_h)
+        for i_row in range(R):
+            # starting position in the y_axis (front-back on robot)
+            y_col = Q
+            h_row = self.z_row_top_edges[0,i_row] - self.z_row_bot_edges[0,i_row]
+            # print('Cell height for this', n, 'loop', h_row)
+            # print('bottom', self.z_row_bot_edges[0,n], 'top', self.z_row_top_edges[0,n], '\n')
 
-#                 # print(d)
-#                 # move to the next column of cells
-#                 col_y += cell_l
+            for k in range(C):
+                # print('col', n, 'row', k)
+                # print('back', y_col, 'front', y_col + d_col)
+                # print('bottom', row_z, 'top', row_z + h_row)
+                index = np.where((sortedFruit[1,:] >= y_col) & (sortedFruit[1,:] < y_col + d_col) & 
+                            (sortedFruit[2,:] >= row_z) & (sortedFruit[2,:] < row_z + h_row) & 
+                            (sortedFruit[4,:] < 1))
+                # save the number of fruit in this cell and divide all the values by the volume of space in front of each cell 
+                d[i_row,k] = len(index[0]) / (arm_reach * d_col * h_row)
 
-#             # move up to the next cell on this column
-#             row_z += cell_h
+                # print(d)
+                # move to the next column of cells
+                y_col += d_col
 
-#         # before calculating the true density, check total number of fruit
-#         # print('which sums to', np.sum(d))   # has to be equal to numer of fruit
-#         # divide all the values by the volume of space in front of each cell 
-#         # d = d / (arm_reach * cell_l * cell_h)
+            # move up to the next cell on this column
+            row_z += h_row
 
-#         # print('fruit density in each cell [fruit/m^3]:')
-#         # print(d)
+        # before calculating the true density, check total number of fruit
+        # print('which sums to', np.sum(d))   # has to be equal to numer of fruit
+        # divide all the values by the volume of space in front of each cell 
+        # d = d / (arm_reach * cell_l * h_row)
 
-#         return(d)
+        # print('fruit density in each cell [fruit/m^3]:')
+        # print(d)
+
+        return(d)
 
 
 
+    def calcR(self, V, fruit_in_horizon, d_h, h_v, arm_reach):
+        '''Calculate the R value given a speed and horizon volume and density'''
+        try:
+            rho_hor = fruit_in_horizon / (d_h * h_v * arm_reach)
+            t_hor    = d_h / V
 
-#     def calcR(self, v_vy, fruit_in_horizon, vehicle_h, arm_reach):
-#         '''Calculate the R value given a speed and horizon volume and density'''
-#         try:
-#             density_H = fruit_in_horizon / (self.hor_l * vehicle_h * arm_reach)
-#             time_H    = self.hor_l / v_vy
+            R         = rho_hor / t_hor # in fruit / (m^3 * s)
 
-#             R         = density_H / time_H # in fruit / (m^3 * s)
+        except ZeroDivisionError:
+            R         = 0 
 
-#         except ZeroDivisionError:
-#             R         = 0 
-
-#         # print('Fruit incoming rate based on the horizon [fruit/(m^3 s)]:')
-#         # print(R)
-#         return(R) 
+        # print('Fruit incoming rate based on the horizon [fruit/(m^3 s)]:')
+        # print(R)
+        return(R) 
 
 
 
