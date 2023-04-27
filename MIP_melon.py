@@ -20,7 +20,7 @@ from trajectory import *           # import module to calculate the trapezoidal/
 
 class MIP_melon(object):
     def __init__(self, q_vy, n_col, n_row, starting_row_n, set_distribution, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, hor_l, x_lim, y_lim, z_lim, density):
-        # def __init__(self, q_vy, n_col, n_row, starting_row_n, set_distribution, set_algorithm, set_MIPsettings, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim, density)
+        # def __init__(self, q_vy, n_col, n_row, starting_row_n, set_distribution, set_algorithm, set_algorithm, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim, density)
 
         '''
             Mixed integer programming model based on the MIP model in the melon combinatorial scheduling paper. 
@@ -102,548 +102,14 @@ class MIP_melon(object):
         self.z_row_top_edges = top_edge
 
 
-    # def calcSumPCTstates(self, fruit_picked_by, N, TX):
-    #     '''
-    #        Calculates the sum of each of the six PCT state (idle, pickYZ, pickX, grab, retract, unload) over
-    #        the whole snapshot. Returns the sum over *all the arms* of the duration spent in each state.
-
-    #        Can only be run after scheduling has finished.
-
-    #        *** Depends on no cycles (figure out cycles later) *** 
-    #        Assumes that fruit_picked_by contains the picking order (smallest to largest) which may not be true later
-    #        Might need to switch MIP to save order if cycles added.
-    #     '''
-    #     sum_pickYZ = 0 # in s, the sum of move times
-    #     sum_pickX  = 0 # in s, the sum of extension times
-    #     sum_grab   = 0 # in s, the sum of grab times
-    #     # retract will equal pickX unless proven otherwise :)
-    #     # not using unload right now (don't have the math yet, assumes a vacuum gripper)
-
-    #     state_time = np.zeros([self.n_row*self.n_col, 7]) # save each arm's percent time in each of the six states plus a total
-
-    #     # iterate through fruit picked by to obtain the individual PCT/Td of every fruit
-    #     for i_row in range(self.n_row):
-    #         if self.n_row == 1:
-    #             i_row = 0
-    #         for i_col in range(self.n_col):
-    #             tot_arm_index = i_col + (i_row*self.n_col)
-    #             # skips not picked list
-    #             if self.n_row > 1:
-    #                 num_fruits = len(fruit_picked_by[i_row][i_col])
-    #                 # print('the fruits in this row/column:', fruit_picked_by[i_row][i_col])
-    #             else:
-    #                 num_fruits = len(fruit_picked_by[i_col])
-                
-    #             if num_fruits > 1:
-    #                 # get extension time of the first fruit in the list
-    #                 if self.n_row > 1: 
-    #                     zero_TX_i = N.index(fruit_picked_by[i_row][i_col][0])
-    #                 else:
-    #                     zero_TX_i = N.index(fruit_picked_by[i_col][0])
-    #                 # print('TX[0] %.2f' % TX[fruit_picked_by[i_row][i_col][0]])
-
-    #                 # obtain the extension and retraction of the first fruit (assumes it doesn't have to move to that fruit)
-    #                 sum_pickX += TX[zero_TX_i]
-    #                 sum_grab  += self.t_grab
-
-    #                 # needs to take into account the order of harvest (move from fruit i to fruit j, figure out which is index belongs to i and which to j)
-    #                 for i_list in range(num_fruits-1):
-    #                     if self.n_row > 1:
-    #                         curr_i = fruit_picked_by[i_row][i_col][i_list]
-    #                         next_i = fruit_picked_by[i_row][i_col][i_list+1] 
-    #                         # print('current i: %d and next i: %d' % (curr_i, next_i))
-    #                     else:
-    #                         curr_i = fruit_picked_by[i_col][i_list]
-    #                         next_i = fruit_picked_by[i_col][i_list+1] 
-
-    #                     # curr_TX_i = N.index(curr_i)
-    #                     next_TX_i = N.index(next_i)
-    #                     # print('which are %d and %d in N' % (curr_TX_i, next_TX_i))
-
-    #                     curr_move = self.fruit_travel_matrix[curr_i, next_i]
-    #                     # print('with move time %.2f' % curr_move)
-
-    #                     # to get the indexes to work correctly, this part works with indexes (i+1), avoiding any doubling of the extension time
-    #                     # add the extension time for the next fruit (i+1) 
-    #                     # print('with extension time %.2f' % TX[next_TX_i])
-    #                     sum_pickYZ += curr_move
-    #                     sum_pickX  += TX[next_TX_i]
-    #                     sum_grab   += self.t_grab
-
-    #             elif num_fruits == 1:
-    #                 # just worry about the one extension because only one fruit was harvested
-    #                 if self.n_row > 1:
-    #                     zero_TX_i = N.index(fruit_picked_by[i_row][i_col][0])
-    #                 else:
-    #                     zero_TX_i = N.index(fruit_picked_by[i_col][0])
-    #                 sum_pickX += TX[zero_TX_i]
-    #                 sum_grab  += self.t_grab
-    #                 # sum_retr  += TX[zero_TX_i]
-
-    #             state_time[tot_arm_index,1] = sum_pickYZ
-    #             state_time[tot_arm_index,2] = sum_pickX
-    #             state_time[tot_arm_index,3] = sum_grab
-    #             state_time[tot_arm_index,4] = sum_pickX # same as pickX unless something comes up
-
-    #             # reset the values
-    #             sum_pickYZ = 0
-    #             sum_pickX  = 0
-    #             sum_grab   = 0
-
-    #     # print('\nThe sum of extension times is %.2f s' % sum_of_ext_times)
-    #     # print('The sum of move times is %.2f s\n' % sum_of_move_times)
-
-    #     return(state_time)
-
-
-
-    # def calcMeanTd(self, fruit_picked_by, fruit, total_picked):
-    #     '''
-    #        Calculates the mean Td of the snapshot based on the harvested fruits. Pass the final fruit_picked_by
-    #        list, the one that already went through queue management, etc.
-
-    #        Can only be run after scheduling has finished.
-
-    #        *** Depends on no cycles (figure out cycles later) *** 
-    #        Assumes that fruit_picked_by contains the picking order (smallest to largest) which may not be true later
-    #        Might need to switch MIP to save order if cycles added.
-    #     '''
-    #     # # list of fruit extension times in fruit object
-    #     N  = [i.real_index for i in fruit]    # list of fruit indexes
-    #     TX = [i.Tx for i in fruit]            # list of precalculated fruit extension times
-
-    #     state_time = self.calcSumPCTstates(fruit_picked_by, N, TX)
-
-    #     sum_pickYZ = np.sum(state_time[:,1])
-    #     sum_pickX  = np.sum(state_time[:,2])
-    #     sum_grab   = np.sum(state_time[:,3])
-    #     sum_retr   = np.sum(state_time[:,4])
-
-    #     print('\nSum of pickYZ %.2f,   pickX %.2f,   grab %.2f,   retract %.2f' % (sum_pickYZ, sum_pickX, sum_grab, sum_retr))
-
-    #     # get the total fruit handling time
-    #     sum_Td_times = sum_pickYZ + sum_pickX + sum_grab + sum_retr # sum_of_ext_times + sum_of_move_times
-
-    #     # divide by the number of harvested fruits to get the average
-    #     mean_Td = sum_Td_times / total_picked
-    #     print('Mean Td time for the snapshot %.2f\n' % mean_Td)
-
-    #     return(mean_Td)
-
-
-    # def timeBtwFruits(self):
-    #     '''
-    #        Create a matrix that saves the time it takes to move between every two fruits in the snapshot. Time calculated as max(Ty, Tz) using the trajectory.py
-    #        module. One side of matrix is calculated and then mirrored over since the distance should be the same between i and j vs j and i. 
-
-    #        Requires that buildOrchard() has already been run.
-    #     '''
-    #     # allow calculations for the y-axis, 0.7 m long worst case
-    #     v_max_y   = 1.4 # m/s from Motor Sizing Google sheet calculations if we want to keep triangular profile to maximize speed
-    #     a_max_y   = 2.8 # m/s^2 from Motor Sizing Google sheet calculations if we want desired linear movement time to be 1 second
-    #     d_max_y   = a_max_y # if motors allow, keep equal to a_max
-    #     # initialize the ability to calculate trajectory
-    #     traj_calc_y = Trajectory(v_max_y, a_max_y, d_max_y) 
-
-    #     # allow calculations for the z-axis, 0.61? m worst case
-    #     v_max_z   = 1.3 # m/s from Motor Sizing Google sheet calculations if we want to keep triangular profile to maximize speed
-    #     a_max_z   = 2.8 # m/s^2 from Motor Sizing Google sheet calculations if we want desired linear movement time to be 1 second
-    #     d_max_z   = a_max_z # if motors allow, keep equal to a_max
-    #     # initialize the ability to calculate trajectory
-    #     traj_calc_z = Trajectory(v_max_z, a_max_z, d_max_z) 
-
-    #     self.fruit_travel_matrix = np.zeros((self.numFruit, self.numFruit), dtype=float )  
-    #     # fill the diagonal with np.inf (so it can never be used)
-    #     np.fill_diagonal(self.fruit_travel_matrix, np.inf)
-
-    #     for i in range(1,self.numFruit):
-    #         for j in range(i):
-    #             if i != j:
-    #                 start_y = self.sortedFruit[1,i]  # in m, fruit i y_coordinate
-    #                 start_z = self.sortedFruit[2,i]  # in m, fruit i z_coordinate
-
-    #                 end_y   = self.sortedFruit[1,j]  # in m, fruit j y_coordinate
-    #                 end_z   = self.sortedFruit[2,j]  # in m, fruit j z_coordinate
-
-    #                 # calculate extension to fruit in y-axis
-    #                 traj_calc_y.adjInit(start_y, 0.) # start moving from zero speed
-    #                 traj_calc_y.noJerkProfile(traj_calc_y.q0, end_y, traj_calc_y.v0, v_max_y, a_max_y, d_max_y)
-    #                 T_y = traj_calc_y.Ta + traj_calc_y.Tv + traj_calc_y.Td 
-                    
-    #                 # calculate extension to fruit in z-axis
-    #                 traj_calc_z.adjInit(start_z, 0.) # start moving from zero speed
-    #                 traj_calc_z.noJerkProfile(traj_calc_z.q0, end_z, traj_calc_z.v0, v_max_z, a_max_z, d_max_z)
-    #                 T_z = traj_calc_z.Ta + traj_calc_z.Tv + traj_calc_z.Td 
-
-    #                 # add to matrix and mirror it
-    #                 self.fruit_travel_matrix[i,j] = max(T_y, T_z)
-    #                 self.fruit_travel_matrix[j,i] = max(T_y, T_z)
-
-    #     # print('travel times between fruits:')
-    #     # print(self.fruit_travel_matrix)
-
-
-
-    # def buildOrchard(self, n_runs, set_algorithm, set_distribution, seed_list):
-    #     '''Creates the simulated environment, separated so that MIP run/row can happen'''
-
-    #     for run in range(n_runs):
-    #         # get seeds for x, y, and z RNG (probably unneccessary right now, especially for x)
-    #         seed = [seed_list[run][0], seed_list[run][1], seed_list[run][2]]
-    #         x_seed = PCG64(int(seed[0]))
-    #         y_seed = PCG64(int(seed[1]))
-    #         z_seed = PCG64(int(seed[2])) 
-
-    #     # create fruit distribution and get total number of fruits
-    #     fruitD = fruitDistribution(self.x_lim, self.y_lim, self.z_lim) # init fruit distribution script
-    #     [self.numFruit, self.sortedFruit] = self.createFruitDistribution(fruitD, set_algorithm, set_distribution, self.density, x_seed, y_seed, z_seed)
-
-    #     # print('Density chosen', self.density)
-    #     print('x-lim', self.x_lim, 'y-lim', self.y_lim, 'z-lim', self.z_lim)
-    #     print('Total fruit in the orchard row',self.numFruit)
-    #     # print()
-    #     # print('length of sortedFruit', len(self.sortedFruit[0]))
-    #     # print()
-    #     # print('List of the x, y, and z coordinates of the sorted fruit')
-    #     # print(sortedFruit)
-
-    #     ## for now, calculate time between fruits here (only needed once per snapshot)
-    #     self.timeBtwFruits()
-
 
     def inputOrchard(self, sortedFruit):
         '''Input existing fruit distribution data to use as the fruit data. Used for snapshots.'''
         self.sortedFruit = np.copy(sortedFruit)
 
 
-    def createArms(self):
-        '''Create and populate all the arms' classes then put in appropriate list'''
-        ## create arm object list
-        arm = list()
-
-        # check if being updated 
-        # print('starting row number:', self.starting_row_n)
-
-        if self.starting_row_n + 1 > self.n_row:
-            row_n = self.starting_row_n + 1
-        else:
-            row_n = self.n_row
-
-        # print('the starting row number is', self.starting_row_n, 'and the ending is', row_n)
-
-        for r in range(self.starting_row_n, row_n):
-            # print('row number', r)
-            for k in range(self.n_col):
-                this_arm = Arm(r, k)
-                arm.append(this_arm)
-        # print()
-        return(arm)
-
-
-    def createFruits(self, numFruit, sortedFruit):
-        '''Create and populate all the fruits' classes then put in appropriate list. Fruit indexes are 'zeroed' so that it works with snapshots'''
-        ## create fruit object list
-        fruit = list()
-
-        # only works by starting index at 0
-        for index in range(numFruit):
-            # if the fruit was not removed due to clustering
-            x_coord      = sortedFruit[0][index]
-            y_coord      = sortedFruit[1][index]
-            z_coord      = sortedFruit[2][index]
-            # use a 'zeroed' index so that it works with snapshots
-            fruit_i      = index  
-            # but make sure to save the fruit's 'real' index 
-            fruit_i_real = int(sortedFruit[3][index])
-            # create the object
-            this_fruit   = Fruit(self.traj_calc_x, fruit_i, fruit_i_real, x_coord, y_coord, z_coord)
-            # print('Fruit index', index, 'should match this index only if no snapshots', sortedFruit[3][index])
-            # print('with y and z coordinates:', y_coord, z_coord)
-            fruit.append(this_fruit)
-
-        # print(fruit)
-        return(fruit)
-
     
-    def createJobs(self, arm, fruit, v_vy_curr, cell_l):
-        '''Create and populate all the jobs' classes then put in appropriate list'''
-        ## create job object list
-        job = list()
-
-        for k in arm:
-            for i in fruit:  
-                this_job = Job(i, k, self.q_vy, v_vy_curr, cell_l, self.l_real_y_travel)  # careful because makespan does not use the Jobs() TW values
-                job.append(this_job)
-                # print('for arm', this_job.arm_k.arm_n, 'in row', this_job.arm_k.row_n,'and fruit', this_job.fruit_i.index)
-                # print('TW starts at', this_job.TW_start, 'and TW ends at', this_job.TW_end)  
-
-        return(job)
-
-
-    # def getHorizonIndex(self, sortedFruit, q_vy, vehicle_l):
-    #     '''
-    #     Saves this snapshot's horizon fruit indexes based on the sortedFruit indexes to 
-    #     compare and remove picked fruit.
-    #     '''
-    #     # edges of the horizon based on vehicle location and length
-    #     horizon_back  = q_vy + vehicle_l
-    #     horizon_front = horizon_back + self.hor_l
-
-    #     H_fruit_index = np.where((sortedFruit[1,:] >= horizon_back) & (sortedFruit[1,:] < horizon_front))
-
-    #     return(H_fruit_index[0])
-
-
-    def calcDensity(self, q_vy, v_vy, n_row, n_col, cell_l, arm_reach, sortedFruit):
-        '''Get the fruit density, d, of each cell'''
-        ## should the columns be based on cell length? number of arms? 
-        #  should the columns be the same width? increase/decrease the closer to the front of vehicle?
-        #  should I calculate R per horizontal row of arms?
-
-        d = np.zeros([n_row, n_col])  # total number of cells
-        # starting position on the z-axis (up-down on robot)
-        row_z = 0.
-
-        for n in range(n_row):
-            # starting position in the y_axis (front-back on robot)
-            col_y = q_vy
-            cell_h = self.z_row_top_edges[0,n] - self.z_row_bot_edges[0,n] # for now all rows are the same
-            # print('Cell height for this', n, 'loop', cell_h)
-            # print('bottom', self.z_row_bot_edges[0,n], 'top', self.z_row_top_edges[0,n], '\n')
-
-            for k in range(n_col):
-                # print('col', n, 'row', k)
-                # print('back', col_y, 'front', col_y + cell_l)
-                # print('bottom', row_z, 'top', row_z + cell_h)
-                index = np.where((sortedFruit[1,:] >= col_y) & (sortedFruit[1,:] < col_y + cell_l) & 
-                            (sortedFruit[2,:] >= row_z) & (sortedFruit[2,:] < row_z + cell_h) & 
-                            (sortedFruit[4,:] < 1))
-                # save the number of fruit in this cell and divide all the values by the volume of space in front of each cell 
-                d[n,k] = len(index[0]) / (arm_reach * cell_l * cell_h)
-
-                # print(d)
-                # move to the next column of cells
-                col_y += cell_l
-
-            # move up to the next cell on this column
-            row_z += cell_h
-
-        # before calculating the true density, check total number of fruit
-        # print('which sums to', np.sum(d))   # has to be equal to numer of fruit
-        # divide all the values by the volume of space in front of each cell 
-        # d = d / (arm_reach * cell_l * cell_h)
-
-        # print('fruit density in each cell [fruit/m^3]:')
-        # print(d)
-
-        return(d)
-
-
-    def calcR(self, v_vy, fruit_in_horizon, vehicle_h, arm_reach):
-        '''Calculate the R value given a speed and horizon volume and density'''
-        try:
-            density_H = fruit_in_horizon / (self.hor_l * vehicle_h * arm_reach)
-            time_H    = self.hor_l / v_vy
-
-            R         = density_H / time_H # in fruit / (m^3 * s)
-
-        except ZeroDivisionError:
-            R         = 0 
-
-        # print('Fruit incoming rate based on the horizon [fruit/(m^3 s)]:')
-        # print(R)
-        return(R) 
-
-
-    # def calcStateTime(self, fruit_picked_by, fruit, travel_l, v_vy, n_row, n_col):
-    #         '''Calculates the time each arm is in each state so that it can plotState can plot the data'''
-    #         total_time = travel_l / v_vy 
-    #         # print('total move time:', total_time)
-
-    #         # list of fruit extension times in fruit object
-    #         N  = [i.real_index for i in fruit]    # list of fruit indexes
-    #         TX = [i.Tx for i in fruit]            # list of precalculated fruit extension times
-    
-    #         ## states: idle, pick_yz, pick_x, grab, retract_x, move_z/unload
-    #         # self.state_percent = np.zeros([self.total_arms, 6]) # save each arm's percent time in each of the six states 
-    #         # state_time = np.zeros([total_arms, 7]) # save each arm's percent time in each of the six states plus a total
-
-    #         state_time = self.calcSumPCTstates(fruit_picked_by, N, TX) 
-
-    #         for r in range(n_row):
-    #             for c in range(n_col):
-    #                 tot_arm_index = c + (r*n_col)
-    #                 # calculate idle by subtracting all numbes calculated above by total time: length_row / v
-    #                 state_time[tot_arm_index,0] = total_time - np.sum(state_time[tot_arm_index,:])
-    #                 # save the total time for this run to get total percent later
-    #                 state_time[tot_arm_index,6] = total_time
-                    
-    #         return(state_time)
-    
-    
-
-    # def set_zEdges(self, set_edges, z_lim, n_row, numFruit, sortedFruit):
-    #     '''
-    #     Calculate the z-coord for each horizontal row, assuming the whole row shares these edges.
-    #     Returns a n_row x n_col matrix for both the bottom and top edges of each cell. 
-    #     '''   
-    #     # find what fruits are available to harvest (some may have already been picked or removed)
-    #     index_available = np.where(sortedFruit[4,:] <= 1) 
-
-    #     # edges for the nth horizontal row of cells
-    #     if set_edges == 0 or len(index_available[0]) < 1: 
-    #         # divided equally by distance along orchard height or there are no fruits in view
-    #         # row bottom edge = n*self.cell_h
-    #         bottom = np.linspace(0, (n_row*self.cell_h - self.cell_h), self.n_row, endpoint=True)
-
-    #         bot_edge = np.tile(bottom, (self.n_col, 1))
-    #         top_edge = np.copy(bot_edge) + self.cell_h
-    #     #     print('bottom edges:', bot_edge)
-    #     #     print()
-    #     #     print('top edges:', top_edge)
-    #     #     print()
-    #     elif set_edges == 1:
-    #         # divided by number of fruit
-            
-    #         # make zero arrays for top and bottom. Since edges shared along horizontal row, can tile it by n_col
-    #         top    = np.zeros(n_row)
-    #         bottom = np.zeros(n_row)
-
-    #         # calculate how many fruits should be in each row
-    #         fruit_in_row = math.floor(len(index_available[0]) / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
-    #         # fruit_in_row = math.floor(numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
-    #         # fruit_in_row = math.floor(self.numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
-    #         print('number of fruit in each row, rounded down', fruit_in_row)
-    #         print()
-            
-    #         # get the z-coord array of the remaining fruits
-    #         # z_check = np.array(sortedFruit[2])
-    #         z_coord = np.array(sortedFruit[2,index_available[0]])
-
-    #         # print('z_check', z_check)
-    #         # print()
-    #         # print('z_coord', z_coord)
-    #         # sort the array
-    #         z_sorted = np.sort(z_coord)
-    # #         print('sorted z-coord', z_sorted)
-
-    #         # sys.exit(0)
-            
-    #         for row in range(n_row-1):
-    #             top[row]      = z_sorted[fruit_in_row*(row+1)]-0.0001
-    #             bottom[row+1] = z_sorted[fruit_in_row*(row+1)]+0.0001 
-                
-    #         top[-1] = z_lim[1]
-                
-    #         bot_edge = np.tile(bottom, (self.n_col, 1))
-    #         top_edge = np.tile(top, (self.n_col, 1))
-            
-    #     else:
-    #         print('Not an edge setting, please try again')
-    #         return([0, 0])
-
-    #     self.z_row_bot_edges = bot_edge
-    #     self.z_row_top_edges = top_edge
-
-    #     # print('bottom z-axis edges', self.z_row_bot_edges)
-    #     # print()
-    #     # print('top z-axis edges', self.z_row_top_edges)
-    #     # print()
-    #     # return([bot_edge, top_edge]), unneccessary to return them at the moment 
-
-
-    # def calcYlimMax(self, set_distribution, vehicle_l, v_vy_fruit_cmps, n_fruit):
-    #     '''Calculates the end of the orchard's coordinate based on the set fruit distribution'''
-    #     # no snapshots, so the travel length is static at the orchard row's length
-    #     if set_distribution == 0:
-    #         # travel l changes as the vehicle length changes?
-    #         if self.data_name == 'juan':
-    #             y_max  = 16.5 # in m, for Juan's data
-    #             self.density   = 53.97            # in fruit/m^2 (on avg.), constant, for Juan's data
-    #         elif self.data_name == 'raj':
-    #             y_max  = 10.9 # in m, for Raj's data
-    #             self.density   = 48.167         # in fruit/m^2 (on avg.), constant, for Raj's data
-    #         n_runs    = 1
-
-    #     elif set_distribution == 1:
-    #         y_max  = 6 # in m, usually 5 m + length
-
-    #     elif set_distribution == 3:
-    #         y_max  = 30 # in m
-            
-    #     elif set_distribution == 5:
-    #         v_vy_fruit_mps = v_vy_fruit_cmps / 100
-    #         self.d_y  = self.Td*v_vy_fruit_mps*(n_fruit+1)/(n_fruit+2) # kind of works 3/4 or 5/8 fruit with 1 arm: (Td/2)*v_vy
-    #     #     d_y  = Td*v_vy_fruit*(n_fruit+1)/(n_fruit+2) # kind of works 3/4 or 5/8 fruit with 1 arm: (Td/2)*v_vy
-    #         print('with Td', self.Td, 'and v_vy for fruit distribution', v_vy_fruit_cmps, 'cm/s')
-    #         print('d_y for this line of fruit:', self.d_y, 'so the total distance they take up:', self.d_y*n_fruit)
-    #         y_max  = self.d_y * n_fruit # in m
-            
-    #     elif set_distribution == 6:
-    #         y_max = 6 # in m, should watch out because the total distance is actually 12
-
-    #     else: 
-    #         print('ERROR: that distribution', set_distribution, 'does not exist, exiting out')
-    #         sys.exit(0)
-
-    #     self.y_lim[1] = y_max #+ self.y_lim[1] # correct the travel length 
-
-    
-    # def createFruitDistribution(self, fruitD, set_algorithm, set_distribution, density, x_seed, y_seed, z_seed):
-    #         if set_distribution == 0:
- 
-    #             if self.data_name == 'juan':
-    #                 csv_file = './TREE_FRUIT_DATA/20220811_apples_Juan.csv'
-    #                 is_meter = 1
-    #             elif self.data_name == 'raj':
-    #                 csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
-    #                 is_meter = 0
-
-    #             [numFruit, sortedFruit] = fruitD.csvFile(csv_file, is_meter)
-
-    #         elif set_distribution == 1:
-    #             if set_algorithm == 1:
-    #                 [numFruit, sortedFruit] = fruitD.uniformRandomMelon(density, y_seed, z_seed)
-    #             else:
-    #                 [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
-    #             # print()
-    #             # print('--------------------------------------------')
-    #             # print('Number of fruit:', numFruit)
-    #             # print()
-
-    #         elif set_distribution == 2: 
-    #             fruit_in_cell = math.ceil(density * (self.cell_h*self.cell_l*self.arm_reach)) # num of fruit in front of cell if using (equalCellDensity())
-    #             print('Number of fruit in each cell:', fruit_in_cell)
-    #             print()
-    #             [numFruit, sortedFruit] = fruitD.equalCellDensity(self.n_row, self.n_col, self.cell_h, self.cell_l, self.arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
-
-    #         elif set_distribution == 3: 
-    #             densities = np.array([5, 4, 3])
-    #             [numFruit, sortedFruit] = fruitD.uniformRandomMelon_MultipleDensity(densities, y_seed, z_seed)
-
-    #         # elif set_distribution == 4: 
-    #         #     [numFruit, sortedFruit] = fruitD.column(v_vy, v_max, a_max, t_grab, self.n_row, self.n_col, self.cell_h, z_seed)
-    #         elif set_distribution == 5:
-    #             z_coord = (self.cell_h / 2) + 0.7
-    #             [numFruit, sortedFruit] = fruitD.columnUniform_melon(numFruit, self.d_y, z_coord)
-                
-    #         elif set_distribution == 6:
-    #             csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
-    #             [numFruit, sortedFruit] = fruitD.csvFile_reduced(csv_file, 0, density, x_seed)
-
-    #         else: 
-    #             print('not a correct fruit distribution, defaulting to uniform random')
-    #             if set_algorithm == 1:
-    #                 [numFruit, sortedFruit] = fruitD.uniformRandomMelon(density, y_seed, z_seed)
-    #             else:
-    #                 [numFruit, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
-
-    #         return([numFruit, sortedFruit])
-    
-
-
-    
-    def solve_mip(self, arm, fruit, n_snap, v_vy_curr, set_MIPsettings, fruit_travel_matrix, sortedFruit, FPE_min=0.5, v_vy_lb_cmps=1, v_vy_ub_cmps=5):
+    def solve_mip(self, arm, fruit, job, n_snap, v_vy_curr, set_algorithm, fruit_travel_matrix, sortedFruit, FPE_min=0.5, v_vy_lb_cmps=1, v_vy_ub_cmps=5):
         '''
             Solve the MIP formulation based on already created arm and fruit object lists, the vehicle velocity in cm/s for the run, the MIP settings (makespan or not, etc.).
             Has default value for keyword FPE_min in case makespan is used, this is NOT a recommended value. The FPE_min value should be thoughtfully dtermined based on 
@@ -661,11 +127,12 @@ class MIP_melon(object):
         Z  = [i.z_coord for i in fruit]  # list of fruits' z-coordinate
         TX = [i.Tx for i in fruit]       # list of fruit extension times
 
-        self.job = self.createJobs(arm, fruit, v_vy_curr, self.cell_l)
+        # self.job = self.createJobs(arm, fruit, v_vy_curr, self.cell_l)
 
         # save the real index of the 0th fruit (to get the difference)
         try:
-            offset_fruit_index = self.job[0].fruit_i.real_index
+            # offset_fruit_index = self.job[0].fruit_i.real_index
+            offset_fruit_index = job[0].fruit_i.real_index
             # print('job\'s first real index:', offset_fruit_index, '\n')
         except IndexError:
             # no fruits visible, not even already picked fruits, probably the start where there are no fruits (entering the row)
@@ -685,14 +152,14 @@ class MIP_melon(object):
             # print('number of jobs:', len(self.job))
             # print()
         
-        if set_MIPsettings == 0:
+        if set_algorithm == 0:
             # makespan has to calculate it's own TW values, so this only needs to be done for non-makespan runs
-            TW_start = {i : [j.TW_start for j in self.job if j.fruit_i.index == i] for i in N}
-            TW_end   = {i : [j.TW_end for j in self.job if j.fruit_i.index == i] for i in N}
+            TW_start = {i : [j.TW_start for j in job if j.fruit_i.index == i] for i in N}
+            TW_end   = {i : [j.TW_end for j in job if j.fruit_i.index == i] for i in N}
 
-            if len(TW_start) != len(TW_end) or len(TW_start) != len(N) or len(self.job) != len(N)*len(K)*len(L):
+            if len(TW_start) != len(TW_end) or len(TW_start) != len(N) or len(job) != len(N)*len(K)*len(L):
                 print('Error: The number of fruit and the number of jobs or TW times do not match, exiting out of system')
-                print('Number of jobs', len(self.job), 'and number of fruits*arms', len(N)*len(K)*len(L))
+                print('Number of jobs', len(job), 'and number of fruits*arms', len(N)*len(K)*len(L))
                 print()
                 sys.exit(0)
 
@@ -708,7 +175,7 @@ class MIP_melon(object):
         ### change needed model parameters
         ### see https://www.gurobi.com/documentation/9.5/refman/python_parameter_examples.html#PythonParameterExamples
         
-        if set_MIPsettings == 1:
+        if set_algorithm == 1 or set_algorithm == 2:
             # if n_snap = 0, change to n_snap = .0001 to avoid division by 0
             if n_snap == 0:
                 n_snap = 0.0001
@@ -754,7 +221,7 @@ class MIP_melon(object):
         # Time arm k, l reaches fruit i
         t = m.addVars(K, L, N, lb=0, ub=t_ub, name="t")
 
-        if set_MIPsettings == 1:
+        if set_algorithm == 1 or set_algorithm == 2:
             # any TW start and end should be less than the total move time since nothing can be picked after this
             # the lower bound allows for negatives only because the aux values that take place after will switch to 0 if negative
             tw_s          = m.addVars(K, N, lb=-t_ub, ub=t_ub, name="tw_s")
@@ -773,6 +240,10 @@ class MIP_melon(object):
 
             # variable t_move calculated with currently chosen v_vy
             t_move_var    = m.addVar(lb=0, name="var_t_move")
+            t_harvested   = m.addVars(K, L, N, lb=0, ub=t_ub, name="t_harvested")   # used to get the makespan of harvested fruits, not all fruits
+            makespan      = m.addVar(lb=0, name="makespan")
+            t_max_arm     = m.addVars(K, name="t_max")  # max t value for each arm
+            makespan_norm = m.addVar(lb=0, name="makespan_norm")
 
             FPE_var       = m.addVar(lb=0, name="FPE")
             FPT_var       = m.addVar(lb=0, name="FPT")
@@ -817,14 +288,14 @@ class MIP_melon(object):
         # If the fruit is at the back edge, then it cannot be picked because the arm has to extend out and grab the fruit
         m.addConstrs(((t[k, l, i] - TX[i] - self.t_grab >= -(1.5 + self.t_grab)*(1 - x[k, l, i]) + 0.001*x[k, l, i]) for i in N for l in L for k in K), name="minHarvestTime")
         
-        if set_MIPsettings == 0:   
+        if set_algorithm == 0:   
             # the time of harvest for fruit i by arm in column k and row l has to be within the calculated time windows for that fruit and that column 
             m.addConstrs((t[k, l, i] >= min(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinStart")
             m.addConstrs((t[k, l, i] <= max(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinEnd")
 
-        elif set_MIPsettings == 1:
+        elif set_algorithm == 1 or set_algorithm == 2:
             # min values for slack constranints
-            FPE_min_val = .35    # the minimum FPE in a soft constraint
+            FPE_min_val = .50    # the minimum FPE in a soft constraint
             FPT_min_val = 2.5   # in fruits/s, the minimum FPT in a soft constraint
             # calculate the time windows for each fruit given the tested/chosen velocity 
             m.addConstrs(((tw_s[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + (k + 1)*self.cell_l))) for i in N for k in K), name="TW_start")
@@ -867,9 +338,12 @@ class MIP_melon(object):
             # m.addConstr((FPT_var - maxFPT_slack <= (1/self.travel_l) * gp.quicksum(x_weighted[k, l, i] for i in N for l in L for k in K)), name='FPT')
             # m.addConstr((FPE_var - maxFPE_slack <= (1/n_snap) * gp.quicksum(x[k, l, i] for i in N for l in L for k in K)), name='FPE')
             # m.addConstr((FPE_var <= 0.85), name='FPEmax')
-            if n_snap > 10:
+            if n_snap > 10 and set_algorithm == 1:
                 m.addConstr((FPE_var + minFPE_slack >= FPE_min_val), name='FPEmin')
                 m.addConstr((FPE_var + minFPT_slack >= FPT_min_val), name='FPTmin')
+
+            elif n_snap > 10 and set_algorithm == 2:
+                m.addConstr((FPE_var + minFPE_slack >= FPE_min_val), name='FPEmin')
 
             # m.addConstrs((t_max_arm[k] == gp.max_(t.select(k, '*', '*')) for k in K), name='max_value')  # doesn't take into account if fruit harvested or not
             
@@ -879,23 +353,42 @@ class MIP_melon(object):
 
             # m.addConstrs((((v_vy / 100) * aux_var[k, l, i] == x[k, l, i]) for i in N for l in L for k in K), name="aux")
             # m.addConstrs(((v_vy * aux_var[k, l, i] == (self.travel_l / n_snap) * x[k, l, i]) for i in N for l in L for k in K), name="aux")
+            # set makespan as the latest t^k_i value/ for every arm no matter the row or fruit
+            # see https://support.gurobi.com/hc/en-us/community/posts/360071830171-Use-index-of-decision-variable-in-max-constraint
+            m.addConstrs(((t_harvested[k, l, i] == t[k, l, i] * x[k, l, i]) for i in N for l in L for k in K), name='timeHarvestedFruits')
+            m.addConstrs((t_max_arm[k] == gp.max_(t_harvested.select(k, '*', '*')) for k in K), name='max_value')
+
+            # m.addConstrs((t_max_arm[k] == gp.max_(t.select(k, '*', '*')) for k in K), name='max_value')  # doesn't take into account if fruit harvested or not
+
+            m.addConstrs((makespan >= t_max_arm[k] for k in K), name='makespan_constraint')
+
+            m.addConstr((makespan_norm == makespan * (v_vy / 100) / self.travel_l), name='normalized_makespan')
+
+            # m.addConstrs((((v_vy / 100) * aux_var[k, l, i] == x[k, l, i]) for i in N for l in L for k in K), name="aux")
+            # m.addConstrs(((v_vy * aux_var[k, l, i] == (self.travel_l / total_fruit) * x[k, l, i]) for i in N for l in L for k in K), name="aux")
+
 
 
         ### Objective function
-        if set_MIPsettings == 0:
+        if set_algorithm == 0:
             m.setObjective(gp.quicksum(x[k, l, i] for i in N for l in L for k in K), GRB.MAXIMIZE)
             
-        elif set_MIPsettings == 1:
-            # makespan will use multiple objectives: minimize the makespan and maximize the FPE 
+        elif set_algorithm == 1:
+            m.ModelSense = GRB.MAXIMIZE 
+            m.setObjective(FPE_var*FPT_var - (1/n_snap)*minFPE_slack - (1/n_snap)*minFPT_slack)# - (1/n_snap)*maxFPE_slack - maxFPT_slack)
+
+        elif set_algorithm == 2:
+            slack_weight = 5
+            # makespan might use multiple objectives: minimize the makespan and maximize the FPE 
             # to define multiple hierarchical objectives see https://stackoverflow.com/questions/56120143/how-to-write-a-multi-objective-function-in-gurobi-python
             # Gurobi's specifying of https://www.gurobi.com/documentation/9.5/refman/specifying_multiple_object.html
             # Gurobi's working with https://www.gurobi.com/documentation/9.5/refman/working_with_multiple_obje.html 
             # example: https://www.gurobi.com/documentation/10.0/examples/workforce5_py.html#subsubsection:workforce5.py
             # set priority by index and priority, index 0 get automatic priority, how much priority can be set with priority--The higher (up to 10) the more priority 
             # makespan objective which affects the FPT 
-            m.ModelSense = GRB.MAXIMIZE 
-            m.setObjective((FPE_var*FPT_var - (1/n_snap)*minFPE_slack) - (1/n_snap)*minFPT_slack)# - (1/n_snap)*maxFPE_slack - maxFPT_slack)
-            # m.setObjective((FPE_var * makespan))
+            m.ModelSense = GRB.MINIMIZE
+            m.setObjective(makespan_norm + slack_weight*minFPE_slack)
+
 
         ## see https://github.com/jckantor/ND-Pyomo-Cookbook/blob/master/notebooks/04.03-Job-Shop-Scheduling.ipynb
         ## and https://support.gurobi.com/hc/en-us/community/posts/360071830171-Use-index-of-decision-variable-in-max-constraint
@@ -925,19 +418,22 @@ class MIP_melon(object):
             print("Optimization terminated with status {}".format(status))
     #         sys.exit(0)
 
-        if set_MIPsettings == 1:
-            # print('Minimized makespan                                                 = %0.4f seconds' %makespan.X)
-
+        if set_algorithm == 1:
             # print out the slack value
             print('\nFPE\n    scheduled = {:.3f},    min provided= {:.3f},      slack value = {:.3f}'.format(FPE_var.X, FPE_min_val, minFPE_slack.X))
             print('FPT\n    scheduled = {:.3f},    min provided= {:.3f},      slack value = {:.3f}\n'.format(FPT_var.X, FPT_min_val, minFPT_slack.X))
             # print('FPE', FPE_var.X, 'min FPE', FPE_min_val ,'FPE slack value = ', minFPE_slack.X)
             # print('FPT', FPT_var.X, 'min FPT', FPT_min_val ,'FPT Slack value = ', minFPT_slack.X)
 
+        elif set_algorithm == 2:
+            print('\nMinimized makespan                      = %0.4f seconds' %makespan.X)
+            print('Minimized normalized makespan           = %0.4f' %makespan_norm.X)
+            print('FPE\n    scheduled = {:.3f},     min desired = {:.3f},     slack value = {:.3f}'.format(FPE_var.X, FPE_min_val, minFPE_slack.X))
+
         fruit_picked_by = list()                             # list that saves which arm picks which fruit
         fruit_picked_at = list()                             # list that saves at what time an arm picks a fruit, based on fruit_picked_by "topography"
         self.curr_j     = np.zeros([self.n_row, self.n_col]) # array to save the sum of fruits picked by each arm
-
+        # build out the lists to be the right size (tried replication *, but the lists point at each other)
         for n in range(self.n_row):
             if self.n_row > 1:
                 fruit_picked_by.append([])
@@ -960,28 +456,36 @@ class MIP_melon(object):
         # print('###############################')
         # Assignments    
     #     print()
-        for j in self.job:
+        for j in job:
             if self.starting_row_n >= self.n_row:
                 n_row = 0
             else:
-                n_row = j.arm_k.row_n
+                # n_row = j.arm_k.row_n
+                n_row = j.arm_cr.arm_r
 
-            if x[j.arm_k.arm_n, n_row, j.fruit_i.index].X > 0:
+            # if x[j.arm_k.arm_n, n_row, j.fruit_i.index].X > 0:
+            if x[j.arm_cr.arm_c, n_row, j.fruit_i.index].X > 0:
                 # if fruit was scheduled to be harvested
     #             print('fruit', j.fruit_i.index, 'assigned to arm', j.arm_k.arm_n, 'at t = ', t[j.arm_k.arm_n, j.fruit_i.index].X)
                 # save picked to sortedFruit
                 sortedFruit[4, j.fruit_i.real_index] = 1  # save to the real index on sortedFruit
                 # self.curr_j[n_row, j.arm_k.arm_n] += 1
                 if self.n_row > 1:
-                    self.curr_j[n_row, j.arm_k.arm_n] += 1
-                    fruit_picked_by[n_row][j.arm_k.arm_n].append(j.fruit_i.real_index)
-                    fruit_picked_at[n_row][j.arm_k.arm_n].append(t[j.arm_k.arm_n, n_row, j.fruit_i.index].X)
+                    # self.curr_j[n_row, j.arm_k.arm_n] += 1
+                    # fruit_picked_by[n_row][j.arm_k.arm_n].append(j.fruit_i.real_index)
+                    # fruit_picked_at[n_row][j.arm_k.arm_n].append(t[j.arm_k.arm_n, n_row, j.fruit_i.index].X)
+                    self.curr_j[n_row, j.arm_cr.arm_c] += 1
+                    fruit_picked_by[n_row][j.arm_cr.arm_c].append(j.fruit_i.real_index)
+                    fruit_picked_at[n_row][j.arm_cr.arm_c].append(t[j.arm_cr.arm_c, n_row, j.fruit_i.index].X)
 
                 else:
                     # print(self.curr_j)
-                    self.curr_j[0,j.arm_k.arm_n] += 1
-                    fruit_picked_by[j.arm_k.arm_n].append(j.fruit_i.real_index)
-                    fruit_picked_at[j.arm_k.arm_n].append(t[j.arm_k.arm_n, n_row, j.fruit_i.index].X)
+                    # self.curr_j[0,j.arm_k.arm_n] += 1
+                    # fruit_picked_by[j.arm_k.arm_n].append(j.fruit_i.real_index)
+                    # fruit_picked_at[j.arm_k.arm_n].append(t[j.arm_k.arm_n, n_row, j.fruit_i.index].X)
+                    self.curr_j[0,j.arm_cr.arm_c] += 1
+                    fruit_picked_by[j.arm_cr.arm_c].append(j.fruit_i.real_index)
+                    fruit_picked_at[j.arm_cr.arm_c].append(t[j.arm_cr.arm_c, n_row, j.fruit_i.index].X)
 
         no_pick = np.where(sortedFruit[4,:] == 0)  # flag for scheduled == 1, scheduled and picked == 2
     #     print('not picked indexes:', no_pick[0])
@@ -998,7 +502,7 @@ class MIP_melon(object):
         if self.print_out == 1:
         #     print('model variables:', m.getAttr("x", m.getVars()))
             print()
-            if set_MIPsettings == 1:
+            if set_algorithm == 1:
                 print('Makespan\'s chosen velocity:', v_vy.X, 'cm/s')
             print('set M value:', self.M)
             print()
@@ -1016,102 +520,9 @@ class MIP_melon(object):
 
         # print('fruit picked by [0]', fruit_picked_by[0])
         # print('fruit picked by [1]', fruit_picked_by[1])
-        if set_MIPsettings == 0:
+        if set_algorithm == 0:
             # only need which fruit were picked by what and when
             return([fruit_picked_by, fruit_picked_at])
-        elif set_MIPsettings == 1:
+        elif set_algorithm == 1 or set_algorithm == 2:
             # needs the above as well as the chosen velocity
             return([fruit_picked_by, fruit_picked_at, v_vy.X])
-        
-    
-
-
-## Required classes for the arms, fruits, and jobs
-class Arm():
-    def __init__(self, row_n, arm_n):
-        self.row_n = row_n
-        self.arm_n = arm_n
-
-    # def __str__(self):
-    #     return f"Arm: {self.arm_n}\n Horizontal Row Number: {self.row_n}"
-
-
-class Fruit():
-    def __init__(self, traj_calc, index, real_index, x_coord, y_coord, z_coord):#, job, tStart, tEnd, tDue):
-        self.index = index            # fruit's index when ordered by y-coordinate
-        self.real_index = real_index  # fruit's real index before it's zeroed if using snapshots
-        self.x_coord = x_coord        # x-coordinate of the fruit
-        self.y_coord = y_coord        # y-coordinate of the fruit
-        self.z_coord = z_coord        # z-coordiante of the fruit
-        # calculate the extension + grab + retract of the arm (use trajectory.py module)
-        start_x = 0
-        v_max   = 2 # m/s from Motor Sizing Google sheet calculations if we want to keep triangular profile to maximize speed
-        a_max   = 4 # m/s^2 from Motor Sizing Google sheet calculations if we want desired linear movement time to be 1 second
-        d_max   = a_max # if motors allow, keep equal to a_max
-
-        # calculate extension to fruit in x-axis
-        traj_calc.adjInit(start_x, 0.) # start moving from zero speed
-        traj_calc.noJerkProfile(traj_calc.q0, self.x_coord, traj_calc.v0, v_max, a_max, d_max)
-        
-        self.Tx = traj_calc.Ta + traj_calc.Tv + traj_calc.Td  # in s, the total extensiontime for this fruit
-        
-        # self.Tx = t_ext + t_grab + t_ext 
-        # print('the extension time of this fruit takes {:.3f} sec\n'.format(self.Tx))
-        
-    # def __str__(self):
-    #     return f"Fruit Index: {self.index}\n  Y-axis location: {self.y_coord}\n"
-
-
-
-class Job():
-    def __init__(self, fruit_i, arm_k, q_vy, v_vy, cell_l, pick_travel_l):
-        self.fruit_i  = fruit_i
-        self.arm_k    = arm_k
-        self.v_vy     = v_vy
-        offset        = (cell_l - pick_travel_l) / 2  # in m, assume centered
-        # k+1 was added because the MIP model in paper assumes k starts at 1
-        # self.TW_start = (self.fruit_i.y_coord + (self.arm_k.arm_n)*cell_l + 1/2 * offset) / (v_vy/100)
-        # self.TW_end   = (self.fruit_i.y_coord + (self.arm_k.arm_n + 1)*cell_l - 1/2 * offset) / (v_vy/100)
-
-        # fix to start the back of the vehicle as (0,0)
-        self.TW_start = (self.fruit_i.y_coord - (q_vy + (self.arm_k.arm_n + 1)* cell_l) ) / (v_vy/100) 
-        if self.TW_start < 0:
-            # correction since it cannot be harvested at negative values, so make the window smaller by making it able to start at 0? -> might require the addition of q_vy_start
-            self.TW_start = 0
-
-        self.TW_end   = (self.fruit_i.y_coord - (q_vy + self.arm_k.arm_n * cell_l) ) / (v_vy/100)
-        if self.TW_end <= 0:
-            # if TW_end is less than zero, the fruit cannot be harvested so just set it all to zero
-            # was causing problems for the TW constraints because the max and min were not always the start and end. 
-            self.TW_start = 0
-            self.TW_end = 0
-
-
-## create snapshot object for data analysis
-class Snapshot(object):
-    def __init__(self, n_col, n_row, horizon_l, vehicle_l, cell_l, v_max, a_max, set_algorithm, Td, v_vy, FPE, FPT, y_lim, numFruit, curr_j, sortedFruit, fruit_picked_by, state_time):
-        # constants for the whole run
-        self.n_col      = n_col
-        self.n_row      = n_row
-        self.horizon_l  = horizon_l
-        self.vehicle_l  = vehicle_l
-        self.cell_l     = cell_l
-        self.v_max      = v_max
-        self.a_max      = a_max
-        if set_algorithm == 1:
-            self.Td     = Td
-            
-        # constants and results for each snapshot in the run
-        self.v_vy       = v_vy
-        self.FPE        = FPE
-        self.FPT        = FPT
-        self.y_lim      = y_lim
-        self.actual_numFruit = numFruit
-        self.curr_j          = curr_j
-        self.avg_PCT         = 0.
-        self.state_time      = state_time
-        self.fruit_picked_by = fruit_picked_by
-        self.sortedFruit     = sortedFruit
-
-    def __str__(self):
-        return f"Arm: {self.n_col}\n Horizontal Row Number: {self.n_row}"
