@@ -135,22 +135,6 @@ def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list,
 
 
 
-
-# def fruitsInView(q_vy, l_view_m, total_sortedFruit, l_cell, l_arm_travel):
-# # def fruitsInView(q_vy, n_snapshots, l_view_m, total_sortedFruit, cell_l, pick_travel_l):
-#     '''Determine which fruits are unpicked and in front of the vehicle for each snapshot.'''
-#     # offset = (l_cell - l_arm_travel) / 2 # assume centered in cell
-#     start_y = q_vy                       # the y-coordinate start of the start of the view window for the snapshot ((0,0) for the vehicle at start of snapshot)
-
-#     index_this_sortedFruit = np.where((total_sortedFruit[1,:] > start_y) & (total_sortedFruit[1,:] < start_y + l_view_m))
-    
-#     # print()
-#     # print('index of fruits in the view window', index_this_sortedFruit[0])
-#     # print()
-
-#     return(index_this_sortedFruit[0])
-
-
 def main():
     args = sys.argv[1:] # use the command line arguments to set values
     ## command line arguments
