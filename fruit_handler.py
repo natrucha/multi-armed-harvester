@@ -17,7 +17,12 @@ class fruit_handler(object):
         self.y_lim   = np.copy(y_lim)
         self.z_lim   = np.copy(z_lim)
 
-        self.data_name = 'raj'  # get rid of this as soon as possible
+        # allow calculations for the x-axis, 1.0 m long worst case
+        v_max_x   = 2         # in m/s, from Motor Sizing Google sheet calculations if we want to keep triangular profile to maximize speed
+        a_max_x   = 4         # in m/s^2, from Motor Sizing Google sheet calculations if we want desired linear movement time to be 1 second
+        d_max_x   = a_max_x   # in m/s^2, if motors allow, keep equal to a_max
+        # initialize the ability to calculate trajectory
+        self.traj_calc_x = Trajectory(v_max_x, a_max_x, d_max_x) 
 
 
 
@@ -244,7 +249,76 @@ class fruit_handler(object):
             print('ERROR: that distribution', set_distribution, 'does not exist, exiting out')
             sys.exit(0)
 
-        self.y_lim[1] = y_max #+ self.y_lim[1] # correct the travel length 
+        self.y_lim[1] = y_max #+ self.y_lim[1] # correct the travel length
+
+
+
+    def createArms(self):
+        '''Create and populate all the arms' classes then put in appropriate list'''
+        ## create arm object list
+        arm = list()
+
+        starting_row_n = 0 # not used right now if solving row by row
+
+        # check if being updated 
+        # print('starting row number:', self.starting_row_n)
+
+        if starting_row_n + 1 > self.R:
+            row_n = starting_row_n + 1
+        else:
+            row_n = self.R
+
+        # print('the starting row number is', self.starting_row_n, 'and the ending is', row_n)
+
+        for r in range(starting_row_n, row_n):
+            # print('row number', r)
+            for c in range(self.C):
+                this_arm = Arm(r, c)
+                arm.append(this_arm)
+        # print()
+        return(arm)
+    
+
+
+    def createFruits(self, numFruit, sortedFruit):
+        '''Create and populate all the fruits' classes then put in appropriate list. Fruit indexes are 'zeroed' so that it works with snapshots'''
+        ## create fruit object list
+        fruit = list()
+
+        # only works by starting index at 0
+        for index in range(numFruit):
+            # if the fruit was not removed due to clustering
+            x_coord      = sortedFruit[0][index]
+            y_coord      = sortedFruit[1][index]
+            z_coord      = sortedFruit[2][index]
+            # use a 'zeroed' index so that it works with snapshots
+            fruit_i      = index  
+            # but make sure to save the fruit's 'real' index 
+            fruit_i_real = int(sortedFruit[3][index])
+            # create the object
+            this_fruit   = Fruit(self.traj_calc_x, fruit_i, fruit_i_real, x_coord, y_coord, z_coord)
+            # print('Fruit index', index, 'should match this index only if no snapshots', sortedFruit[3][index])
+            # print('with y and z coordinates:', y_coord, z_coord)
+            fruit.append(this_fruit)
+
+        # print(fruit)
+        return(fruit)
+
+
+    
+    def createJobs(self, arm, fruit, V, Q, d_col):
+        '''Create and populate all the jobs' classes then put in appropriate list'''
+        ## create job object list
+        job = list()
+
+        for i_arm in arm:
+            for i_fruit in fruit:  
+                this_job = Job(i_fruit, i_arm, Q, V, d_col)  # careful because makespan does not use the Jobs() TW values
+                job.append(this_job)
+                # print('for arm', this_job.arm_k.arm_n, 'in row', this_job.arm_k.row_n,'and fruit', this_job.fruit_i.index)
+                # print('TW starts at', this_job.TW_start, 'and TW ends at', this_job.TW_end)  
+
+        return(job) 
     
 
 
@@ -546,6 +620,99 @@ class fruit_handler(object):
         # print('Fruit incoming rate based on the horizon [fruit/(m^3 s)]:')
         # print(R)
         return(R) 
+    
+
+
+## Required classes for the arms, fruits, and jobs
+class Arm():
+    def __init__(self, arm_r, arm_c):
+        # print(f'creating arm with r = %d and c = %d' %(arm_r, arm_c))
+        self.arm_r = arm_r
+        self.arm_c = arm_c
+
+    # def __str__(self):
+    #     return f"Arm: {self.arm_n}\n Horizontal Row Number: {self.row_n}"
+    
+
+
+class Fruit():
+    def __init__(self, traj_calc, index, real_index, x_coord, y_coord, z_coord):#, job, tStart, tEnd, tDue):
+        self.index = index            # fruit's index when ordered by y-coordinate
+        self.real_index = real_index  # fruit's real index before it's zeroed if using snapshots
+        self.x_coord = x_coord        # x-coordinate of the fruit
+        self.y_coord = y_coord        # y-coordinate of the fruit
+        self.z_coord = z_coord        # z-coordiante of the fruit
+        # calculate the extension + grab + retract of the arm (use trajectory.py module)
+        start_x = 0
+        v_max   = 2 # m/s from Motor Sizing Google sheet calculations if we want to keep triangular profile to maximize speed
+        a_max   = 4 # m/s^2 from Motor Sizing Google sheet calculations if we want desired linear movement time to be 1 second
+        d_max   = a_max # if motors allow, keep equal to a_max
+
+        # calculate extension to fruit in x-axis
+        traj_calc.adjInit(start_x, 0.) # start moving from zero speed
+        traj_calc.noJerkProfile(traj_calc.q0, self.x_coord, traj_calc.v0, v_max, a_max, d_max)
+        
+        self.Tx = traj_calc.Ta + traj_calc.Tv + traj_calc.Td  # in s, the total extensiontime for this fruit
+        
+        # self.Tx = t_ext + t_grab + t_ext 
+        # print('the extension time of this fruit takes {:.3f} sec\n'.format(self.Tx))
+        
+    # def __str__(self):
+    #     return f"Fruit Index: {self.index}\n  Y-axis location: {self.y_coord}\n"
+
+
+
+class Job():
+    def __init__(self, fruit_i, arm_cr, Q, V, d_col, pick_travel_l=0):
+        self.fruit_i  = fruit_i
+        self.arm_cr   = arm_cr
+        self.V        = V
+        offset        = (d_col - pick_travel_l) / 2  # in m, assume centered
+        # k+1 was added because the MIP model in paper assumes k starts at 1
+        # self.TW_start = (self.fruit_i.y_coord + (self.arm_cr.arm_c)*d_col + 1/2 * offset) / (v_vy/100)
+        # self.TW_end   = (self.fruit_i.y_coord + (self.arm_cr.arm_c + 1)*d_col - 1/2 * offset) / (v_vy/100)
+
+        # fix to start the back of the vehicle as (0,0)
+        self.TW_start = (self.fruit_i.y_coord - (Q + (self.arm_cr.arm_c + 1)* d_col) ) / (V/100) 
+        if self.TW_start < 0:
+            # correction since it cannot be harvested at negative values, so make the window smaller by making it able to start at 0? -> might require the addition of q_vy_start
+            self.TW_start = 0
+
+        self.TW_end   = (self.fruit_i.y_coord - (Q + self.arm_cr.arm_c * d_col) ) / (V/100)
+        if self.TW_end <= 0:
+            # if TW_end is less than zero, the fruit cannot be harvested so just set it all to zero
+            # was causing problems for the TW constraints because the max and min were not always the start and end. 
+            self.TW_start = 0
+            self.TW_end = 0
+
+
+## create snapshot object for data analysis
+class Snapshot(object):
+    def __init__(self, n_col, n_row, horizon_l, vehicle_l, cell_l, v_max, a_max, set_algorithm, Td, v_vy, FPE, FPT, y_lim, numFruit, curr_j, sortedFruit, fruit_picked_by, state_time):
+        # constants for the whole run
+        self.n_col      = n_col
+        self.n_row      = n_row
+        self.horizon_l  = horizon_l
+        self.vehicle_l  = vehicle_l
+        self.cell_l     = cell_l
+        self.v_max      = v_max
+        self.a_max      = a_max
+        if set_algorithm == 1:
+            self.Td     = Td
+        else: 
+            self.Td     = Td # is this even neccessary
+            
+        # constants and results for each snapshot in the run
+        self.v_vy       = v_vy
+        self.FPE        = FPE
+        self.FPT        = FPT
+        self.y_lim      = y_lim
+        self.actual_numFruit = numFruit
+        self.curr_j          = curr_j
+        self.avg_PCT         = 0.
+        self.state_time      = state_time
+        self.fruit_picked_by = fruit_picked_by
+        self.sortedFruit     = sortedFruit
 
 
 
