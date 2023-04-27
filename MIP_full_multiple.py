@@ -10,6 +10,7 @@ from IG_data_analysis import *       # import module to analyze the data from th
 from MIP_melon import *              # import module that solves the extended MIP in melon algorith *add citation*
 from MIP_queu_manager import *       # import module that adds queue management to the scheduler to add dynamisism
 from fruit_handler import *          # import module that handles the data creation and calculations (distribution, calcPCT, etc.)
+from FCFS_wall import *
 
 # tested with Python 3.7.0 & Gurobi 9.0
 
@@ -19,190 +20,6 @@ from fruit_handler import *          # import module that handles the data creat
 def printScen(scenStr):
     sLen = len(scenStr)
     print("\n" + "*"*sLen + "\n" + scenStr + "\n" + "*"*sLen + "\n")
-
-
-# def distCenterline(n_row, z_row_bot_edges, z_row_top_edges, sortedFruit):
-#     '''Calculate mean and variance of fruits to centerline of their respective row'''
-#     centerline   = np.zeros(n_row)
-#     sum_distance = np.zeros(n_row)
-#     # where_array_list = list()
-
-#     fruit_z = np.copy(sortedFruit[2,:])
-
-#     for row in range(n_row):
-#         # calculate centerline of row
-#         centerline[row] = (z_row_top_edges[0,row] - z_row_bot_edges[0,row])/2 + z_row_bot_edges[0,row]
-#         print('row', row, 'centerline z-coordinate', centerline[row])
-
-#         # check which fruits are in this rows
-#         this_row = np.where((sortedFruit[2,:] > z_row_bot_edges[0,row]) & (sortedFruit[2,:] < z_row_top_edges[0,row]))
-#         # where_array_list.append(this_row[0])
-
-#         for fruit_i in this_row[0]:
-#             fruit_z[fruit_i] = np.absolute(fruit_z[fruit_i] - centerline[row])
-
-#         # calculate row's mean and variance for distance of fruit from centerline 
-#         row_mean = np.mean(fruit_z[this_row[0]]) 
-#         row_var  = np.var(fruit_z[this_row[0]])
-#         print('row', row, 'mean', row_mean)
-#         print('row', row, 'variance', row_var)
-
-#     # print('sortedFruit', sortedFruit[2,:])
-#     # print()
-#     # print('distance from the centerline', fruit_z)
-#     # print()
-
-
-# def findClustersTotal(sortedFruit, v_vy, Td, n_col):
-#     '''
-#        Use k-d tree (scipy) to find clusters of fruits made up of n_col fruits at a v_vy*Td distance from each other
-#        in the y and z axis (add x when it actually matters)
-
-#        see https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html#scipy.spatial.KDTree
-#        and https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.query_ball_tree.html#scipy.spatial.KDTree.query_ball_tree
-#     '''
-
-#     d_cluster = (v_vy * Td) /2 # find all the neighbors that can be picked, half cause radius(?)
-#     print()
-#     print('Distance used to find clusters:', d_cluster)
-#     print()
-
-#     problem_cluster_num = 0
-
-#     coordinates1 = np.copy(sortedFruit[0:2,:]).T
-#     coordinates2 = np.copy(sortedFruit[0:2,:]).T
-
-#     kd_tree1 = KDTree(coordinates1)   
-#     kd_tree2 = KDTree(coordinates2)
-
-#     indexes = kd_tree1.query_ball_tree(kd_tree2, r=d_cluster)
-
-#     print()
-#     # print('Number of pairs within the problem distance', len(indexes)) # this will always be = all because we're comparing
-#     # the fruit against itself? => yup, this is what happens
-#     print('Fruit index lists showing all neighbors within d distance from fruit index i', indexes)
-
-#     plt.figure(figsize=(6, 6))
-#     plt.plot(sortedFruit[1,:], sortedFruit[2,:], "ok", markersize=5)
-#     plt.xlabel('Distance along orchard row (m)')
-#     plt.ylabel('Height from ground (m)')
-#     color = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink', 'sienna', 'deepskyblue', 'teal', 'tomato', 'slategrey']
-#     color_index = 0
-
-#     for i in range(len(indexes)):
-#         if len(indexes[i]) > n_col+1: # because the list includes the fruit's index (tree compared to itself), so one extra
-#             problem_cluster_num += 1
-
-#             for j in indexes[i]:
-#                 # plot only the problem clusters
-#                 line_color = str(color[color_index])
-#                 plt.plot([sortedFruit[1,i], sortedFruit[1,j]], [sortedFruit[2,i], sortedFruit[2,j]], linestyle='-', color='r')
-
-#             color_index +=1 
-#             if color_index == 12:
-#                 color_index = 0
-
-#     print('Number of problem clusters', problem_cluster_num)
-
-#     plt.show()
-
-
-# def findClustersByRow(sortedFruit, v_vy, Td, n_col, n_row, z_row_bot_edges, z_row_top_edges):
-#     '''
-#        Use k-d tree (scipy) to find clusters of fruits made up of n_col fruits at a v_vy*Td distance from each other
-#        in the y and z axis (add x when it actually matters). Done individually for each row however the row was separated
-
-#        see https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html#scipy.spatial.KDTree
-#        and https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.query_ball_tree.html#scipy.spatial.KDTree.query_ball_tree
-#     '''
-#     d_cluster = (v_vy * Td)  # find all the neighbors that can be picked, half cause radius(?)
-
-#     all_cluster_list     = list()
-#     fruits2remove_list   = list()
-#     # fruits2remove_list = [134,135,136,137,140,143]
-
-#     problem_cluster_num = 0
-
-#     coordinates1 = np.copy(sortedFruit[1:3,:]).T
-#     coordinates2 = np.copy(sortedFruit[1:3,:]).T
-
-#     for row in range(n_row):
-#         # check which fruits are in this rows
-#         this_row = np.where((sortedFruit[2,:] > z_row_bot_edges[0,row]) & (sortedFruit[2,:] < z_row_top_edges[0,row]))
-#         # print('this row indexes', this_row[0])
-
-#         # the indexes in the cut down coordinates array do not match the ones in coordinates, need to 'transform' them back
-#         kd_tree1 = KDTree(coordinates1[this_row[0],:])   
-#         kd_tree2 = KDTree(coordinates2[this_row[0],:])
-#         indexes = kd_tree1.query_ball_tree(kd_tree2, r=d_cluster)
-
-#         # transform the indexes back
-#         # print()
-#         for i in range(len(indexes)):
-#             all_cluster_list.append([this_row[0][i],this_row[0][indexes[i]]])   
-
-#     # print(all_cluster_list)
-
-#     plt.figure(figsize=(6, 6))
-#     plt.plot(sortedFruit[1,:], sortedFruit[2,:], "ok", markersize=5)
-#     plt.xlabel('Distance along orchard row (m)')
-#     plt.ylabel('Height from ground (m)')
-#     color = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink', 'sienna', 'deepskyblue', 'teal', 'tomato', 'slategrey']
-#     color_index = 0
-
-#     # print()
-#     # print('sorted fruits list')
-#     # print(sortedFruit)
-
-#     print()  # helps make the following prints cleaner 
-#     for cluster in all_cluster_list:
-#         if len(cluster[1]) > n_col:
-#             # if there are more fruits in the cluster than the number of arms+1
-#             problem_cluster_num += 1
-#             # get the correct index connected to the list of neighbors
-#             i = cluster[0]
-#             print('Fruits within d distance from fruit index',i, 'are', cluster[1])
-
-#             # tag these fruits as removed, going to remove the index fruit which is the one close to all the other ones
-#             # fruits2remove_list.append(i)
-
-#             for j in cluster[1]:
-#                 # plot only the problem clusters
-#                 line_color = str(color[color_index])
-#                 plt.plot([sortedFruit[1,i], sortedFruit[1,j]], [sortedFruit[2,i], sortedFruit[2,j]], linestyle='-', color=line_color)
-
-#             color_index +=1 
-#             if color_index == 12:
-#                 color_index = 0
-                
-#     plt.show()
-
-#     return(fruits2remove_list)
-
-
-
-# def getRNGSeedList(n_runs):
-#     '''
-#     Open the random seed list rngseed_list_20200901.csv with 200 seeds for each of the 3 real fruit coordinate axis
-#     and 3 fake fruit coordinate axis.
-#     '''
-#     # keeps track of the row number of the csv being read (each row contains the seeds for one run)
-#     csv_i     = 0
-
-#     seed_list = list()
-
-#     with open('./rngseed_list_20200901.csv') as csvfile:
-#         reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-#         for row in reader:
-#             seed_list.append(row)
-#             if csv_i == n_runs:
-#                 break
-
-#             csv_i += 1
-
-#     # print(seed_list)
-#     return(seed_list)
-
 
 
 def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list, snapshot_cell, print_out):
@@ -322,7 +139,6 @@ def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list,
 # def fruitsInView(q_vy, l_view_m, total_sortedFruit, l_cell, l_arm_travel):
 # # def fruitsInView(q_vy, n_snapshots, l_view_m, total_sortedFruit, cell_l, pick_travel_l):
 #     '''Determine which fruits are unpicked and in front of the vehicle for each snapshot.'''
-    
 #     # offset = (l_cell - l_arm_travel) / 2 # assume centered in cell
 #     start_y = q_vy                       # the y-coordinate start of the start of the view window for the snapshot ((0,0) for the vehicle at start of snapshot)
 
@@ -401,25 +217,29 @@ def main():
     set_distribution = 0
 
     ## set algorithm being used 
-    # 1     == MIP
-    # not 1 == not MIP? say FCFS or SPT
-    set_algorithm    = 1
-
-    ## set MIP model settings
     # 0     == extended TOPTW MIP model with objective to maximize the number of harvested fruit, takes one velocity or a range of velocities to determine best FPE vs. FPT
-    # 1     == makespan TOPTW MIP model with multiple objectives to minimize makespan and maximize number of harvested fruits
-    set_MIPsettings = 1
+    # 1     == TOPTW MIP model with the objective to maximize FPE*FPT, includes slack variables, minFPE, and minFPT
+    # 2     == makespan TOPTW MIP model with the objective to minimize makespan, includes slack variable and minFPE
+    # 3     == FCFS
+    set_algorithm    = 3
+
+    ## set MIP model settings ############ switched all of this to set_algorithm (double the settings was getting complicated)
+    # 0     == extended TOPTW MIP model with objective to maximize the number of harvested fruit, takes one velocity or a range of velocities to determine best FPE vs. FPT
+    # 1     == TOPTW MIP model with the objective to maximize FPE*FPT, includes slack variables, minFPE, and minFPT
+    # 2     == makespan TOPTW MIP model with the objective to minimize makespan, includes slack variable and minFPE
+    # 3     == FCFS
+    # set_MIPsettings = 3
 
     ## set how z-coord edges are calculated
     # 0     == z-edges are divided equally along orchard height
     # 1     == z-edges are divided so each row has equal number of fruit (or close to equal)
-    set_edges = 0
+    set_edges = 1
 
     ## set if the vehicle can see the whole dataset or just what's in front
     # 0     == robot sees the whole dataset
     # 1     == robot only sees what's in front of it
     # 2     == robot only sees what's in front of it plus a horizon
-    set_view_field = 2
+    set_view_field = 0
 
     ## set if solving per row or the whole view at once 
     # 0     == solve all rows at once 
@@ -451,11 +271,11 @@ def main():
 
     l_view_m = vehicle_l + l_hor_m  # in m, the length along the orchard row that the robot can see, moves with the vehicle
 
-    if set_MIPsettings == 0:
+    if set_algorithm == 0 or set_algorithm == 3:
         # have a list of vehicle velocities to loop through, if ub and lb are equal, this means a single speed will be tested
         v_vy_cmps_try = np.arange(v_vy_lb_cmps, v_vy_ub_cmps+1) # +1 to include largest value in arange
         print('velocities being attempted:', v_vy_cmps_try)
-    elif set_MIPsettings == 1:
+    elif set_algorithm == 1 or set_algorithm == 2:
         # makespan already takes care of the multiple velocities, set this as *one* velocity to loop through only (we don't particularily care which (we think)
         v_vy_cmps_try = np.arange(v_vy_lb_cmps, v_vy_lb_cmps+1) # +1 to include largest value in arange
         # print('velocities being attempted:', v_vy_cmps_try)
@@ -479,37 +299,41 @@ def main():
         this_seed       = list()
 
         # init the MIP melon object 
-        if set_solve_row == 0:
+        if set_solve_row == 0 and set_algorithm < 3: # the first 3 algorithms are MIP-based
             n_row_loop = 1 # because the whole view is being solved at once, no need to loop
             mip_melon = MIP_melon(q_vy, n_col, n_row, 0, set_distribution, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
+            # set the y-coordinate movement limits within the cell if not equal to cell length. Only affects the Jobs() object if it's not equal to the cell_l 
 
-        elif set_solve_row == 1:
+        elif set_solve_row == 1 and set_algorithm < 3: # the first 3 algorithms are MIP-based
             n_row_loop = n_row # because we are solving per row, we need to loop through each row in each view/snapshot
             # init the MIP melon object, n_row set to one for each since we're running it per row
             # start the row at 0th row and then change the row as needed after this and before create arms
             mip_melon = MIP_melon(q_vy, n_col, 1, 0, set_distribution, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
+            mip_melon.addArmTravelLimits(l_real_y_travel)
 
-        # set the y-coordinate movement limits within the cell if not equal to cell length. Only affects the Jobs() object if it's not equal to the cell_l 
-        mip_melon.addArmTravelLimits(l_real_y_travel) 
+        elif set_algorithm == 3:
+            n_row_loop = 1 # because the whole view is being solved at once, no need to loop
+            # init the first come first serve solver
+            fcfs = FCFS()
 
         # set the number of snapshots if the vehicle cannot see the whole dataset and change the step length accordingly
         if set_view_field == 0:
             # global view
             n_snapshots = 1 
-            l_view_m = mip_melon.y_lim[1] - mip_melon.y_lim[0]
-            l_step_m = mip_melon.y_lim[1] + vehicle_l  # in m, the travel length
+            l_view_m = fruit_data.y_lim[1] - fruit_data.y_lim[0]
+            l_step_m = fruit_data.y_lim[1] + vehicle_l  # in m, the travel length
             FPE_min = 0.95 # in %, what is the minimum FPE desired (not exclusive) for the velocity loop setting
 
         elif set_view_field == 1:
             # limited view, no horizon
             l_step_m = 0.3  # in m, the travel length before resolving MIP, now the step length taken before for a snapshot 
-            n_snapshots = math.ceil((mip_melon.y_lim[1] - mip_melon.y_lim[0]) / l_step_m)  # set just to do the area in front of the vehicle
+            n_snapshots = math.ceil((fruit_data.y_lim[1] - fruit_data.y_lim[0]) / l_step_m)  # set just to do the area in front of the vehicle
             FPE_min = l_step_m / (vehicle_l)  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
 
         else: 
             # limited view with horizon
             l_step_m = 0.6  # in m, the travel length before resolving MIP, now the step length taken before for a snapshot 
-            n_snapshots = math.ceil((mip_melon.y_lim[1] - mip_melon.y_lim[0]) / l_step_m)  # set just to do the area in front of the vehicle
+            n_snapshots = math.ceil((fruit_data.y_lim[1] - fruit_data.y_lim[0]) / l_step_m)  # set just to do the area in front of the vehicle
             FPE_min = .35 # l_step_m / (vehicle_l + l_hor_m) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
 
         # arrays saving end of snapshot result values
@@ -519,14 +343,15 @@ def main():
         global_FPT_array      = np.zeros(n_snapshots) # in fruits/s, array that saves global FPT at end of each snapshot
         mean_Td_array         = np.zeros(n_snapshots) # in s, saves the mean Td value of each snapshot
 
-        mip_melon.setTravelLength(l_step_m)           # needed an easy and clear way to set this in mip_melon since it chnages depending on the settings
+        if set_algorithm < 3:
+            mip_melon.setTravelLength(l_step_m)           # needed an easy and clear way to set this in mip_melon since it chnages depending on the settings
 
         # because we're restarting the object at every run, need to only provide this run's seed list. Needs a list of lists since it assumes it could be multiple runs
         this_seed.append(seed_list[i_run])    ## might want to clean this up so it only runs when creating fake fruit distributions
 
         if print_out == 1:
             print()
-            print('length of the full dataset:', (mip_melon.y_lim[1] - mip_melon.y_lim[0]), 'm')
+            print('length of the full dataset:', (fruit_data.y_lim[1] - fruit_data.y_lim[0]), 'm')
             print('vehicle view window length: {:.1f} m'.format(l_view_m)) 
             print('vehicle travel per snapshot: {:.1f} m'.format(l_step_m)) 
             print('number of snapshots:', n_snapshots)
@@ -546,7 +371,6 @@ def main():
         # create the simulated environment
         fruit_data.buildOrchard(1, set_algorithm, set_distribution, this_seed)
 
-
         # save the complete dataset of fruits
         # total_sortedFruit = np.copy(mip_melon.sortedFruit)
 
@@ -558,12 +382,12 @@ def main():
 
         # create the arm object lists, should only be done once per full dataset if not solving by row
         if set_solve_row == 0:
-            mip_arm = mip_melon.createArms()
+            mip_arm = fruit_data.createArms()
 
         for i_snap in range(n_snapshots):
             fruit_picked_by = list()
             # Figure out which fruits go into this snapshot and transform their index to start with zero (save the index start)
-            i_snap_sortedFruit_index  = fruit_data.fruitsInView(mip_melon.q_vy, l_view_m, fruit_data.sortedFruit, cell_l, l_real_y_travel)
+            i_snap_sortedFruit_index  = fruit_data.fruitsInView(q_vy, l_view_m, fruit_data.sortedFruit, cell_l, l_real_y_travel)
             # make a copy of sortedFruit that works for the snapshot which will also be used to create the necessary Arm() Objects for the snapshot
             i_snap_sortedFruit        = np.copy(fruit_data.sortedFruit[:,i_snap_sortedFruit_index])
             # calculate the number of fruits in the snapshot
@@ -573,24 +397,22 @@ def main():
             i_snap_available_numFruit = i_snap_numFruit - len(index_unavailable[0])
 
             # determine the z_edges for this snapshot
-            # mip_melon.set_zEdges(set_edges, z_lim, n_row, i_snap_numFruit, i_snap_sortedFruit)
             [bot_edge, top_edge] = fruit_data.set_zEdges(set_edges, z_lim, cell_h, i_snap_sortedFruit)
-            mip_melon.setZlim(bot_edge, top_edge)
+            if set_algorithm < 3:
+                mip_melon.setZlim(bot_edge, top_edge)
             
             # need to calculate the density, R, etc. so as to determine the best v_vy value
-            horizon_indexes = fruit_data.getHorizonIndex(i_snap_sortedFruit, mip_melon.q_vy, vehicle_l, l_hor_m)
+            horizon_indexes = fruit_data.getHorizonIndex(i_snap_sortedFruit, q_vy, vehicle_l, l_hor_m)
 
             ## calculate multiple R and v_vy values based on multiple slices of the current view
             # return a list of fruit densities in each cell 
-            # d = mip_melon.calcDensity(mip_melon.q_vy, v_vy, n_row, n_col, cell_l, arm_reach, i_snap_sortedFruit)
-            d = fruit_data.calcDensity(mip_melon.q_vy, n_col, n_row, cell_l, arm_reach, i_snap_sortedFruit)
+            d = fruit_data.calcDensity(q_vy, n_col, n_row, cell_l, arm_reach, i_snap_sortedFruit)
             # calculate the row densities
             # d_row = np.average(d, axis=1)
             # d_tot = np.average(d)
 
             ## using the fruit densities, determine the vehicle speed to set a specific R value?
             # currently, the R value would be 
-            # R = mip_melon.calcR(v_vy, len(horizon_indexes), vehicle_h, arm_reach)  # calculated based on columns and the horizon length
             R = fruit_data.calcR(v_vy, len(horizon_indexes), l_hor_m, vehicle_h, arm_reach)  # calculated based on columns and the horizon length
 
             snapshot_cell.append([d, R])
@@ -611,7 +433,7 @@ def main():
                 #     print()
                 #     print('the R value of this snapshot is: {:.2} \n'.format(R))
                 # print()
-                print('Vehicle location at start of this snapshot {:.1f} m on y-axis \n'.format(mip_melon.q_vy))
+                print('Vehicle location at start of this snapshot {:.1f} m on y-axis \n'.format(q_vy))
 
             printScen("Solving base scenario model")
 
@@ -628,31 +450,42 @@ def main():
                 # if solving by row, loop thorugh the number of rows, otherwise this only runs once
                 for i_loop in range(n_row_loop):
                     # need to update the 'starting row number' in the MIP_melon object
-                    mip_melon.starting_row_n = i_loop
+                    if set_algorithm < 3:
+                        mip_melon.starting_row_n = i_loop
 
                     if set_solve_row == 1:
                         # now create the correct arms objects for only one row
-                        mip_arm = mip_melon.createArms()
+                        mip_arm = fruit_data.createArms()
 
                     # create the fruit object lists with updated starting_row_n
-                    mip_fruit = mip_melon.createFruits(i_snap_numFruit, i_snap_sortedFruit)
+                    mip_fruit = fruit_data.createFruits(i_snap_numFruit, i_snap_sortedFruit)
+                    mip_job   = fruit_data.createJobs(mip_arm, mip_fruit, v_vy_curr_cmps, q_vy, cell_l)
 
                     # solve for the optimal schedule for this row/loop, for this snapshot
-                    if set_MIPsettings == 0:
-                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = mip_melon.solve_mip(mip_arm, mip_fruit, i_snap_available_numFruit, v_vy_curr_cmps, set_MIPsettings, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit)
+                    if set_algorithm == 0:
+                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = mip_melon.solve_mip(mip_arm, mip_fruit, mip_job, i_snap_available_numFruit, v_vy_curr_cmps, set_algorithm, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit)
                         make_v_vy = v_vy_curr_cmps
-                    elif set_MIPsettings == 1:
+                        curr_count = np.copy(mip_melon.curr_j)
+
+                    elif set_algorithm == 1 or set_algorithm == 2:
                         # makespan requires velocity upper and lower bounds, as well as a min FPE to find (there are default values: v_ub = 5, v_lb = 1, FPE_min = .5)
-                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at, make_v_vy] = mip_melon.solve_mip(mip_arm, mip_fruit, i_snap_available_numFruit, v_vy_curr_cmps, set_MIPsettings, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, FPE_min=FPE_min, v_vy_lb_cmps=v_vy_lb_cmps, v_vy_ub_cmps=v_vy_ub_cmps)
-                        
+                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at, make_v_vy] = mip_melon.solve_mip(mip_arm, mip_fruit, mip_job, i_snap_available_numFruit, v_vy_curr_cmps, set_algorithm, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, FPE_min=FPE_min, v_vy_lb_cmps=v_vy_lb_cmps, v_vy_ub_cmps=v_vy_ub_cmps)
+                        curr_count = np.copy(mip_melon.curr_j)
+
+                    elif set_algorithm == 3:
+                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = fcfs.main(n_col, n_row, mip_fruit, mip_job, v_vy_curr_cmps, q_vy, cell_l, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, fruit_data.z_row_bot_edges, fruit_data.z_row_top_edges)
+                        make_v_vy = v_vy_curr_cmps
+                        curr_count = np.copy(fcfs.curr_j)
+
+                    # print('EXIT TO CHECK CURRENT RESULTS')
+                    # sys.exit(0)
+
                     # set the current velocity as the velocity chosen by the makespan
                     v_vy_mps = make_v_vy / 100 # change to m/s to because it starts getting used from here on out
 
                     # print('the fruits scheduled to be picked in this snapshot are:', i_loop_fruit_picked_by)
                     # print('the times at which the fruits were picked are:', i_loop_fruit_picked_at)
                     # print()
-
-                    # print('original curr_j\n', mip_melon.curr_j)
 
                     # check what fruits have been harvested, scheduled, or not picked
                     where_no = np.where(fruit_data.sortedFruit[4,:] == 0)
@@ -676,7 +509,7 @@ def main():
                                 fruit_when     = i_loop_fruit_picked_at[column]  # if fruit_pick_arm doesn't work, neither will this
                                 # print('this arm is picking', fruit_pick_arm, 'at', fruit_when)
 
-                            queue_manager = MIP_queu_manager(mip_melon.q_vy, q_vy_start, v_vy_mps, l_step_m, fruit_pick_arm, fruit_when)
+                            queue_manager = MIP_queu_manager(q_vy, q_vy_start, v_vy_mps, l_step_m, fruit_pick_arm, fruit_when)
                             not_picked = queue_manager.unpicked_queue
                             yes_picked = queue_manager.picked_queue
                             
@@ -684,8 +517,8 @@ def main():
                                 i_loop_fruit_picked_by[row][column] = list(yes_picked)
 
                                 # update curr_j for this arm, to then be able to update chosen_j
-                                mip_melon.curr_j[row, column] = queue_manager.updateSumPicked(yes_picked)
-                                # print('changes to curr_j in row', row, 'and column', column, 'results in\n', mip_melon.curr_j)
+                                curr_count[row, column] = queue_manager.updateSumPicked(yes_picked)
+                                # print('changes to curr_j in row', row, 'and column', column, 'results in\n', curr_count)
                                     
                                 # update sortedFruit so that fruit that was not picked in time gets reset from picked to not picked
                                 if len(not_picked) > 0:
@@ -696,8 +529,8 @@ def main():
                                 i_loop_fruit_picked_by[column] = list(yes_picked)
 
                                 # update curr_j for this arm, to then be able to update chosen_j
-                                mip_melon.curr_j[0,column] = queue_manager.updateSumPicked(yes_picked)
-                                # print('changes to curr_j in row', row, 'and column', column, 'results in\n', mip_melon.curr_j)
+                                curr_count[0,column] = queue_manager.updateSumPicked(yes_picked)
+                                # print('changes to curr_j in row', row, 'and column', column, 'results in\n', curr_count)
                                     
                                 # update sortedFruit so that fruit that was not picked in time gets reset from picked to not picked
                                 if len(not_picked) > 0:
@@ -708,13 +541,13 @@ def main():
                     # calculate how many fruits each arm picked having cleaned out unpickable fruit above
                     if i_loop > 0:
                         # stack the row's number of fruits picked by each arm
-                        v_curr_chosen_j = np.vstack((v_curr_chosen_j, np.copy(mip_melon.curr_j))) 
+                        v_curr_chosen_j = np.vstack((v_curr_chosen_j, np.copy(curr_count))) 
                         # now figure out what fruit were not picked
                         # see https://stackoverflow.com/questions/16163546/checking-to-see-if-same-value-in-two-lists
                         unpicked = set(unpicked).intersection(i_loop_fruit_picked_by[-1])
                     else: 
                         # initialization for stack the row's number of fruits picked by each arm
-                        v_curr_chosen_j = np.copy(mip_melon.curr_j)
+                        v_curr_chosen_j = np.copy(curr_count)
                         # initialization to figure out what fruit were not picked
                         unpicked = i_loop_fruit_picked_by[-1]
                     # print('unpicked,', unpicked)
@@ -864,11 +697,7 @@ def main():
 
             # calculate how long each arm was working vs idle
             state_time = fruit_data.calcStateTime(fruit_picked_by, mip_fruit, l_step_m, v_vy)
-            print(state_time)            
-
-            # fill in snapshot object and list with current results, object definition in MIP_melon.py
-            snapshot = Snapshot(n_col, n_row, l_hor_m, vehicle_l, mip_melon.cell_l, v_max, a_max, set_algorithm, mip_melon.Td, v_vy, FPE, FPT, mip_melon.y_lim, i_snap_numFruit, chosen_j, fruit_data.sortedFruit, fruit_picked_by, state_time)
-            snapshot_list.append(snapshot)
+            # print(state_time)            
 
             # save chosen velocity
             chosen_v_vy_mps_array[i_snap] = v_vy
@@ -879,6 +708,10 @@ def main():
             this_mean_Td = fruit_data.calcMeanTd(total_picked, state_time)
             # this_mean_Td = fruit_data.calcMeanTd(mip_fruit, total_picked, state_time)
             mean_Td_array[i_snap] = this_mean_Td
+
+            # fill in snapshot object and list with current results, object definition in MIP_melon.py
+            snapshot = Snapshot(n_col, n_row, l_hor_m, vehicle_l, cell_l, v_max, a_max, set_algorithm, this_mean_Td, v_vy, FPE, FPT, fruit_data.y_lim, i_snap_numFruit, chosen_j, fruit_data.sortedFruit, fruit_picked_by, state_time)
+            snapshot_list.append(snapshot)
 
             # calculate the global FPE for this snapshot
             this_global_FPE = len(where_pi[0]) / len(fruit_data.sortedFruit[4,:])
@@ -916,7 +749,11 @@ def main():
             print()
 
             # update the vehicle's location
-            mip_melon.q_vy += l_step_m
+            q_vy += l_step_m
+
+            if set_algorithm == 1:
+                # MIP algorithm needs q_vy to be updated at this point as well
+                mip_melon.q_vy = q_vy
 
             time_run = datetime.now()-start_timer
             time_snap_list.append(time_run)
@@ -957,7 +794,7 @@ def main():
 
         # elif solution_found == 1:
         # combine the results based on the various snapshots taken
-        results = IG_data_analysis(snapshot_list, snapshot_cell, mip_melon.travel_l, mip_melon.y_lim, set_algorithm, print_out)
+        results = IG_data_analysis(snapshot_list, snapshot_cell, l_step_m, fruit_data.y_lim, set_algorithm, print_out)
         if print_out == 1:
             results.printSettings()
             print('\nThe velocities for each of the %d snapshots in m/s:' % n_snapshots)
