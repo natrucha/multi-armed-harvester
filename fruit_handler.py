@@ -322,7 +322,7 @@ class fruit_handler(object):
     
 
 
-    def createFruitDistribution(self, fruitD, set_algorithm, set_distribution, x_seed, y_seed, z_seed, density=1):
+    def createFruitDistribution(self, fruitD, set_algorithm, set_distribution, x_seed, y_seed, z_seed, density=54):
         if set_distribution == 0:
             # using raj's dataset
             csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
