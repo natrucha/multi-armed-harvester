@@ -10,7 +10,7 @@ class FCFS(object):
 
 
     def main(self, n_col, n_row, fruit, job, V, Q, d_cell, fruit_travel_matrix, sortedFruit, z_row_bot_edges, z_row_top_edges):
-        V_m    = V / 100 # change once to meters
+        V_m    = V / 100 # change once to m/s
         t_grab = 0.5     # in s, the constant time it takes to harvest a fruit once reached 
 
         # save the real index of the 0th fruit (to get the difference) when using snapshots
@@ -56,9 +56,8 @@ class FCFS(object):
 
         for i_fruit in N:
             # print('\n\nfruit index being scheduled %d' %i_fruit)
-            # for now assume 1 row and 1 column (only one arm)
-
-            # calculate the start and end times of the time window during which the fruit is available to be harvested for COLUMN 0
+    
+            # calculate the start and end times of the time window during which the fruit is available to be harvested
             tw_s0 = (Y[i_fruit] - (Q + (0 + 1)*d_cell)) / V_m
             tw_e0 = (Y[i_fruit] - (Q + (0)*d_cell)) / V_m
             tw_s_last = (Y[i_fruit] - (Q + (n_col + 1)*d_cell)) / V_m  
@@ -84,11 +83,9 @@ class FCFS(object):
                     # check what row the fruit is in
                     if Z[i_fruit] > z_row_bot_edges[c_col,r_row] and Z[i_fruit] < z_row_top_edges[c_col,r_row]:
 
-                        j_fruit = busy_with[r_row, c_col]
+                        j_fruit = busy_with[r_row, c_col] # previously harvested fruit
                         # print('previously scheduled fruit index: %d' %j_fruit)
-
-                        # figure out how to deal with not all fruit being scheduled to fruit index 0?
-
+                        
                         # check if the arm is busy up to tw_e of the current fruit plus the amount of time it would take to move to the fruit, extend, and grab it
                         if busy_till[r_row, c_col] + fruit_travel_matrix[j_fruit+offset_fruit_index, i_fruit+offset_fruit_index] + TX[i_fruit] + t_grab <= tw_e[c_col]:
                             # mark the fruit as picked, save by which arm, and increase that arm's count of harvested fruits
@@ -97,9 +94,9 @@ class FCFS(object):
                             # sortedFruit[4, j.fruit_i.real_index] = 1  # save to the real index on sortedFruit
                             sortedFruit[4, i_fruit+offset_fruit_index] = 1  # save to the real index on sortedFruit
 
-                            if busy_till[r_row, c_col] <= tw_s[c_col]: 
+                            if busy_till[r_row, c_col] <= tw_s[c_col] - (fruit_travel_matrix[j_fruit+offset_fruit_index, i_fruit+offset_fruit_index] + TX[i_fruit] + t_grab): 
                                 # will have to wait until it harvests the next fruit, but as FCFS it would still be chosen as the fruit it will harvest next
-                                t_harvest = tw_s[c_col] + fruit_travel_matrix[j_fruit+offset_fruit_index, i_fruit+offset_fruit_index] + TX[i_fruit] + t_grab
+                                t_harvest = tw_s[c_col] - (fruit_travel_matrix[j_fruit+offset_fruit_index, i_fruit+offset_fruit_index] + TX[i_fruit] + t_grab)
 
                             else:
                                 # does not wait between one fruit and the other, will start whenever the last fruit finishes
