@@ -175,7 +175,7 @@ class MIP_melon(object):
         ### change needed model parameters
         ### see https://www.gurobi.com/documentation/9.5/refman/python_parameter_examples.html#PythonParameterExamples
         
-        if set_algorithm == 1 or set_algorithm == 2:
+        if set_algorithm == 1 or set_algorithm == 2 or set_algorithm == 4 or set_algorithm == 5:
             # if n_snap = 0, change to n_snap = .0001 to avoid division by 0
             if n_snap == 0:
                 n_snap = 0.0001
@@ -221,7 +221,7 @@ class MIP_melon(object):
         # Time arm k, l reaches fruit i
         t = m.addVars(K, L, N, lb=0, ub=t_ub, name="t")
 
-        if set_algorithm == 1 or set_algorithm == 2:
+        if set_algorithm == 1 or set_algorithm == 2 or set_algorithm == 4 or set_algorithm == 5:
             # any TW start and end should be less than the total move time since nothing can be picked after this
             # the lower bound allows for negatives only because the aux values that take place after will switch to 0 if negative
             tw_s          = m.addVars(K, N, lb=-t_ub, ub=t_ub, name="tw_s")
@@ -235,11 +235,11 @@ class MIP_melon(object):
 
             # in cm/s, vehicle velocity along orchard row
             # bounded by the cell length and Td (melon paper) and bounded by max velocity of the lift (90 cm/s)
-            # v_vy          = m.addVar(lb=v_vy_lb_cmps, ub=v_vy_ub_cmps, name="v_vy")
-            v_vy          = m.addVar(vtype=GRB.INTEGER, lb=v_vy_lb_cmps, ub=v_vy_ub_cmps, name="v_vy")
+            v_vy          = m.addVar(lb=v_vy_lb_cmps, ub=v_vy_ub_cmps, name="v_vy")
+            # v_vy          = m.addVar(vtype=GRB.INTEGER, lb=v_vy_lb_cmps, ub=v_vy_ub_cmps, name="v_vy")
 
             # variable t_move calculated with currently chosen v_vy
-            t_move_var    = m.addVar(lb=0, name="var_t_move")
+            # t_move_var    = m.addVar(lb=0, name="var_t_move")
             t_harvested   = m.addVars(K, L, N, lb=0, ub=t_ub, name="t_harvested")   # used to get the makespan of harvested fruits, not all fruits
             makespan      = m.addVar(lb=0, name="makespan")
             t_max_arm     = m.addVars(K, name="t_max")  # max t value for each arm
@@ -267,7 +267,7 @@ class MIP_melon(object):
 
         # Time elapsed between pickup of any two fruit reached by the same arm is at least Td (2)
         # m.addConstrs((t[k, l, i] + self.Td - t[k, l, j] <= self.M * (2 - x[k, l, j] - x[k, l, i]) for i in N for j in N for k in K for l in L if Y[j] > Y[i]), name="atLeast")
-        m.addConstrs((t[k, l, i] + TX[i] + fruit_travel_matrix[i+offset_fruit_index, j+offset_fruit_index] + TX[j] + self.t_grab - t[k, l, j] <= self.M * (2 - x[k, l, j] - x[k, l, i]) for i in N for j in N for k in K for l in L if Y[j] > Y[i]), name="atLeast")
+        m.addConstrs((t[k, l, j] + TX[j] + fruit_travel_matrix[j+offset_fruit_index, i+offset_fruit_index] + TX[i] + self.t_grab - t[k, l, i] <= self.M * (2 - x[k, l, i] - x[k, l, j]) for i in N for j in N for k in K for l in L if Y[j] < Y[i]), name="atLeast")
         
         # If fruit z-coord is outside of arm's range, do not pick it
         if self.starting_row_n >= self.n_row:
@@ -281,6 +281,7 @@ class MIP_melon(object):
         # offset added because the indexes have to start at 0 for every run, but when scheduling snapshots, the index of the fruits may not start at 0
         m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if sortedFruit[4,i+offset_fruit_index] == 2), name="removeScheduledAndPicked")
         # if the travel distance between snapshots is less than the view distance, don't harvest fruits that are too far forward for arms in column k to pick given that limited travel distance
+        #### THIS ONE to be removed if using MPC, or used seperately
         m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Y[i] - (self.q_vy + (k + 1)*self.cell_l) >= self.travel_l), name="fruitInHorizon")
         # if TW_end is negative, the fruit has passed the column k’s back edge and cannot be harvested by any arm in that column
         m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Y[i] - (self.q_vy + k*self.cell_l) <= 0 ), name="fruitStartPassed")
@@ -293,14 +294,15 @@ class MIP_melon(object):
             m.addConstrs((t[k, l, i] >= min(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinStart")
             m.addConstrs((t[k, l, i] <= max(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinEnd")
 
-        elif set_algorithm == 1 or set_algorithm == 2:
+        elif set_algorithm == 1 or set_algorithm == 2 or set_algorithm == 4 or set_algorithm == 5:
             # min values for slack constranints
-            FPE_min_val = .50    # the minimum FPE in a soft constraint
+            FPE_min_val = FPE_min    # the minimum FPE in a soft constraint
             FPT_min_val = 2.5   # in fruits/s, the minimum FPT in a soft constraint
             # calculate the time windows for each fruit given the tested/chosen velocity 
             m.addConstrs(((tw_s[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + (k + 1)*self.cell_l))) for i in N for k in K), name="TW_start")
             m.addConstrs(((tw_e[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + k*self.cell_l))) for i in N for k in K), name="TW_end")
             
+            #### THIS ONE to be removed if using MPC, or used seperately
             # turns x[k, l, i] == 0 if t[k, l, i] * (v_vy/100) >= travel_l, or the fruit cannot be picked if the time of picking is larger than the time between snapshots
             # to learn about building this constraint see https://or.stackexchange.com/questions/5860/link-a-binary-variable-to-continuous-variable-in-java-gurobi
             m.addConstrs(((self.travel_l - t[k, l, i]*(v_vy / 100) >= -(self.vehicle_l + self.travel_l + self.hor_l) * (1 - x[k, l, i]) + 0.0001 * x[k, l, i]) for i in N for l in L for k in K), name="tCannotPasstMove")
@@ -338,11 +340,11 @@ class MIP_melon(object):
             # m.addConstr((FPT_var - maxFPT_slack <= (1/self.travel_l) * gp.quicksum(x_weighted[k, l, i] for i in N for l in L for k in K)), name='FPT')
             # m.addConstr((FPE_var - maxFPE_slack <= (1/n_snap) * gp.quicksum(x[k, l, i] for i in N for l in L for k in K)), name='FPE')
             # m.addConstr((FPE_var <= 0.85), name='FPEmax')
-            if n_snap > 10 and set_algorithm == 1:
+            if n_snap > 10 and (set_algorithm == 1 or set_algorithm == 4):
                 m.addConstr((FPE_var + minFPE_slack >= FPE_min_val), name='FPEmin')
                 m.addConstr((FPE_var + minFPT_slack >= FPT_min_val), name='FPTmin')
 
-            elif n_snap > 10 and set_algorithm == 2:
+            elif n_snap > 10 and (set_algorithm == 2 or set_algorithm == 5):
                 m.addConstr((FPE_var + minFPE_slack >= FPE_min_val), name='FPEmin')
 
             # m.addConstrs((t_max_arm[k] == gp.max_(t.select(k, '*', '*')) for k in K), name='max_value')  # doesn't take into account if fruit harvested or not
@@ -359,10 +361,9 @@ class MIP_melon(object):
             m.addConstrs((t_max_arm[k] == gp.max_(t_harvested.select(k, '*', '*')) for k in K), name='max_value')
 
             # m.addConstrs((t_max_arm[k] == gp.max_(t.select(k, '*', '*')) for k in K), name='max_value')  # doesn't take into account if fruit harvested or not
-
-            m.addConstrs((makespan >= t_max_arm[k] for k in K), name='makespan_constraint')
-
-            m.addConstr((makespan_norm == makespan * (v_vy / 100) / self.travel_l), name='normalized_makespan')
+            if set_algorithm == 2 or set_algorithm == 5:
+                m.addConstrs((makespan >= t_max_arm[k] for k in K), name='makespan_constraint')
+                m.addConstr((makespan_norm == makespan * (v_vy / 100) / self.travel_l), name='normalized_makespan')
 
             # m.addConstrs((((v_vy / 100) * aux_var[k, l, i] == x[k, l, i]) for i in N for l in L for k in K), name="aux")
             # m.addConstrs(((v_vy * aux_var[k, l, i] == (self.travel_l / total_fruit) * x[k, l, i]) for i in N for l in L for k in K), name="aux")
@@ -371,13 +372,16 @@ class MIP_melon(object):
 
         ### Objective function
         if set_algorithm == 0:
+            # single run MIP
             m.setObjective(gp.quicksum(x[k, l, i] for i in N for l in L for k in K), GRB.MAXIMIZE)
             
-        elif set_algorithm == 1:
+        elif set_algorithm == 1 or set_algorithm == 4:
+            # FPE*FPT 
             m.ModelSense = GRB.MAXIMIZE 
             m.setObjective(FPE_var*FPT_var - (1/n_snap)*minFPE_slack - (1/n_snap)*minFPT_slack)# - (1/n_snap)*maxFPE_slack - maxFPT_slack)
 
-        elif set_algorithm == 2:
+        elif set_algorithm == 2 or set_algorithm == 5:
+            # makespan
             slack_weight = 5
             # makespan might use multiple objectives: minimize the makespan and maximize the FPE 
             # to define multiple hierarchical objectives see https://stackoverflow.com/questions/56120143/how-to-write-a-multi-objective-function-in-gurobi-python
@@ -400,10 +404,9 @@ class MIP_melon(object):
         title_mps = './mip_files/v_vy_' + str(v_vy_curr) + '_loop_mip.mps'
         m.write(title_lp)
         m.write(title_mps)
+        print('lp and mps files saved under: v_vy =', str(v_vy_curr))
         m.optimize()
 
-        print('lp and mps files saved under: v_vy =', str(v_vy_curr))
-        
         status = m.Status
         if status in [GRB.INF_OR_UNBD, GRB.INFEASIBLE, GRB.UNBOUNDED]:
             print("Model is either infeasible or unbounded.")
@@ -418,14 +421,14 @@ class MIP_melon(object):
             print("Optimization terminated with status {}".format(status))
     #         sys.exit(0)
 
-        if set_algorithm == 1:
+        if set_algorithm == 1 or set_algorithm == 4:
             # print out the slack value
             print('\nFPE\n    scheduled = {:.3f},    min provided= {:.3f},      slack value = {:.3f}'.format(FPE_var.X, FPE_min_val, minFPE_slack.X))
             print('FPT\n    scheduled = {:.3f},    min provided= {:.3f},      slack value = {:.3f}\n'.format(FPT_var.X, FPT_min_val, minFPT_slack.X))
             # print('FPE', FPE_var.X, 'min FPE', FPE_min_val ,'FPE slack value = ', minFPE_slack.X)
             # print('FPT', FPT_var.X, 'min FPT', FPT_min_val ,'FPT Slack value = ', minFPT_slack.X)
 
-        elif set_algorithm == 2:
+        elif set_algorithm == 2 or set_algorithm == 5:
             print('\nMinimized makespan                      = %0.4f seconds' %makespan.X)
             print('Minimized normalized makespan           = %0.4f' %makespan_norm.X)
             print('FPE\n    scheduled = {:.3f},     min desired = {:.3f},     slack value = {:.3f}'.format(FPE_var.X, FPE_min_val, minFPE_slack.X))
@@ -502,8 +505,8 @@ class MIP_melon(object):
         if self.print_out == 1:
         #     print('model variables:', m.getAttr("x", m.getVars()))
             print()
-            if set_algorithm == 1:
-                print('Makespan\'s chosen velocity:', v_vy.X, 'cm/s')
+            if set_algorithm == 1 or set_algorithm == 2 or set_algorithm == 4 or set_algorithm == 5:
+                print('The chosen velocity is', v_vy.X, 'cm/s')
             print('set M value:', self.M)
             print()
 
@@ -523,6 +526,6 @@ class MIP_melon(object):
         if set_algorithm == 0:
             # only need which fruit were picked by what and when
             return([fruit_picked_by, fruit_picked_at])
-        elif set_algorithm == 1 or set_algorithm == 2:
+        elif set_algorithm == 1 or set_algorithm == 2 or set_algorithm == 4 or set_algorithm == 5:
             # needs the above as well as the chosen velocity
             return([fruit_picked_by, fruit_picked_at, v_vy.X])
