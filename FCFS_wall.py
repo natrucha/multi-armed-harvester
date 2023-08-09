@@ -94,12 +94,16 @@ class FCFS(object):
                             # sortedFruit[4, j.fruit_i.real_index] = 1  # save to the real index on sortedFruit
                             sortedFruit[4, i_fruit+offset_fruit_index] = 1  # save to the real index on sortedFruit
 
-                            if busy_till[r_row, c_col] <= tw_s[c_col] - (fruit_travel_matrix[j_fruit+offset_fruit_index, i_fruit+offset_fruit_index] + TX[i_fruit] + t_grab): 
+                            # if busy_till[r_row, c_col] <= tw_s[c_col]:
+                            if busy_till[r_row, c_col] <= tw_s[c_col] - (fruit_travel_matrix[j_fruit+offset_fruit_index, i_fruit+offset_fruit_index] + TX[i_fruit]): 
                                 # will have to wait until it harvests the next fruit, but as FCFS it would still be chosen as the fruit it will harvest next
-                                t_harvest = tw_s[c_col] - (fruit_travel_matrix[j_fruit+offset_fruit_index, i_fruit+offset_fruit_index] + TX[i_fruit] + t_grab)
+                                # first steps for harvesting can be started before the fruit even reaches the work volume as long as the arm is waiting sp that 
+                                # the time of harvest, t_harvest, is at tw_s + grabbing
+                                t_harvest = tw_s[c_col] + t_grab
+                                # t_harvest = tw_s[c_col] + (fruit_travel_matrix[j_fruit+offset_fruit_index, i_fruit+offset_fruit_index] + TX[i_fruit] + t_grab)
 
                             else:
-                                # does not wait between one fruit and the other, will start whenever the last fruit finishes
+                                # does not wait between one fruit and the other, will start whenever the arm finishes harvesting the previous fruit
                                 t_harvest = busy_till[r_row, c_col] + fruit_travel_matrix[j_fruit+offset_fruit_index, i_fruit+offset_fruit_index] + TX[i_fruit] + t_grab
 
                             # print('\narm in col %d and row %d is busy until %0.2f with fruit %d and the next harvest time is %0.2f for fruit %d' %(c_col, r_row, busy_till[r_row, c_col], busy_with[r_row, c_col], t_harvest, i_fruit))
