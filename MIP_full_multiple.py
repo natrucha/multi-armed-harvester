@@ -212,12 +212,10 @@ def main():
     # 6     == SPT
     set_algorithm = int(args[5])
 
-    ## set MIP model settings ############ switched all of this to set_algorithm (double the settings was getting complicated)
-    # 0     == extended TOPTW MIP model with objective to maximize the number of harvested fruit, takes one velocity or a range of velocities to determine best FPE vs. FPT
-    # 1     == TOPTW MIP model with the objective to maximize FPE*FPT, includes slack variables, minFPE, and minFPT
-    # 2     == makespan TOPTW MIP model with the objective to minimize makespan, includes slack variable and minFPE
-    # 3     == FCFS
-    # set_MIPsettings = 3
+    ## set MPC on or off
+    # 0     == non-MPC, solve using the travel length
+    # 1     == MPC, solve using the whole view window (vehicle + horizon), but only use the results up to the travel length
+    set_MPC = 1
 
     ## set how z-coord edges are calculated
     # 0     == z-edges are divided equally along orchard height
@@ -340,8 +338,12 @@ def main():
         else: 
             # limited view with horizon
             l_step_m = 0.6 #vehicle_l + l_hor_m  # in m, the travel length before resolving MIP, now the step length taken before for a snapshot 
+            if set_MPC == 0:
+                FPE_min = .35 # l_step_m / (vehicle_l + l_hor_m) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
+            else:
+                FPE_min = .95 # l_step_m / (vehicle_l + l_hor_m) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
             n_snapshots = math.ceil((fruit_data.y_lim[1] - fruit_data.y_lim[0]) / l_step_m)  # set just to do the area in front of the vehicle
-            FPE_min = .95 # l_step_m / (vehicle_l + l_hor_m) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
+            
 
         # arrays saving end of snapshot result values
         chosen_v_vy_mps_array = np.zeros(n_snapshots) # in m/s, array to save each snapshot's chosen velocity 
@@ -351,7 +353,7 @@ def main():
         mean_Td_array         = np.zeros(n_snapshots) # in s, saves the mean Td value of each snapshot
 
         if set_algorithm != 3 and set_algorithm != 6:
-            mip_melon.setTravelLength(l_step_m)           # needed an easy and clear way to set this in mip_melon since it chnages depending on the settings
+            mip_melon.setTravelLength(l_step_m)           # needed an easy and clear way to set this in mip_melon since it changes depending on the settings
 
         # because we're restarting the object at every run, need to only provide this run's seed list. Needs a list of lists since it assumes it could be multiple runs
         this_seed.append(seed_list[i_run])    ## might want to clean this up so it only runs when creating fake fruit distributions
@@ -496,18 +498,18 @@ def main():
 
                     # solve for the optimal schedule for this row/loop, for this snapshot
                     if set_algorithm == 0:
-                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = mip_melon.solve_mip(mip_arm, mip_fruit, mip_job, i_snap_available_numFruit, v_vy_curr_cmps, set_algorithm, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit)
+                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = mip_melon.solve_mip(mip_fruit, mip_job, i_snap_available_numFruit, v_vy_curr_cmps, set_algorithm, set_MPC, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit)
                         make_v_vy = v_vy_curr_cmps
                         curr_count = np.copy(mip_melon.curr_j)
 
                     elif set_algorithm == 1 or set_algorithm == 2:
                         # makespan requires velocity upper and lower bounds, as well as a min FPE to find (there are default values: v_ub = 5, v_lb = 1, FPE_min = .5)
-                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at, make_v_vy] = mip_melon.solve_mip(mip_arm, mip_fruit, mip_job, i_snap_available_numFruit, v_vy_curr_cmps, set_algorithm, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, FPE_min=FPE_min, v_vy_lb_cmps=v_vy_lb_cmps, v_vy_ub_cmps=v_vy_ub_cmps)
+                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at, make_v_vy] = mip_melon.solve_mip(mip_fruit, mip_job, i_snap_available_numFruit, v_vy_curr_cmps, set_algorithm, set_MPC, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, FPE_min=FPE_min, v_vy_lb_cmps=v_vy_lb_cmps, v_vy_ub_cmps=v_vy_ub_cmps)
                         curr_count = np.copy(mip_melon.curr_j)
 
                     elif (set_algorithm == 4 or set_algorithm == 5) and task_alloc_done_flag == 1:
                         # in the combo solving FCFS has finished obtaining a best low bound V, so use that to solve the schedule using MIP
-                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at, make_v_vy] = mip_melon.solve_mip(mip_arm, mip_fruit, mip_job, i_snap_available_numFruit, v_combo_lb, set_algorithm, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, FPE_min=FPE_min, v_vy_lb_cmps=(v_combo_lb-1), v_vy_ub_cmps=(v_combo_lb+2))
+                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at, make_v_vy] = mip_melon.solve_mip(mip_fruit, mip_job, i_snap_available_numFruit, v_combo_lb, set_algorithm, set_MPC, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, FPE_min=FPE_min, v_vy_lb_cmps=(v_combo_lb-1), v_vy_ub_cmps=(v_combo_lb+2))
                         curr_count = np.copy(mip_melon.curr_j)
 
                     elif set_algorithm >= 3 and set_algorithm <= 5 and task_alloc_done_flag == 0:
@@ -648,8 +650,9 @@ def main():
                         chosen_j     = np.copy(v_curr_chosen_j)   # save the v_curr_j variable for the chosen run
                         fruit_picked_by = v_curr_fruit_picked_by.copy() # copy the chosen run's fruit picked by list
                         
-                        if i_snap_available_numFruit > 0:
+                        if i_snap_available_numFruit > 1:
                             # if there are fruits, the solution works and should be saved as is
+                            # I hav eit check for more than one fruit because it can get stuck not picking the last fruit and limiting the speed to 1 cm/s
                             print('***** NEW SOLUTION SAVED *****\n\n')
                             # solution_found = 1
                             v_vy           = v_vy_mps # in m
@@ -744,6 +747,7 @@ def main():
                     else:
                         # the run is actually done, so break out of the current loop
                         print('***** NO IMPROVEMENT IN FPE POSSIBLE, BREAKING OUT *****')
+                        print('Current unusable FPE and FPT are', v_curr_FPE, v_curr_FPT)
                         print('########################### FORCED END RUN ###########################')
                         print()
                         break 
