@@ -103,14 +103,14 @@ class fruit_handler(object):
         sum_grab   = np.sum(state_time[:,3])
         sum_retr   = np.sum(state_time[:,4])
 
-        print('\nSum of pickYZ %.2f,   pickX %.2f,   grab %.2f,   retract %.2f' % (sum_pickYZ, sum_pickX, sum_grab, sum_retr))
+        # print('\nSum of pickYZ %.2f,   pickX %.2f,   grab %.2f,   retract %.2f' % (sum_pickYZ, sum_pickX, sum_grab, sum_retr))
 
         # get the total fruit handling time
         sum_Td_times = sum_pickYZ + sum_pickX + sum_grab + sum_retr # sum_of_ext_times + sum_of_move_times
 
         # divide by the number of harvested fruits to get the average
         mean_Td = sum_Td_times / total_picked
-        print('Mean Td time for the snapshot %.2f\n' % mean_Td)
+        # print('Mean Td time for the snapshot %.2f\n' % mean_Td)
 
         return(mean_Td)
 
