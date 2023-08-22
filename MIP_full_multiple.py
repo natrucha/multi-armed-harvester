@@ -143,7 +143,29 @@ def main():
     # args[0] == n_col
     # args[1] == n_row
     # args[2] == density
-    # args[3] == v_vy in cmps
+    # args[3] == v_vy_lb or the single speed being tested in cmps
+    # args[4] == v_vy_ub (set equal to v_vy_lb if only wanting to test one velocity)
+    # args[5] == algorithm
+        # 0 == extended TOPTW MIP model with objective to maximize the number of harvested fruit, takes one velocity or a range of velocities to determine best FPE vs. FPT
+        # 1 == TOPTW MIP model with the objective to maximize FPE*FPT, includes slack variables, minFPE, and minFPT
+        # 2 == makespan TOPTW MIP model with the objective to minimize makespan, includes slack variable and minFPE
+        # 3 == FCFS
+        # 4 == FCFS to find speed lower bound, FPE*FPT to find schedule
+        # 5 == FCFS to find speed lower bound, makespan to find schedule
+        # 6 == SPT
+    # args[6] == distribution
+        # 0 == Raj's digitized fruits (data for the right side)
+        # 1 == uniform random  (if algorithm == 1, use melon version)
+        # 2 == uniform random, equal cell density
+        # 3 == multiple densities separated by some space (only melon for now)
+        # 4 == fruit in vertical columns
+        # 5 == "melon" version of columns (user inputs desired no. fruits, z height, and distance between fruit in y-coord)
+        # 6 == reduced Raj's digitized fruits; can reduce the density to a desired value 
+        # 7 == Juan's digitized fruits
+        # 8 == reduced Juan's digitized fruits; can reduce the density to a desired value 
+    # args[7] == set_MPC
+        # 0 == not MPC (for now, FPEmin = 0.35)
+        # 1 == yes MPC (for now, FPEmin = 0.95)
 
     ##################### VARIABLES #####################
     # Base model
@@ -215,7 +237,7 @@ def main():
     ## set MPC on or off
     # 0     == non-MPC, solve using the travel length
     # 1     == MPC, solve using the whole view window (vehicle + horizon), but only use the results up to the travel length
-    set_MPC = 1
+    set_MPC = int(args[7])
 
     ## set how z-coord edges are calculated
     # 0     == z-edges are divided equally along orchard height
@@ -337,7 +359,7 @@ def main():
 
         else: 
             # limited view with horizon
-            l_step_m = 0.6 #vehicle_l + l_hor_m  # in m, the travel length before resolving MIP, now the step length taken before for a snapshot 
+            l_step_m = 0.6 #vehicle_l + l_hor_m  # in m, the travel length before resolving MIP, now the step length ta en before for a snapshot 
             if set_MPC == 0:
                 FPE_min = .35 # l_step_m / (vehicle_l + l_hor_m) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
             else:
@@ -512,6 +534,13 @@ def main():
                         [i_loop_fruit_picked_by, i_loop_fruit_picked_at, make_v_vy] = mip_melon.solve_mip(mip_fruit, mip_job, i_snap_available_numFruit, v_combo_lb, set_algorithm, set_MPC, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, FPE_min=FPE_min, v_vy_lb_cmps=(v_combo_lb-1), v_vy_ub_cmps=(v_combo_lb+2))
                         curr_count = np.copy(mip_melon.curr_j)
 
+                    elif (set_algorithm == 4 or set_algorithm == 5) and task_alloc_done_flag == 0 and v_vy_curr_cmps == v_vy_ub_cmps:
+                        # at the last possible velocity value. Since FCFS has not reached a 'best' vehicle speed, use the top speed as the upper bound. 
+                        # otherwise, only uses FCFS and the results might not be correct
+                        task_alloc_done_flag == 1
+                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at, make_v_vy] = mip_melon.solve_mip(mip_fruit, mip_job, i_snap_available_numFruit, v_vy_curr_cmps, set_algorithm, set_MPC, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, FPE_min=FPE_min, v_vy_lb_cmps=(v_vy_ub_cmps-1), v_vy_ub_cmps=v_vy_ub_cmps)
+                        curr_count = np.copy(mip_melon.curr_j)
+
                     elif set_algorithm >= 3 and set_algorithm <= 5 and task_alloc_done_flag == 0:
                         # run FCFS algorithm
                         [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = fcfs.main(n_col, n_row, mip_fruit, mip_job, v_vy_curr_cmps, q_vy, cell_l, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, fruit_data.z_row_bot_edges, fruit_data.z_row_top_edges)
@@ -542,7 +571,7 @@ def main():
                     # print('Before queue management sortedFruit')
                     # print('Global number unpicked:', len(where_no[0]), '\nGlobal number scheduled:', len(where_sh[0]), '\nGlobal number picked', len(where_pi[0]))
 
-                    # go through queu manager to clean up unpickable fruit due to difference between recalculating travel distance and observed distance
+                    # Use a queue to manage which fruits can actually be harvested during the snapshot travelling time
                     for row in range(n_row):
                         for column in range(n_col):
                             if n_row > 1:
@@ -641,8 +670,12 @@ def main():
                 print('\nVelocity being tested: %0.2f m/s\n' %v_vy_mps)
 
                 if v_curr_FPE >= FPE_min or v_vy_loop_i == 0 or v_curr_FPE >= FPE:
+                    
                     # if the correct FPE and FPT is found, or it's the first run but there are still too many fruits to pick even at the lowest speed
-                    if v_curr_FPT > FPT or v_vy_loop_i == 0:
+                    # print('FPE and FPT after conditional but before queue: {:.1f} percent and {:.1f} f/s'.format(v_curr_FPE*100, v_curr_FPT))
+                    # print('FPE and FPT afte conditional and queue: {:.1f} percent and {:.1f} f/s \n'.format(v_curr_FPE*100, v_curr_FPT))
+
+                    if v_curr_FPT >= FPT or v_vy_loop_i == 0:
                         # a new solution can be used, though check if there are any fruits available to see if velocity should beset to upper bound and break out of loop
                         FPE          = v_curr_FPE
                         FPT          = v_curr_FPT
@@ -665,7 +698,7 @@ def main():
 
                             # nothing picked, so zero out chosen_j -> check first if necessary
                             # zero_j = np.zeros([n_row, n_col])
-                            print('chosen_j should be zeroed out:')
+                            # print('chosen_j should be zeroed out:')
                             print(chosen_j)
                             if not chosen_j.any():
                                 # if there are any non-zero values, then it comes up as false and this is skipped
@@ -689,6 +722,64 @@ def main():
 
                         if (set_algorithm == 4 or set_algorithm == 5 or set_algorithm == 6) and task_alloc_done_flag == 1:
                             # has already probably run once and if it runs again as is, will just result in the same run over and over until all the known velocities are tested (results don't change)
+                            # also, the results have been saved, move on :)
+                            print('***** FINISHED BOTH FCFS/SPT LOOP AND MIP, BREAKING OUT *****')
+                            print('Found %0.2f cm/s to be the best lower bound velocity\n' %make_v_vy)
+                            print('########################### FORCED END RUN ###########################')
+                            print()
+                            break
+                   
+                    else:
+                        # when doing FCFS+MIP something is missing here because the first condition can be met, but not the second, leading to unneccessary loops 
+                        # and if it gets to the last V, MIP will never run. 
+                        print('v_curr_FPT < FPT, moving to check if MIP or early exit')
+
+                        # previous velocity is probably going to be the correct one since FPE only drops. FPT supposedly keeps rising, but I don't think we can
+                        # depend on it. -> treat it like if elif v_curr_FPE < FPE_min: was reached?
+
+                        # clear the sortedFruit changes made in this run or the scheduled but not harvested results bleed over to the following runs
+                        # fruit_picked_by has been saved and will be used to mark fruits as harvested if this ends up being the final solution
+                        for row in range(n_row):
+                            for column in range(n_col):
+                                if n_row > 1:
+                                    fruit_data.sortedFruit[4,v_curr_fruit_picked_by[row][column]] = 0 # try removing all v_curr_fruit_picked_by since fruit_picked_by may not be updated
+                                else:
+                                    fruit_data.sortedFruit[4,v_curr_fruit_picked_by[column]] = 0 
+
+                        if (set_algorithm == 4 or set_algorithm == 5 or set_algorithm == 6) and task_alloc_done_flag == 0:
+                            print('***** DONE WITH FCFS/SPT LOOP, MOVING ON TO MIP SOLVER RESULTS *****\n\n')
+                            print('FCFS/SPT found %0.2f cm/s to be the best lower bound velocity\n' %make_v_vy)
+                            # a "best" velocity has been found for the snapshot using FCFS, can this be rerun but with MIP and a different range of velocities?
+                            # if set_algorithm == 4 or set_algorithm == 5:
+                            task_alloc_done_flag = 1
+                            # need loop to keep running, but there has to be a new range of velocities and switch to MIP 
+                            v_combo_lb = make_v_vy
+
+                            if v_vy_curr_cmps == v_vy_ub_cmps:
+                                # might be kicked out of the loop anyway, see if avoiding that is possible by changing the value of v_vy_curr_cmps
+                                v_vy_curr_cmps -= 1
+
+                        elif (set_algorithm == 4 or set_algorithm == 5 or set_algorithm == 6) and task_alloc_done_flag == 1:
+                            # the run, FCFS/SPT and MIP is done, so break out of the current loop
+                            print('***** FINISHED BOTH FCFS/SPT LOOP AND MIP, BREAKING OUT *****')
+                            print('Found %0.2f cm/s to be the best lower bound velocity\n' %make_v_vy)
+                            v_vy         = make_v_vy / 100 # in m
+                            # the MIP's new solution should be used
+                            FPE          = v_curr_FPE
+                            FPT          = v_curr_FPT
+                            total_picked = v_curr_total_picked
+                            chosen_j     = np.copy(v_curr_chosen_j)   # save the v_curr_j variable for the chosen run
+                            fruit_picked_by = v_curr_fruit_picked_by.copy() # copy the chosen run's fruit picked by list
+                            print('########################### FORCED END RUN ###########################')
+                            print()
+                            break 
+
+                        else:
+                            # the run is actually done, so break out of the current loop
+                            print('***** NO IMPROVEMENT IN FPE POSSIBLE, BREAKING OUT *****')
+                            print('Current unusable FPE and FPT are', v_curr_FPE, v_curr_FPT)
+                            print('########################### FORCED END RUN ###########################')
+                            print()
                             break
 
                 # compare the FPE with FPE_min to see if this velocity works
@@ -708,26 +799,26 @@ def main():
                         print('***** DONE WITH FCFS/SPT LOOP, MOVING ON TO MIP SOLVER RESULTS *****\n\n')
                         print('FCFS/SPT found %0.2f cm/s to be the best lower bound velocity\n' %make_v_vy)
                         # a "best" velocity has been found for the snapshot using FCFS, can this be rerun but with MIP and a different range of velocities?
-                        if set_algorithm == 4 or set_algorithm == 5:
-                            task_alloc_done_flag = 1
-                            # need loop to keep running, but there has to be a new range of velocities and switch to MIP 
-                            v_combo_lb = make_v_vy
+                        # if set_algorithm == 4 or set_algorithm == 5:
+                        task_alloc_done_flag = 1
+                        # need loop to keep running, but there has to be a new range of velocities and switch to MIP 
+                        v_combo_lb = make_v_vy
 
-                            if v_vy_curr_cmps == v_vy_ub_cmps:
-                                # might be kicked out of the loop anyway, see if avoiding that is possible by changing the value of v_vy_curr_cmps
-                                v_vy_curr_cmps -= 1
-                        else:
-                            v_vy           = make_v_vy / 100 # in m
-                            # the MIP's new solution should be used
-                            FPE          = v_curr_FPE
-                            FPT          = v_curr_FPT
-                            total_picked = v_curr_total_picked
-                            chosen_j     = np.copy(v_curr_chosen_j)   # save the v_curr_j variable for the chosen run
-                            fruit_picked_by = v_curr_fruit_picked_by.copy() # copy the chosen run's fruit picked by list
-                            print('########################### FORCED END RUN ###########################')
-                            print()
-                            # don't need to run the mip solver
-                            break
+                        if v_vy_curr_cmps == v_vy_ub_cmps:
+                            # might be kicked out of the loop anyway, see if avoiding that is possible by changing the value of v_vy_curr_cmps
+                            v_vy_curr_cmps -= 1
+                        # else:
+                        #     v_vy           = make_v_vy / 100 # in m
+                        #     # the MIP's new solution should be used
+                        #     FPE          = v_curr_FPE
+                        #     FPT          = v_curr_FPT
+                        #     total_picked = v_curr_total_picked
+                        #     chosen_j     = np.copy(v_curr_chosen_j)   # save the v_curr_j variable for the chosen run
+                        #     fruit_picked_by = v_curr_fruit_picked_by.copy() # copy the chosen run's fruit picked by list
+                        #     print('########################### FORCED END RUN ###########################')
+                        #     print()
+                        #     # don't need to run the mip solver
+                        #     break
 
                     elif (set_algorithm == 4 or set_algorithm == 5 or set_algorithm == 6) and task_alloc_done_flag == 1:
                         # the run, FCFS/SPT and MIP is done, so break out of the current loop
@@ -783,8 +874,8 @@ def main():
             where_no = np.where(fruit_data.sortedFruit[4,:] == 0)
             where_sh = np.where(fruit_data.sortedFruit[4,:] == 1)
             where_pi = np.where(fruit_data.sortedFruit[4,:] == 2)
-            print('Before reseting sortedFruit')
-            print('Global number unpicked:', len(where_no[0]), '\nGlobal number scheduled:', len(where_sh[0]), '\nGlobal number picked', len(where_pi[0]))
+            # print('Before reseting sortedFruit')
+            # print('Global number unpicked:', len(where_no[0]), '\nGlobal number scheduled:', len(where_sh[0]), '\nGlobal number picked', len(where_pi[0]))
 
             # calculate how long each arm was working vs idle
             state_time = fruit_data.calcStateTime(fruit_picked_by, mip_fruit, l_step_m, v_vy)
@@ -820,6 +911,7 @@ def main():
                 # print()
                 # following print statement is based on the fruit states before harvestable scheduled fruits were set as harvested for this run
                 print('Snapshot number %d finished solving' % i_snap)
+                print('--------------------------------------')
                 print('Global number unpicked:', len(where_no[0]), '\nGlobal number scheduled:', len(where_sh[0]), '\nGlobal number picked:', len(where_pi[0]))
                 # print('harvested', where_pi[0])
                 # print('scheduled left over', where_sh[0])
