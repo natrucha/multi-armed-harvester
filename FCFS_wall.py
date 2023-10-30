@@ -9,7 +9,7 @@ class FCFS(object):
         '''
 
 
-    def main(self, n_col, n_row, fruit, job, V, Q, d_cell, fruit_travel_matrix, sortedFruit, z_row_bot_edges, z_row_top_edges):
+    def main(self, n_col, n_row, fruit, job, V, Q, d_cell, d_o, fruit_travel_matrix, sortedFruit, z_row_bot_edges, z_row_top_edges):
         V_m    = V / 100 # change once to m/s
         t_grab = 0.5     # in s, the constant time it takes to harvest a fruit once reached 
 
@@ -58,14 +58,14 @@ class FCFS(object):
             # print('\n\nfruit index being scheduled %d' %i_fruit)
     
             # calculate the start and end times of the time window during which the fruit is available to be harvested
-            tw_s0 = (Y[i_fruit] - (Q + (0 + 1)*d_cell)) / V_m
-            tw_e0 = (Y[i_fruit] - (Q + (0)*d_cell)) / V_m
-            tw_s_last = (Y[i_fruit] - (Q + (n_col + 1)*d_cell)) / V_m  
-            tw_e_last = (Y[i_fruit] - (Q + (n_col)*d_cell)) / V_m
+            tw_s0 = (Y[i_fruit] - (Q + (0 + 1)*d_cell + 0*d_o)) / V_m
+            tw_e0 = (Y[i_fruit] - (Q + (0)*d_cell + 0*d_o)) / V_m
+            tw_s_last = (Y[i_fruit] - (Q + ((n_col-1) + 1)*d_cell + (n_col-1)*d_o)) / V_m  # (n_col-1) is used because column index start at 0 and go up to (n_col-1) 
+            tw_e_last = (Y[i_fruit] - (Q + (n_col-1)*d_cell + (n_col-1)*d_o)) / V_m        # (n_col-1) is used because column index start at 0 and go up to (n_col-1) 
 
             # calculate all time window starts and ends for this fruit
-            tw_s = np.arange(tw_s0, tw_s_last, step=-(d_cell)/V_m)
-            tw_e = np.arange(tw_e0, tw_e_last, step=-(d_cell)/V_m)
+            tw_s = np.arange(tw_s0, tw_s_last, step=-(d_cell + d_o)/V_m)
+            tw_e = np.arange(tw_e0, tw_e_last, step=-(d_cell + d_o)/V_m)
             # print('number of columns %d' %n_col)
             # print('start times:', tw_s)
             # print('end times:', tw_e)
