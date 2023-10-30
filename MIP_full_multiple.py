@@ -176,34 +176,37 @@ def main():
     n_runs = 1
 
     # maximum velocity and acceleration, as well as the constant amount of time it takes to harvest a fruit once reached for the arm motors
-    v_max              = 0.5   # these values are currently incorrect. The real values are in MIP_melon.py and they are different for each axis
-    a_max              = 1.    # these values are currently incorrect. The real values are in MIP_melon.py and they are different for each axis
-    t_grab             = 0.5 
+    v_max            = 0.5   # these values are currently incorrect. The real values are in MIP_melon.py and they are different for each axis
+    a_max            = 1.    # these values are currently incorrect. The real values are in MIP_melon.py and they are different for each axis
+    t_grab           = 0.5 
 
-    cell_l             = 0.7             # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel. Matches the prototype
-    cell_h             = 2. / n_row      # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
-    arm_reach          = 1 
-    l_real_y_travel    = cell_l          # in m, actual arm horizontal (y-coordinate) travel distance within a cell (measured on the prototype to be 0.46 m)
+    d_cell           = 0.7             # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel. Matches the prototype
+    d_o              = 0.15            # in m, space between the columns
+    h_cell           = 2. / n_row      # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
+    h_g              = 0.3             # in m, height of the gripper (dead space inducing)
+    w_arm            = 1               # how far the arm can reach into the canopy
+    # will end up removing this because d_o makes much more sense and easier to deal with
+    l_real_y_travel  = d_cell          # in m, actual arm horizontal (y-coordinate) travel distance within a cell (measured on the prototype to be 0.46 m)
 
     # for MIP v_vy loop or makespan, requires an upper and lower bound for v_vy_cmps
-    v_vy_lb_cmps       = int(args[3])    # in cm/s, the single velocity being tested or the lower bound for makespan or v_vy loop
-    v_vy_ub_cmps       = int(args[4])    # in cm/s, when testing many velocities, this determines the top velocity tested
+    v_vy_lb_cmps     = int(args[3])    # in cm/s, the single velocity being tested or the lower bound for makespan or v_vy loop
+    v_vy_ub_cmps     = int(args[4])    # in cm/s, when testing many velocities, this determines the top velocity tested
 
-    v_vy_fruit_cmps    = v_vy_lb_cmps    # in cm/s, the single velocity being used also used for setup of MIP module (can this be changed and cleaned up?)
-    v_vy               = v_vy_fruit_cmps / 100 # change to m/s
+    v_vy_fruit_cmps  = v_vy_lb_cmps    # in cm/s, the single velocity being used also used for setup of MIP module (can this be changed and cleaned up?)
+    v_vy             = v_vy_fruit_cmps / 100 # change to m/s
 
-    vehicle_l          = n_col * cell_l  # in m, the length of the vehicle (along the y-axis)
-    vehicle_h          = n_row * cell_h  # in m, the height of the vehicle (along the z-axis)
+    vehicle_l        = n_col * d_cell + (n_col - 1) * d_o # in m, the length of the vehicle (along the y-axis), takes into account space between cells, if any
+    vehicle_h        = n_row * h_cell  # in m, the height of the vehicle (along the z-axis)
 
-    q_vy               = 0 - vehicle_l   # in m, the start of the back of the vehicle. Negative start so the system starts before the fruits start appearing (as it moves into the row)
-    q_vy_start         = q_vy            # in m, saves the start location (q_vy will change as the system 'moves' along the orchard row)
+    q_vy             = 0 - vehicle_l   # in m, the start of the back of the vehicle. Negative start so the system starts before the fruits start appearing (as it moves into the row)
+    q_vy_start       = q_vy            # in m, saves the start location (q_vy will change as the system 'moves' along the orchard row)
 
     # orchard row limis along all three axes (fruits above or below limits cannot be picked). Used especially when creating fake fruit districutions to test against
-    x_lim              = [0.2, 1.2]               # in m, also determines the distance the arm can move into the canopy
-    y_lim              = [q_vy_start, vehicle_l]  # in m, sets upper and lower bounds of travel for the vehicle. Can be used to stop the vehicle early with the real fruit distribution data
-    z_lim              = [0., vehicle_h]          # in m, how tall the columns of the robots are 
+    x_lim            = [0.2, 1.2]               # in m, also determines the distance the arm can move into the canopy
+    y_lim            = [q_vy_start, vehicle_l]  # in m, sets upper and lower bounds of travel for the vehicle. Can be used to stop the vehicle early with the real fruit distribution data
+    z_lim            = [0., vehicle_h]          # in m, how tall the columns of the robots are 
 
-    total_arms         = n_col * n_row
+    total_arms       = n_col * n_row
 
     # initialize, will change within the loop to measure global values
     FPT = 0
@@ -231,7 +234,7 @@ def main():
     # 3     == FCFS
     # 4     == FCFS to find speed lower bound, FPE*FPT to find schedule
     # 5     == FCFS to find speed lower bound, makespan to find schedule
-    # 6     == SPT
+    # 6     == SPT ************ DOES NOT CURRENTLY EXIST ************
     set_algorithm = int(args[5])
 
     ## set MPC on or off
@@ -272,7 +275,7 @@ def main():
     elif set_distribution == 6:
         density    = 16
     else: 
-        density    = 15          # figure this out later
+        density    = 15                   # figure this out later
 
     if set_view_field != 2:
         # there should be no horizon if the view field doesn't call for it
@@ -310,14 +313,14 @@ def main():
         # init the MIP melon object 
         if set_solve_row == 0 and set_algorithm < 3: # the first 3 algorithms are MIP-based
             n_row_loop = 1 # because the whole view is being solved at once, no need to loop
-            mip_melon = MIP_melon(q_vy, n_col, n_row, 0, set_distribution, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
-            # set the y-coordinate movement limits within the cell if not equal to cell length. Only affects the Jobs() object if it's not equal to the cell_l 
+            mip_melon = MIP_melon(q_vy, n_col, n_row, 0, set_distribution, v_vy_fruit_cmps, d_cell, h_cell, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
+            # set the y-coordinate movement limits within the cell if not equal to cell length. Only affects the Jobs() object if it's not equal to the d_cell 
 
         elif set_solve_row == 1 and set_algorithm < 3: # the first 3 algorithms are MIP-based
             n_row_loop = n_row # because we are solving per row, we need to loop through each row in each view/snapshot
             # init the MIP melon object, n_row set to one for each since we're running it per row
             # start the row at 0th row and then change the row as needed after this and before create arms
-            mip_melon = MIP_melon(q_vy, n_col, 1, 0, set_distribution, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
+            mip_melon = MIP_melon(q_vy, n_col, 1, 0, set_distribution, v_vy_fruit_cmps, d_cell, h_cell, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
             mip_melon.addArmTravelLimits(l_real_y_travel)
 
         elif set_algorithm == 3:
@@ -334,7 +337,7 @@ def main():
             # create a flag that determines when FCFS is done and MIP has to be used to determine the schedule with the new velocity range
             task_alloc_done_flag = 0
             # init MIP to then solve for more optimal scheduling
-            mip_melon = MIP_melon(q_vy, n_col, n_row, 0, set_distribution, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
+            mip_melon = MIP_melon(q_vy, n_col, n_row, 0, set_distribution, v_vy_fruit_cmps, d_cell, h_cell, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
 
         elif set_algorithm == 6:
             n_row_loop = 1 # because the whole view is being solved at once, no need to loop
@@ -418,7 +421,7 @@ def main():
         for i_snap in range(n_snapshots):
             fruit_picked_by = list()
             # Figure out which fruits go into this snapshot and transform their index to start with zero (save the index start)
-            i_snap_sortedFruit_index  = fruit_data.fruitsInView(q_vy, l_view_m, fruit_data.sortedFruit, cell_l, l_real_y_travel)
+            i_snap_sortedFruit_index  = fruit_data.fruitsInView(q_vy, l_view_m, fruit_data.sortedFruit, d_cell, l_real_y_travel)
             # make a copy of sortedFruit that works for the snapshot which will also be used to create the necessary Arm() Objects for the snapshot
             i_snap_sortedFruit        = np.copy(fruit_data.sortedFruit[:,i_snap_sortedFruit_index])
             # calculate the number of fruits in the snapshot
@@ -428,7 +431,7 @@ def main():
             i_snap_available_numFruit = i_snap_numFruit - len(index_unavailable[0])
 
             # determine the z_edges for this snapshot
-            [bot_edge, top_edge] = fruit_data.set_zEdges(set_edges, z_lim, cell_h, i_snap_sortedFruit)
+            [bot_edge, top_edge] = fruit_data.set_zEdges(set_edges, z_lim, h_cell, i_snap_sortedFruit)
             if set_algorithm != 3 and set_algorithm != 6:
                 mip_melon.setZlim(bot_edge, top_edge)
             
@@ -437,14 +440,14 @@ def main():
 
             ## calculate multiple R and v_vy values based on multiple slices of the current view
             # return a list of fruit densities in each cell 
-            d = fruit_data.calcDensity(q_vy, n_col, n_row, cell_l, arm_reach, i_snap_sortedFruit)
+            d = fruit_data.calcDensity(q_vy, n_col, n_row, d_cell, w_arm, i_snap_sortedFruit)
             # calculate the row densities
             # d_row = np.average(d, axis=1)
             # d_tot = np.average(d)
 
             ## using the fruit densities, determine the vehicle speed to set a specific R value?
             # currently, the R value would be 
-            R = fruit_data.calcR(v_vy, len(horizon_indexes), l_hor_m, vehicle_h, arm_reach)  # calculated based on columns and the horizon length
+            R = fruit_data.calcR(v_vy, len(horizon_indexes), l_hor_m, vehicle_h, w_arm)  # calculated based on columns and the horizon length
 
             snapshot_cell.append([d, R])
 
@@ -516,7 +519,7 @@ def main():
 
                     # create the fruit object lists with updated starting_row_n
                     mip_fruit = fruit_data.createFruits(i_snap_numFruit, i_snap_sortedFruit)
-                    mip_job   = fruit_data.createJobs(mip_arm, mip_fruit, v_vy_curr_cmps, q_vy, cell_l)
+                    mip_job   = fruit_data.createJobs(mip_arm, mip_fruit, v_vy_curr_cmps, q_vy, d_cell)
 
                     # solve for the optimal schedule for this row/loop, for this snapshot
                     if set_algorithm == 0:
@@ -543,13 +546,13 @@ def main():
 
                     elif set_algorithm >= 3 and set_algorithm <= 5 and task_alloc_done_flag == 0:
                         # run FCFS algorithm
-                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = fcfs.main(n_col, n_row, mip_fruit, mip_job, v_vy_curr_cmps, q_vy, cell_l, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, fruit_data.z_row_bot_edges, fruit_data.z_row_top_edges)
+                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = fcfs.main(n_col, n_row, mip_fruit, mip_job, v_vy_curr_cmps, q_vy, d_cell, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, fruit_data.z_row_bot_edges, fruit_data.z_row_top_edges)
                         make_v_vy = v_vy_curr_cmps
                         curr_count = np.copy(fcfs.curr_j)
 
                     elif set_algorithm == 6 and task_alloc_done_flag == 0:
                         # run SPT algorithm
-                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = spt.main(n_col, n_row, mip_fruit, mip_job, v_vy_curr_cmps, q_vy, cell_l, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, fruit_data.z_row_bot_edges, fruit_data.z_row_top_edges)
+                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = spt.main(n_col, n_row, mip_fruit, mip_job, v_vy_curr_cmps, q_vy, d_cell, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, fruit_data.z_row_bot_edges, fruit_data.z_row_top_edges)
                         make_v_vy = v_vy_curr_cmps
                         curr_count = np.copy(spt.curr_j)
 
@@ -571,7 +574,62 @@ def main():
                     # print('Before queue management sortedFruit')
                     # print('Global number unpicked:', len(where_no[0]), '\nGlobal number scheduled:', len(where_sh[0]), '\nGlobal number picked', len(where_pi[0]))
 
-                    # Use a queue to manage which fruits can actually be harvested during the snapshot travelling time
+                    ################################################################################################################
+                    # pre_queu_FPE calculated here will be used as the check_FPE lower down 
+                    # saves the results from solving the whole snapshot/workspace (like MPC) and then compares to the higher minFPE  
+                    if set_MPC == 1:
+                        for row in range(n_row):
+                            for column in range(n_col):
+                                # calculate how many fruits each arm picked having cleaned out unpickable fruit above
+                                if i_loop > 0:
+                                    # stack the row's number of fruits picked by each arm
+                                    pre_queue_chosen_j = np.vstack((pre_queue_chosen_j, np.copy(curr_count))) 
+                                    # now figure out what fruit were not picked
+                                    # see https://stackoverflow.com/questions/16163546/checking-to-see-if-same-value-in-two-lists
+                                    pre_queue_unpicked = set(pre_queue_unpicked).intersection(i_loop_fruit_picked_by[-1])
+                                else: 
+                                    # initialization for stack the row's number of fruits picked by each arm
+                                    pre_queue_chosen_j = np.copy(curr_count)
+                                    # initialization to figure out what fruit were not picked
+                                    pre_queue_unpicked = i_loop_fruit_picked_by[-1]
+                                # print('unpicked,', unpicked)
+
+                                # put fruit_picked_by list of lists together to reflect the columns and rows
+                                if set_solve_row == 0:
+                                    pre_queue_fruit_picked_by = i_loop_fruit_picked_by.copy()
+                                    # fruit_picked_at = i_loop_fruit_picked_at
+                                elif set_solve_row == 1:
+                                    # when solving by row, to get the right 'geometry,' need to append each row's results
+                                    pre_queue_fruit_picked_by.append(i_loop_fruit_picked_by.copy())
+
+                        # save the pre-queue FPE and FPT values to compare against
+                        # determine total picked in this run for this velocity for this snapshot after going through queue manager
+                        pre_queue_total_picked = np.sum(pre_queue_chosen_j)
+
+                        # add the pre_queue_unpicked list to current velocity fruit_picked_by list in the correct location for each row
+                        if n_row > 1 and set_solve_row == 1:
+                            # print('pre_queue_ unpicked', list(pre_queue_unpicked))
+                            for i_row in range(0, n_row):
+                                pre_queue_fruit_picked_by[i_row][-1].clear()
+                            
+                            pre_queue_fruit_picked_by[0][-1] = list(pre_queue_unpicked)
+
+                        # calculate the velocity's FPT
+                        pre_queue_FPT = pre_queue_total_picked / (l_step_m / v_vy_mps)
+
+                        # calculate the velocity's FPE 
+                        if i_snap_available_numFruit > 0:
+                            pre_queue_FPE = (pre_queue_total_picked / i_snap_available_numFruit)
+                        else:
+                            # if there are zero fruit, set FPE = 100% since it got everything. 
+                            # FPT will be 0, showing/balancing out what happened
+                            pre_queue_FPE = 1.
+
+                        print('MPC FPE and FPT before queue: {:.2f} percent and {:.2f} f/s'.format(pre_queue_FPE*100, pre_queue_FPT))
+
+                    ################################################################################################################
+
+                    # Use a queue to manage which fruits can actually be harvested during the snapshot travelling time 
                     for row in range(n_row):
                         for column in range(n_col):
                             if n_row > 1:
@@ -666,14 +724,21 @@ def main():
                     # FPT will be 0, showing/balancing out what happened
                     v_curr_FPE = 1.
 
+                if set_MPC == 1:
+                    print('MPC FPE and FPT after queue: {:.2f} percent and {:.2f} f/s'.format(v_curr_FPE*100, v_curr_FPT))
+                    # since we're using MPC, we want to compare against the pre_queue values since we solved for the whole workspace with a higher minFPE that is reduced after the queue 
+                    check_FPE = pre_queue_FPE
+                elif set_MPC == 0:
+                    check_FPE = v_curr_FPE
+
                 print()
                 print('\nVelocity being tested: %0.2f m/s\n' %v_vy_mps)
 
-                if v_curr_FPE >= FPE_min or v_vy_loop_i == 0 or v_curr_FPE >= FPE:
+                if check_FPE >= FPE_min or v_vy_loop_i == 0 or v_curr_FPE >= FPE:
                     
                     # if the correct FPE and FPT is found, or it's the first run but there are still too many fruits to pick even at the lowest speed
                     # print('FPE and FPT after conditional but before queue: {:.1f} percent and {:.1f} f/s'.format(v_curr_FPE*100, v_curr_FPT))
-                    # print('FPE and FPT afte conditional and queue: {:.1f} percent and {:.1f} f/s \n'.format(v_curr_FPE*100, v_curr_FPT))
+                    # print('FPE and FPT after conditional and queue: {:.1f} percent and {:.1f} f/s \n'.format(v_curr_FPE*100, v_curr_FPT))
 
                     if v_curr_FPT >= FPT or v_vy_loop_i == 0:
                         # a new solution can be used, though check if there are any fruits available to see if velocity should beset to upper bound and break out of loop
@@ -783,7 +848,7 @@ def main():
                             break
 
                 # compare the FPE with FPE_min to see if this velocity works
-                elif v_curr_FPE < FPE_min: 
+                elif check_FPE < FPE_min: 
                     # there is no way FPE rises as velocity rises, so either a solution was found, or it wasn't 
 
                     # clear the sortedFruit changes made in this run or the scheduled but not harvested results bleed over to the following runs
@@ -892,7 +957,7 @@ def main():
             mean_Td_array[i_snap] = this_mean_Td
 
             # fill in snapshot object and list with current results, object definition in MIP_melon.py
-            snapshot = Snapshot(n_col, n_row, l_hor_m, vehicle_l, cell_l, v_max, a_max, set_algorithm, this_mean_Td, v_vy, FPE, FPT, fruit_data.y_lim, i_snap_numFruit, chosen_j, fruit_data.sortedFruit, fruit_picked_by, state_time)
+            snapshot = Snapshot(n_col, n_row, l_hor_m, vehicle_l, d_cell, v_max, a_max, set_algorithm, this_mean_Td, v_vy, FPE, FPT, fruit_data.y_lim, i_snap_numFruit, chosen_j, fruit_data.sortedFruit, fruit_picked_by, state_time)
             snapshot_list.append(snapshot)
 
             # calculate the global FPE for this snapshot
