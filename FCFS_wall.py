@@ -60,11 +60,13 @@ class FCFS(object):
             # calculate the start and end times of the time window during which the fruit is available to be harvested
             tw_s0 = (Y[i_fruit] - (Q + (0 + 1)*d_cell + 0*d_o)) / V_m
             tw_e0 = (Y[i_fruit] - (Q + (0)*d_cell + 0*d_o)) / V_m
-            tw_s_last = (Y[i_fruit] - (Q + ((n_col-1) + 1)*d_cell + (n_col-1)*d_o)) / V_m  # (n_col-1) is used because column index start at 0 and go up to (n_col-1) 
-            tw_e_last = (Y[i_fruit] - (Q + (n_col-1)*d_cell + (n_col-1)*d_o)) / V_m        # (n_col-1) is used because column index start at 0 and go up to (n_col-1) 
+            tw_s_last = (Y[i_fruit] - (Q + (n_col + 1)*d_cell + n_col*d_o)) / V_m  # it should be (n_col-1) but using n_col to add another step to tw_s and tw_e because arange doesn't include the stop value 
+            tw_e_last = (Y[i_fruit] - (Q + n_col*d_cell + n_col*d_o)) / V_m        # it should be (n_col-1) but using n_col to add another step to tw_s and tw_e because arange doesn't include the stop value 
+            # print(f'first and last tw_s: %4.2f, %4.2f s' %(tw_s0, tw_s_last+(d_cell + d_o)/V_m))
+            # print(f'first and last tw_e: %4.2f, %4.2f s' %(tw_e0, tw_e_last+(d_cell + d_o)/V_m))
 
             # calculate all time window starts and ends for this fruit
-            tw_s = np.arange(tw_s0, tw_s_last, step=-(d_cell + d_o)/V_m)
+            tw_s = np.arange(tw_s0, tw_s_last, step=-(d_cell + d_o)/V_m) # included an extra step to tw_last because arange doesn't include the stop value
             tw_e = np.arange(tw_e0, tw_e_last, step=-(d_cell + d_o)/V_m)
             # print('number of columns %d' %n_col)
             # print('start times:', tw_s)
