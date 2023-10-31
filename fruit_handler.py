@@ -26,7 +26,7 @@ class fruit_handler(object):
 
 
 
-    def buildOrchard(self, n_runs, set_algorithm, set_distribution, seed_list):
+    def buildOrchard(self, n_runs, set_distribution, seed_list):
         '''Creates the simulated environment, separated so that MIP run/row can happen'''
 
         for run in range(n_runs):
@@ -38,7 +38,7 @@ class fruit_handler(object):
 
         # create fruit distribution and get total number of fruits
         fruitD = fruitDistribution(self.x_lim, self.y_lim, self.z_lim) # init fruit distribution script
-        [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_algorithm, set_distribution, x_seed, y_seed, z_seed)
+        [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution, x_seed, y_seed, z_seed)
 
         # print('Density chosen', self.density)
         print('x-lim', self.x_lim, 'y-lim', self.y_lim, 'z-lim', self.z_lim)
@@ -214,13 +214,24 @@ class fruit_handler(object):
     def calcYlimMax(self, set_distribution):
         '''Calculates the end of the orchard's coordinate based on the set fruit distribution'''
         # no snapshots, so the travel length is static at the orchard row's length
-        if set_distribution == 0:
+        if set_distribution == 2:
             # if using raj's dataset
             y_max  = 10.9 # in m, for Raj's data
             # self.density   = 48.167         # in fruit/m^2 (on avg.), constant, for Raj's data
-            n_runs    = 1
+            # n_runs    = 1
 
-        elif set_distribution == 1:
+        elif set_distribution == 3:
+            # if using juan's dataset
+            y_max  = 16.5 # in m, for Juan's data
+            # self.density   = 53.97            # in fruit/m^2 (on avg.), constant, for Juan's data
+            # n_runs    = 1
+
+        elif set_distribution == 4 or set_distribution == 5:
+            # if using reduced raj's or juan's dataset
+            y_max = 6 # in m, should watch out because the total distance is actually 12
+
+        elif set_distribution == 6:
+            # uniform random
             y_max  = 6 # in m, usually 5 m + length
 
         # elif set_distribution == 3:
@@ -234,22 +245,11 @@ class fruit_handler(object):
         #     print('d_y for this line of fruit:', self.d_y, 'so the total distance they take up:', self.d_y*n_fruit)
         #     y_max  = self.d_y * n_fruit # in m
             
-        elif set_distribution == 6 or set_distribution == 8:
-            # if using reduced raj's or juan's dataset
-            y_max = 6 # in m, should watch out because the total distance is actually 12
-
-        elif set_distribution == 7:
-            # if using juan's dataset
-            y_max  = 16.5 # in m, for Juan's data
-            # self.density   = 53.97            # in fruit/m^2 (on avg.), constant, for Juan's data
-            n_runs    = 1
-
-
         else: 
-            print('ERROR: that distribution', set_distribution, 'does not exist, exiting out')
+            print('ERROR: that distribution', set_distribution, 'does not exist, exiting the program')
             sys.exit(0)
 
-        self.y_lim[1] = y_max #+ self.y_lim[1] # correct the travel length
+        self.y_lim[1] = y_max 
 
 
 
@@ -322,74 +322,95 @@ class fruit_handler(object):
     
 
 
-    def createFruitDistribution(self, fruitD, set_algorithm, set_distribution, x_seed, y_seed, z_seed, density=54):
-        if set_distribution == 0:
+    def createFruitDistribution(self, fruitD, set_distribution, x_seed, y_seed, z_seed, density=54):
+        '''
+           Determines how the fruit distribution is going to be created, ether from real localization data or from RNG-created data 
+           based on the given seeds. See value below for all the options.
+        '''
+        # 0     == 2022 Digitized fruit data (Pink Ladies, Jeff Colombini orchard)
+        # 1     == random (seed-based) segments from 2022 digitized fruit
+        # 2     == Raj's digitized fruits (right side)
+        # 3     == Juan's digitized fruits (Stavros phone video)
+        # 4     == reduced Raj's digitized fruits; can reduce the density to a desired value 
+        # 5     == reduced Juan's digitized fruits; can reduce the density to a desired value 
+        # 6     == uniform random  (if algorithm == 1, use melon version)
+        # 7   * not available *  == uniform random, equal cell density
+        # 8   * not available *  == multiple densities separated by some space (only melon for now)
+        # 9   * not available *  == fruit in vertical columns
+        # 10  * not available *  == "melon" version of columns (user inputs desired no. fruits, z height, and distance between fruit in y-coord)
+
+        if set_distribution == 2:
             # using raj's dataset
             csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
             is_meter = 0
             [N, sortedFruit] = fruitD.csvFile(csv_file, is_meter)
 
-        elif set_distribution == 1:
-            if set_algorithm == 1:
-                [N, sortedFruit] = fruitD.uniformRandomMelon(density, y_seed, z_seed)
-            else:
-                [N, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
-            # print()
-            # print('--------------------------------------------')
-            # print('Number of fruit:', N)
-            # print()
-
-        # elif set_distribution == 2: 
-        #     fruit_in_cell = math.ceil(density * (self.cell_h*self.cell_l*self.arm_reach)) # num of fruit in front of cell if using (equalCellDensity())
-        #     print('Number of fruit in each cell:', fruit_in_cell)
-        #     print()
-        #     [N, sortedFruit] = fruitD.equalCellDensity(self.R, self.C, self.cell_h, self.cell_l, self.arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
-
-        # elif set_distribution == 3: 
-        #     densities = np.array([5, 4, 3])
-        #     [N, sortedFruit] = fruitD.uniformRandomMelon_MultipleDensity(densities, y_seed, z_seed)
-
-        # # elif set_distribution == 4: 
-        # #     [N, sortedFruit] = fruitD.column(v_vy, v_max, a_max, t_grab, self.n_row, self.n_col, self.cell_h, z_seed)
-        # elif set_distribution == 5:
-        #     z_coord = (self.cell_h / 2) + 0.7
-        #     [N, sortedFruit] = fruitD.columnUniform_melon(N, self.d_y, z_coord)
-            
-        elif set_distribution == 6:
-            # using raj's reduced dataset
-            csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
-            [N, sortedFruit] = fruitD.csvFile_reduced(csv_file, 0, density, x_seed)
-
-        elif set_distribution == 7:
+        elif set_distribution == 3:
             # use juan's dataset
             csv_file = './TREE_FRUIT_DATA/20220811_apples_Juan.csv'
             is_meter = 1
             [N, sortedFruit] = fruitD.csvFile(csv_file, is_meter)
 
-        elif set_distribution == 8:
+        elif set_distribution == 4:
+            # using raj's reduced dataset
+            csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
+            [N, sortedFruit] = fruitD.csvFile_reduced(csv_file, 0, density, x_seed)
+
+        elif set_distribution == 5:
             # using juan's reduced dataset
             csv_file = './TREE_FRUIT_DATA/20220811_apples_Juan.csv'
             [N, sortedFruit] = fruitD.csvFile_reduced(csv_file, 0, density, x_seed)
 
+        elif set_distribution == 7:
+            # uniform random in 3D 
+            [N, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
+            # print()
+            # print('--------------------------------------------')
+            # print('Number of fruit:', N)
+            # print()
+
+        # elif set_distribution == 8: 
+        #     fruit_in_cell = math.ceil(density * (self.cell_h*self.cell_l*self.arm_reach)) # num of fruit in front of cell if using (equalCellDensity())
+        #     print('Number of fruit in each cell:', fruit_in_cell)
+        #     print()
+        #     [N, sortedFruit] = fruitD.equalCellDensity(self.R, self.C, self.cell_h, self.cell_l, self.arm_reach, fruit_in_cell, x_seed, y_seed, z_seed)
+
+        # elif set_distribution == 9: 
+        #     # multiple densities with some space between them, based on Mann et. al paper
+        #     densities = np.array([5, 4, 3])
+        #     [N, sortedFruit] = fruitD.uniformRandomMelon_MultipleDensity(densities, y_seed, z_seed)
+
+        # # elif set_distribution == 10: 
+        #      # fruits set in columns spaced a given distance apart based on v_vy (if I remember correctly)
+        # #     [N, sortedFruit] = fruitD.column(v_vy, v_max, a_max, t_grab, self.n_row, self.n_col, self.cell_h, z_seed)
+        # elif set_distribution == 5:
+        #     z_coord = (self.cell_h / 2) + 0.7
+        #     [N, sortedFruit] = fruitD.columnUniform_melon(N, self.d_y, z_coord)
+        
         else: 
-            print('not a correct fruit distribution, defaulting to uniform random')
-            if set_algorithm == 1:
-                [N, sortedFruit] = fruitD.uniformRandomMelon(density, y_seed, z_seed)
-            else:
-                [N, sortedFruit] = fruitD.uniformRandom(density, x_seed, y_seed, z_seed)
+            print('WARNING: Fruit distribution not available, defaulting to Raj\'s data (CHANGE THIS LATER)')
+            # using raj's dataset
+            csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
+            is_meter = 0
+            [N, sortedFruit] = fruitD.csvFile(csv_file, is_meter)
 
         return([N, sortedFruit])
 
+        
+            
+        
+
+
     
 
-    def fruitsInView(self, Q, d_w, total_sortedFruit, d_c, d_arm_travel):
+    def fruitsInView(self, Q, d_view, total_sortedFruit, d_cell, d_arm_travel):
     # def fruitsInView(q_vy, n_snapshots, l_view_m, total_sortedFruit, cell_l, pick_travel_l):
         '''Determine which fruits are unpicked and in front of the vehicle for each snapshot.'''
         
         # offset = (d_cell - d_arm_travel) / 2 # assume centered in cell
         start_y = Q                       # the y-coordinate start of the start of the view window for the snapshot ((0,0) for the vehicle at start of snapshot)
 
-        index_this_sortedFruit = np.where((total_sortedFruit[1,:] > start_y) & (total_sortedFruit[1,:] < start_y + d_w))
+        index_this_sortedFruit = np.where((total_sortedFruit[1,:] > start_y) & (total_sortedFruit[1,:] < start_y + d_view))
         
         # print()
         # print('index of fruits in the view window', index_this_sortedFruit[0])
@@ -399,14 +420,14 @@ class fruit_handler(object):
 
 
 
-    def getHorizonIndex(self, sortedFruit, Q, l_v, l_h):
+    def getHorizonIndex(self, sortedFruit, Q, d_vehicle, d_hrzn):
         '''
         Saves this snapshot's horizon fruit indexes based on the sortedFruit indexes to 
         compare and remove picked fruit.
         '''
         # edges of the horizon based on vehicle location and length
-        horizon_back  = Q + l_v
-        horizon_front = horizon_back + l_h
+        horizon_back  = Q + d_vehicle
+        horizon_front = horizon_back + d_hrzn
 
         H_fruit_index = np.where((sortedFruit[1,:] >= horizon_back) & (sortedFruit[1,:] < horizon_front))
 
@@ -414,7 +435,7 @@ class fruit_handler(object):
     
 
 
-    def getRNGSeedList(self, n_runs):
+    def getRNGSeedList(self, n_runs, csv_name):
         '''
         Open the random seed list rngseed_list_20200901.csv with 200 seeds for each of the 3 real fruit coordinate axis
         and 3 fake fruit coordinate axis.
@@ -424,7 +445,7 @@ class fruit_handler(object):
 
         seed_list = list()
 
-        with open('./rngseed_list_20200901.csv') as csvfile:
+        with open(csv_name) as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
             for row in reader:
                 seed_list.append(row)
@@ -438,10 +459,13 @@ class fruit_handler(object):
     
 
 
-    def set_zEdges(self, set_edges, z_lim, h_cell, sortedFruit):
+    def set_zEdges(self, set_edges, z_lim, h_cell, h_g, sortedFruit):
         '''
         Calculate the z-coord for each horizontal row, assuming the whole row shares these edges.
-        Returns a n_row x n_col matrix for both the bottom and top edges of each cell. 
+
+        Returns a n_row x n_col matrix for both the bottom and top edges of each cell. Takes into account the
+        height of the gripper, adding dead space to remove the possiblility of collisions between arms in a
+        column. If there are multiple columns, adds a random offset between columns to remove dead space.
         '''   
         # find what fruits are available to harvest (some may have already been picked or removed)
         index_available = np.where(sortedFruit[4,:] <= 1) 
@@ -484,9 +508,10 @@ class fruit_handler(object):
     #         print('sorted z-coord', z_sorted)
             
             for row in range(self.R-1):
-                top[row]      = z_sorted[fruit_in_row*(row+1)]-0.0001
-                bottom[row+1] = z_sorted[fruit_in_row*(row+1)]+0.0001 
-                
+                top[row]      = z_sorted[fruit_in_row*(row+1)]-0.05
+                # it's row+1 for the bottom because bottom[0] == 0 because it should be at the bottom frame 
+                bottom[row+1] = z_sorted[fruit_in_row*(row+1)]+0.05
+            # the last top edge should be loacted at the top frame
             top[-1] = z_lim[1]
                 
             bot_edge = np.tile(bottom, (self.C, 1))

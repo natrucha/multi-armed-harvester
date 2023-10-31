@@ -19,8 +19,8 @@ from trajectory import *           # import module to calculate the trapezoidal/
 # https://gurobi.github.io/modeling-examples/technician_routing_scheduling/technician_routing_scheduling.html
 
 class MIP_melon(object):
-    def __init__(self, q_vy, n_col, n_row, starting_row_n, set_distribution, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, hor_l, x_lim, y_lim, z_lim, density):
-        # def __init__(self, q_vy, n_col, n_row, starting_row_n, set_distribution, set_algorithm, set_algorithm, set_edges, v_vy_fruit_cmps, cell_l, cell_h, vehicle_h, horizon_l, x_lim, y_lim, z_lim, density)
+    def __init__(self, q_vy, n_col, n_row, starting_row_n, d_cell, d_o, d_hrzn, x_lim, y_lim, z_lim, density):
+        # def __init__(self, q_vy, n_col, n_row, starting_row_n, set_distribution, set_algorithm, set_algorithm, set_edges, v_vy_fruit_cmps, d_cell, h_cell, vehicle_h, horizon_l, x_lim, y_lim, z_lim, density)
 
         '''
             Mixed integer programming model based on the MIP model in the melon combinatorial scheduling paper. 
@@ -50,19 +50,17 @@ class MIP_melon(object):
 
         self.density          = density      # in fruit/m^2
        
-        n_fruit               = 80           # in fruit, for melon column distribution, should clean this up
+        self.d_cell           = d_cell     # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel
+        self.d_o              = d_o        # in m, the space between column workspaces (includes frame and any space)
 
-        self.cell_l           = cell_l     # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel
-        # pick travel length gets set seperately in addArmTravelLimits function
-        self.l_real_y_travel  = 0.       # in m, the amount of distance within the cell the arm can travel due to frame, motor placement, etc. assume centered
-        self.cell_h           = cell_h     # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
+        # self.h_cell           = h_cell     # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
         self.reach            = 1          # in m, the length that the arm can extend out to pick a fruit
-        self.hor_l            = hor_l      # in m, the length of the view horizon
+        self.d_hrzn           = d_hrzn      # in m, the length of the view horizon
 
         self.noRel_time_ub    = 15     # in s, no relaxation heuristic max time to solve before moving to branch and bound (varies)
         self.timLim_time_ub   = 30     # in s, the total amount of time the solver runs (includes NoRel)
 
-        self.vehicle_l  = self.n_col * self.cell_l
+        self.d_vehicle  = self.n_col*self.d_cell + (self.n_col-1)*self.d_o  # in m, the full length of the vehicle, including space between the column workspaces
 
         self.t_grab = 0.5
 
@@ -72,7 +70,7 @@ class MIP_melon(object):
         self.z_lim   = np.copy(z_lim)
 
         # calculate the real y_lim[1] based on the fruit distribution 
-        # self.calcYlimMax(set_distribution, self.vehicle_l, v_vy_fruit_cmps, n_fruit) 
+        # self.calcYlimMax(set_distribution, self.d_vehicle, v_vy_fruit_cmps, n_fruit) 
 
         # allow calculations for the x-axis, 1.0 m long worst case
         v_max_x   = 2         # in m/s, from Motor Sizing Google sheet calculations if we want to keep triangular profile to maximize speed
@@ -83,16 +81,10 @@ class MIP_melon(object):
 
         
 
-## Functions
-    def addArmTravelLimits(self, l_real_y_travel):
-        '''The arm will only be able to travel some length of the total cell length (restricted by frame and motor placement). Set that value.'''
-        self.l_real_y_travel = l_real_y_travel # in m
-
-
-    
-    def setTravelLength(self, l_step_m):
+## Functions   
+    def setTravelLength(self, D_):
         '''Set the length of travel of vehicle for this run (either snapshot or overall)'''
-        self.travel_l = l_step_m # in m, the travel length over this snapshot (or overall run)
+        self.D_ = D_ # in m, the travel length over this snapshot (or overall run)
 
 
 
@@ -128,7 +120,7 @@ class MIP_melon(object):
         Z  = [i.z_coord for i in fruit]  # list of fruits' z-coordinate
         TX = [i.Tx for i in fruit]       # list of fruit extension times
 
-        # self.job = self.createJobs(arm, fruit, v_vy_curr, self.cell_l)
+        # self.job = self.createJobs(arm, fruit, v_vy_curr, self.d_cell)
 
         # save the real index of the 0th fruit (to get the difference)
         try:
@@ -204,25 +196,25 @@ class MIP_melon(object):
         # need to have a way to switch to MPC vs. non MPC where the vehicle travel length changes
         if set_MPC == 0:
             # non-MPC => travel length is just the travel length
-            l_solve = self.travel_l
+            d_solve = self.D_
         else:
             # MPC     => travel length is whole vehicle+horizon view
-            l_solve = self.vehicle_l + self.hor_l
+            d_solve = self.d_vehicle + self.d_hrzn
 
-        t_move = (l_solve) / (v_vy_curr/100) # in s, the duration of the snapshot
+        t_move = (d_solve) / (v_vy_curr/100) # in s, the duration of the snapshot
 
-        if l_solve >= self.vehicle_l:
+        if d_solve >= self.d_vehicle:
             # if the travel length is larger than the vehicle
-            t_ub = (l_solve + self.cell_l + self.hor_l + distance_traveled) / (v_vy_curr/100)   # in m/s
-        elif l_solve < self.vehicle_l and l_solve > 0:
+            t_ub = (d_solve + self.d_cell + self.d_hrzn + distance_traveled) / (v_vy_curr/100)   # in m/s
+        elif d_solve < self.d_vehicle and d_solve > 0:
             # when the travel length is smaller than the vehicle
-            t_ub = (self.vehicle_l + self.cell_l + self.hor_l + distance_traveled) / (v_vy_curr/100)  # in m/s
-        elif l_solve <= 0:
+            t_ub = (self.d_vehicle + self.d_cell + self.d_hrzn + distance_traveled) / (v_vy_curr/100)  # in m/s
+        elif d_solve <= 0:
             print('ERROR: travel length is zero, exiting out of system from MIP_melon.py')
             sys.exit(0)
 
         if self.print_out == 1:
-            print('\nThe travel length being processed is {:.3f} m'.format(l_solve))
+            print('\nThe travel length being processed is {:.3f} m'.format(d_solve))
             print(f'The distance traveled from the start: %4.2f m' % distance_traveled)
             print(f'The potential travel distance window without the horizon: %4.2f s' % t_move)
             print('The upper bound for when an arm can pick a fruit is {:.3f} sec\n'.format(t_ub))
@@ -292,9 +284,9 @@ class MIP_melon(object):
         # if the travel distance between snapshots is less than the view distance, don't harvest fruits that are too far forward for arms in column k to pick given that limited travel distance
         if set_MPC == 0:
             #### THIS ONE to be removed if using MPC, or used seperately
-            m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Y[i] - (self.q_vy + (k + 1)*self.cell_l) >= l_solve), name="fruitInHorizon")
+            m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Y[i] - (self.q_vy + (k + 1)*self.d_cell) >= d_solve), name="fruitInHorizon")
         # if TW_end is negative, the fruit has passed the column k’s back edge and cannot be harvested by any arm in that column
-        m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Y[i] - (self.q_vy + k*self.cell_l) <= 0 ), name="fruitStartPassed")
+        m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Y[i] - (self.q_vy + k*self.d_cell) <= 0 ), name="fruitStartPassed")
 
         # If the fruit is at the back edge, then it cannot be picked because the arm has to extend out and grab the fruit
         m.addConstrs(((t[k, l, i] - TX[i] - self.t_grab >= -(1.5 + self.t_grab)*(1 - x[k, l, i]) + 0.001*x[k, l, i]) for i in N for l in L for k in K), name="minHarvestTime")
@@ -309,14 +301,14 @@ class MIP_melon(object):
             FPE_min_val = FPE_min    # the minimum FPE in a soft constraint
             FPT_min_val = 2.5   # in fruits/s, the minimum FPT in a soft constraint
             # calculate the time windows for each fruit given the tested/chosen velocity 
-            m.addConstrs(((tw_s[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + (k + 1)*self.cell_l))) for i in N for k in K), name="TW_start")
-            m.addConstrs(((tw_e[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + k*self.cell_l))) for i in N for k in K), name="TW_end")
+            m.addConstrs(((tw_s[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + (k + 1)*self.d_cell + k*self.d_o))) for i in N for k in K), name="TW_start")
+            m.addConstrs(((tw_e[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + k*self.d_cell + k*self.d_o))) for i in N for k in K), name="TW_end")
             
-            # turns x[k, l, i] == 0 if t[k, l, i] * (v_vy/100) >= travel_l, or the fruit cannot be picked if the time of picking is larger than the time between snapshots
+            # turns x[k, l, i] == 0 if t[k, l, i] * (v_vy/100) >= D_, or the fruit cannot be picked if the time of picking is larger than the time between snapshots
             # to learn about building this constraint see https://or.stackexchange.com/questions/5860/link-a-binary-variable-to-continuous-variable-in-java-gurobi
             if set_MPC == 0:
                 #### THIS ONE to be removed if using MPC, or used seperately
-                m.addConstrs(((l_solve - t[k, l, i]*(v_vy / 100) >= -(self.vehicle_l + l_solve + self.hor_l) * (1 - x[k, l, i]) + 0.0001 * x[k, l, i]) for i in N for l in L for k in K), name="tCannotPasstMove")
+                m.addConstrs(((d_solve - t[k, l, i]*(v_vy / 100) >= -(self.d_vehicle + d_solve + self.d_hrzn) * (1 - x[k, l, i]) + 0.0001 * x[k, l, i]) for i in N for l in L for k in K), name="tCannotPasstMove")
 
             # to learn how to deal with max/min with variables
             # see https://support.gurobi.com/hc/en-us/community/posts/360076808711-how-to-add-a-max-constr-General-expressions-can-only-be-equal-to-a-single-var
@@ -346,9 +338,9 @@ class MIP_melon(object):
             m.addConstrs(((x_weighted[k, l, i] == x[k, l, i] * (v_vy / 100)) for i in N for l in L for k in K), name='xWeighted')
 
             # FPT * FPE
-            m.addConstr((FPT_var <= (1/l_solve) * gp.quicksum(x_weighted[k, l, i] for i in N for l in L for k in K)), name='FPT')
+            m.addConstr((FPT_var <= (1/d_solve) * gp.quicksum(x_weighted[k, l, i] for i in N for l in L for k in K)), name='FPT')
             m.addConstr((FPE_var <= (1/n_snap) * gp.quicksum(x[k, l, i] for i in N for l in L for k in K)), name='FPE')
-            # m.addConstr((FPT_var - maxFPT_slack <= (1/l_solve) * gp.quicksum(x_weighted[k, l, i] for i in N for l in L for k in K)), name='FPT')
+            # m.addConstr((FPT_var - maxFPT_slack <= (1/d_solve) * gp.quicksum(x_weighted[k, l, i] for i in N for l in L for k in K)), name='FPT')
             # m.addConstr((FPE_var - maxFPE_slack <= (1/n_snap) * gp.quicksum(x[k, l, i] for i in N for l in L for k in K)), name='FPE')
             # m.addConstr((FPE_var <= 0.85), name='FPEmax')
             if n_snap > 10 and (set_algorithm == 1 or set_algorithm == 4):
@@ -362,10 +354,10 @@ class MIP_melon(object):
             
             # # obtain the makespan and then normalize it over the total vailable travel time
             # m.addConstrs((makespan >= t_max_arm[k] for k in K), name='makespan_constraint')
-            # m.addConstr((makespan_norm == makespan * (v_vy / 100) / l_solve), name='normalized_makespan')
+            # m.addConstr((makespan_norm == makespan * (v_vy / 100) / d_solve), name='normalized_makespan')
 
             # m.addConstrs((((v_vy / 100) * aux_var[k, l, i] == x[k, l, i]) for i in N for l in L for k in K), name="aux")
-            # m.addConstrs(((v_vy * aux_var[k, l, i] == (l_solve / n_snap) * x[k, l, i]) for i in N for l in L for k in K), name="aux")
+            # m.addConstrs(((v_vy * aux_var[k, l, i] == (d_solve / n_snap) * x[k, l, i]) for i in N for l in L for k in K), name="aux")
             # set makespan as the latest t^k_i value/ for every arm no matter the row or fruit
             # see https://support.gurobi.com/hc/en-us/community/posts/360071830171-Use-index-of-decision-variable-in-max-constraint
             m.addConstrs(((t_harvested[k, l, i] == t[k, l, i] * x[k, l, i]) for i in N for l in L for k in K), name='timeHarvestedFruits')
@@ -374,10 +366,10 @@ class MIP_melon(object):
             # m.addConstrs((t_max_arm[k] == gp.max_(t.select(k, '*', '*')) for k in K), name='max_value')  # doesn't take into account if fruit harvested or not
             if set_algorithm == 2 or set_algorithm == 5:
                 m.addConstrs((makespan >= t_max_arm[k] for k in K), name='makespan_constraint')
-                m.addConstr((makespan_norm == makespan * (v_vy / 100) / l_solve), name='normalized_makespan')
+                m.addConstr((makespan_norm == makespan * (v_vy / 100) / d_solve), name='normalized_makespan')
 
             # m.addConstrs((((v_vy / 100) * aux_var[k, l, i] == x[k, l, i]) for i in N for l in L for k in K), name="aux")
-            # m.addConstrs(((v_vy * aux_var[k, l, i] == (l_solve / total_fruit) * x[k, l, i]) for i in N for l in L for k in K), name="aux")
+            # m.addConstrs(((v_vy * aux_var[k, l, i] == (d_solve / total_fruit) * x[k, l, i]) for i in N for l in L for k in K), name="aux")
 
 
 

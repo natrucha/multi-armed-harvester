@@ -3,6 +3,7 @@ import math
 import numpy as np
 from datetime import datetime
 from datetime import date
+from pathlib import Path
 import sys
 
 # from fruit_distribution import *   # import module to create the various desired fruit distributions 
@@ -24,7 +25,7 @@ def printScen(scenStr):
     print("\n" + "*"*sLen + "\n" + scenStr + "\n" + "*"*sLen + "\n")
 
 
-def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list, snapshot_cell, print_out):
+def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list, snapshot_cell, print_out, log_out):
     '''Obtain average and variance of results and time-to-run for all the runs'''
     time_array = np.zeros([n_runs, n_snapshots])
     FPE_array  = np.zeros([n_runs, n_snapshots])
@@ -32,9 +33,11 @@ def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list,
     max_row_density  = np.zeros([n_runs, n_snapshots]) # in fruits/m^2 
     min_row_density  = np.zeros([n_runs, n_snapshots]) # in fruits/m^2
     snapshot_density = np.zeros([n_runs, n_snapshots]) # in fruits/m^2
-    
-    v_vy_cmps = int(run_list[0][0].v_vy * 100)
-    print('the run\'s v_vy', v_vy_cmps)
+
+    v_vy_cmps_array = np.zeros([n_runs, n_snapshots]) # save the velocity in cm/s used in each snapshot
+   
+    # v_vy_cmps = int(run_list[0][0].v_vy * 100)
+    # print('the run\'s v_vy', v_vy_cmps)
 
     print()
     print('----------------------------------------------')
@@ -55,6 +58,7 @@ def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list,
             #     # set the values at 100 (no harvestable fruits, no )
             #     FPE_array[i_run,i_snap]  = 100
             #     FPT_array[i_run,i_snap]  = 0
+            v_vy_cmps_array[i_run,i_snap] = run_list[i_run][i_snap].v_vy * 100
 
             density_rows = np.average(snapshot_cell[i_snap][0], axis=1)
 
@@ -67,73 +71,105 @@ def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list,
             # print('max row density:', max_row_density[i_run,i_snap])
             # print('min row density:', min_row_density[i_run,i_snap], '\n')
 
-        # print out this run's snapshot results
-        print('Run', i_run, 'results over the run\'s snapshots:')
+        if print_out == 1:
+            # print out this run's snapshot average results
+            print('Run', i_run, 'results over the run\'s snapshots:')
 
-        avg_time_run = np.average(time_array[i_run,:])
-        std_time_run = np.std(time_array[i_run,:])
-        print('    average time, {:.3f}'.format(avg_time_run), '+/-{:.3f} s'.format(std_time_run)) 
+            avg_time_run = np.average(time_array[i_run,:])
+            std_time_run = np.std(time_array[i_run,:])
+            print('    average time, {:.3f}'.format(avg_time_run), '+/-{:.3f} s'.format(std_time_run)) 
 
-        avg_FPE_run = np.average(FPE_array[i_run,:])
-        std_FPE_run = np.std(FPE_array[i_run,:])
-        print('    average FPE, {:.3f}'.format(avg_FPE_run), '+/-{:.3f}%'.format(std_FPE_run)) 
+            avg_FPE_run = np.average(FPE_array[i_run,:])
+            std_FPE_run = np.std(FPE_array[i_run,:])
+            print('    average FPE, {:.3f}'.format(avg_FPE_run), '+/-{:.3f}%'.format(std_FPE_run)) 
 
-        avg_FPT_run = np.average(FPT_array[i_run,:])
-        std_FPT_run = np.std(FPT_array[i_run,:])
-        print('    average FPT, {:.3f}'.format(avg_FPT_run), '+/-{:.3f}%'.format(std_FPT_run)) 
+            avg_FPT_run = np.average(FPT_array[i_run,:])
+            std_FPT_run = np.std(FPT_array[i_run,:])
+            print('    average FPT, {:.3f}'.format(avg_FPT_run), '+/-{:.3f}%'.format(std_FPT_run)) 
+            print() 
+
+    if print_out == 1 and n_runs > 1:
+        # print out the overall average results assuming there was more than one run
+        avg_time = np.average(time_array)
+        std_time = np.std(time_array)
+        print('average time for every run, {:.3f} s'.format(avg_time), '+/-{:.3f} s'.format(std_time)) 
+
+        avg_FPE = np.average(FPE_array)
+        std_FPE = np.std(FPE_array)
+        print('average FPE for every run, {:.3f}'.format(avg_FPE), '+/-{:.3f}%'.format(std_FPE))  
+
+        avg_FPT = np.average(FPT_array)
+        std_FPT = np.std(FPT_array)
+        print('average FPT for every run, {:.3f}'.format(avg_FPT), '+/-{:.3f} fruits/s'.format(std_FPT))  
         print() 
-
-    avg_time = np.average(time_array)
-    std_time = np.std(time_array)
-    print('average time for every run, {:.3f} s'.format(avg_time), '+/-{:.3f} s'.format(std_time)) 
-
-    avg_FPE = np.average(FPE_array)
-    std_FPE = np.std(FPE_array)
-    print('average FPE for every run, {:.3f}'.format(avg_FPE), '+/-{:.3f}%'.format(std_FPE))  
-
-    avg_FPT = np.average(FPT_array)
-    std_FPT = np.std(FPT_array)
-    print('average FPT for every run, {:.3f}'.format(avg_FPT), '+/-{:.3f} fruits/s'.format(std_FPT))  
-    print() 
 
     #######################################################################################
     # save the velocity, fpe, fpt, and density of the runs (maybe add horizon later) in cvs
     # to do regression and find out if it can be used to set correct velocity
-    # date object of today's date
-    today = date.today() 
-    # print("Current year:", today.year)
-    # print("Current month:", today.month)
-    # print("Current day:", today.day)
-    # print()
+    if log_out == 1:
+        # date object of today's date
+        today = date.today() 
+        # print("Current year:", today.year)
+        # print("Current month:", today.month)
+        # print("Current day:", today.day)
+        # print()
 
-    # if today.month < 10:
-    #     month = str(0) + str(today.month)
-    # else:
-    #     month = str(today.month)
+        if today.month < 10:
+            month = str(0) + str(today.month)
+        else:
+            month = str(today.month)
 
-    # date_today = str(today.year) + month + str(today.day)
-    date_today = '20220815' # if hardcoded is necessary
+        date_today = str(today.year) + month + str(today.day)
+        # date_today = '20220815' # if hardcoded is necessary
 
-    if set_distribution == 0 or set_distribution == 6:
-        # use raj's original dataset
-        file_name = './csv_files/' + date_today + '_apples_' + str(v_vy_cmps) + 'v_vy_raj.csv'
-    elif set_distribution == 7 or set_distribution == 8:
-        # use juan's original dataset
-        file_name = './csv_files/' + date_today + '_apples_' + str(v_vy_cmps) + 'v_vy.csv'      
+        if set_distribution < 2:
+            # using the 2022 orchard data
+            file_name = './csv_files/' + date_today + '_2022_data'
+        elif set_distribution == 2 or set_distribution == 4:
+            # use raj's original dataset
+            file_name = './csv_files/' + date_today + '_apple_data_raj'
+        elif set_distribution == 3 or set_distribution == 5:
+            # use juan's original dataset
+            file_name = './csv_files/' + date_today + '_2021_data_juan'    
+        else:
+            # using RNG to create artificial distributions
+            file_name = './csv_files/' + date_today + '_RNG_test'
 
-    print('file name:', file_name)
-    print()
+        num_checks = 10        # how many times it'll check if the file name exists 
+        file_base = file_name  # save the base of the file name
 
-    with open(file_name, mode='w') as wr_file:
-        wr = csv.writer(wr_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        
-        for i_run in range(n_runs):
-            for i_snap in range(n_snapshots):
-                row_data = [v_vy_cmps, FPE_array[i_run,i_snap], FPT_array[i_run,i_snap], snapshot_density[i_run,i_snap], min_row_density[i_run,i_snap], max_row_density[i_run,i_snap]]    
+        # add check to see if the file already exists, if so, add a value at the end
+        for i_check in range(num_checks):
+            # do the check around 10 times, after which just put up an error message that the last file was overwritten
+            check_file = Path(file_name + '.csv')
+            # run 10 checks after which just send up an error message 
+            if check_file.is_file():
+                # file exists so add an extension to the name
+                file_name = file_base + '[' + str(i_check) + ']'
+                if i_check == num_checks - 1:
+                    # no more checks, the first file will be overwritten
+                    print('WARNING: Files will be overwritten after this run.')
+                    file_name = file_base + 'OVERWRITE'
+            else:
+                # file doesn't exist so can use this name
+                # file_full = file_name + '.csv'
+                break
 
-                wr.writerow(row_data)
+        file_full = file_name + '.csv'
+
+        # print('file name:', file_full)
+        # print()
+
+        with open(file_full, mode='w') as wr_file:
+            wr = csv.writer(wr_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             
-        print('CSV written into', file_name)
+            for i_run in range(n_runs):
+                for i_snap in range(n_snapshots):
+                    row_data = [v_vy_cmps_array[i_run,i_snap], FPE_array[i_run,i_snap], FPT_array[i_run,i_snap], snapshot_density[i_run,i_snap], min_row_density[i_run,i_snap], max_row_density[i_run,i_snap]]    
+
+                    wr.writerow(row_data)
+                
+            print('CSV written into', file_full)
 
 
 
@@ -182,6 +218,7 @@ def main():
 
     d_cell           = 0.7             # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel. Matches the prototype
     d_o              = 0.15            # in m, space between the columns
+    d_hrzn           = 0.3             # in m, the extra length (horizon) in front of the robot that the robot can see
     h_cell           = 2. / n_row      # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
     h_g              = 0.3             # in m, height of the gripper (dead space inducing)
     w_arm            = 1               # how far the arm can reach into the canopy
@@ -195,16 +232,16 @@ def main():
     v_vy_fruit_cmps  = v_vy_lb_cmps    # in cm/s, the single velocity being used also used for setup of MIP module (can this be changed and cleaned up?)
     v_vy             = v_vy_fruit_cmps / 100 # change to m/s
 
-    vehicle_l        = n_col * d_cell + (n_col - 1) * d_o # in m, the length of the vehicle (along the y-axis), takes into account space between cells, if any
-    vehicle_h        = n_row * h_cell  # in m, the height of the vehicle (along the z-axis)
+    d_vehicle        = n_col * d_cell + (n_col - 1) * d_o # in m, the length of the vehicle (along the y-axis), takes into account space between cells, if any
+    h_vehicle        = n_row * h_cell  # in m, the height of the vehicle (along the z-axis)
 
-    q_vy             = 0 - vehicle_l   # in m, the start of the back of the vehicle. Negative start so the system starts before the fruits start appearing (as it moves into the row)
+    q_vy             = 0 - d_vehicle   # in m, the start of the back of the vehicle. Negative start so the system starts before the fruits start appearing (as it moves into the row)
     q_vy_start       = q_vy            # in m, saves the start location (q_vy will change as the system 'moves' along the orchard row)
 
     # orchard row limis along all three axes (fruits above or below limits cannot be picked). Used especially when creating fake fruit districutions to test against
     x_lim            = [0.2, 1.2]               # in m, also determines the distance the arm can move into the canopy
-    y_lim            = [q_vy_start, vehicle_l]  # in m, sets upper and lower bounds of travel for the vehicle. Can be used to stop the vehicle early with the real fruit distribution data
-    z_lim            = [0., vehicle_h]          # in m, how tall the columns of the robots are 
+    y_lim            = [q_vy_start, d_vehicle]  # in m, sets upper and lower bounds of travel for the vehicle. Can be used to stop the vehicle early with the real fruit distribution data
+    z_lim            = [0., h_vehicle]          # in m, how tall the columns of the robots are 
 
     total_arms       = n_col * n_row
 
@@ -213,18 +250,18 @@ def main():
     FPE = 0
     total_picked = 0
 
-    l_hor_m  = 0.3                        # in m, the extra length (horizon) in front of the robot that the robot can see
-
     ## set fruit distribution flag
-    # 0     == Raj's digitized fruits (right side)
-    # 1     == uniform random  (if algorithm == 1, use melon version)
-    # 2     == uniform random, equal cell density
-    # 3     == multiple densities separated by some space (only melon for now)
-    # 4     == fruit in vertical columns
-    # 5     == "melon" version of columns (user inputs desired no. fruits, z height, and distance between fruit in y-coord)
-    # 6     == reduced Raj's digitized fruits; can reduce the density to a desired value 
-    # 7     == Juan's digitized fruits
-    # 8     == reduced Juan's digitized fruits; can reduce the density to a desired value 
+    # 0   * not available *  == 2022 Digitized fruit data (Pink Ladies, Jeff Colombini orchard)
+    # 1   * not available *  == random (seed-based) segments from 2022 digitized fruit
+    # 2     == Raj's digitized fruits (right side)
+    # 3     == Juan's digitized fruits (Stavros phone video)
+    # 4     == reduced Raj's digitized fruits; can reduce the density to a desired value 
+    # 5     == reduced Juan's digitized fruits; can reduce the density to a desired value 
+    # 6     == uniform random  (if algorithm == 1, use melon version)
+    # 7   * not available *  == uniform random, equal cell density
+    # 8   * not available *  == multiple densities separated by some space (only melon for now)
+    # 9   * not available *  == fruit in vertical columns
+    # 10  * not available *  == "melon" version of columns (user inputs desired no. fruits, z height, and distance between fruit in y-coord)
     set_distribution = int(args[6])
 
     ## set algorithm being used 
@@ -263,25 +300,25 @@ def main():
     # 1     == print/plot is on
     print_out = 1  # turns printing states, indexes, and settings on/off (all or nothing)
     plot_out  = 1  # turns plotting on/off
-    log_out   = 1  # turns logging of gurobi files such as ilp, lp, mlp file creation on/off (not implemented yet)
+    log_out   = 1  # turns logging off gurobi files and csv creation files such as ilp, lp, mlp file creation on/off (not implemented yet)
 
     ## set Td to be constant or variable? -> see if needed as a flag (not currently)
     # 0     == Td constant
     # 1     == Td variable based on vacuum
 
     # set density if specific to the set_distibution setting
-    if set_distribution == 1:
-        density    = float(args[2])       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
-    elif set_distribution == 6:
-        density    = 16
-    else: 
-        density    = 15                   # figure this out later
+    if set_distribution >= 4:
+        # reduced Raj/Juan or RNG distributions, set density as argument from user
+        density = float(args[2])       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
+    else:
+        # using real localization data so we don't care about this value
+        density = 16 
 
     if set_view_field != 2:
         # there should be no horizon if the view field doesn't call for it
-        l_hor_m = 0 
+        d_hrzn = 0 
 
-    l_view_m = vehicle_l + l_hor_m  # in m, the length along the orchard row that the robot can see, moves with the vehicle
+    d_view = d_vehicle + d_hrzn  # in m, the length along the orchard row that the robot can see, moves with the vehicle
 
     if set_algorithm == 0 or set_algorithm >= 3:
         # have a list of vehicle velocities to loop through, if ub and lb are equal, this means a single speed will be tested
@@ -300,7 +337,7 @@ def main():
     run_list      = list()   # saves the results of each run for analysis
     time_list     = list()   # saves how long each run took
 
-    seed_list = fruit_data.getRNGSeedList(n_runs)
+    seed_list = fruit_data.getRNGSeedList(n_runs, './rngseed_list_20200901.csv') # csv file name to determine the distribution
 
     ##################### RUN MIP PYTHON SCRIPT #####################
     for i_run in range(n_runs):
@@ -313,15 +350,14 @@ def main():
         # init the MIP melon object 
         if set_solve_row == 0 and set_algorithm < 3: # the first 3 algorithms are MIP-based
             n_row_loop = 1 # because the whole view is being solved at once, no need to loop
-            mip_melon = MIP_melon(q_vy, n_col, n_row, 0, set_distribution, v_vy_fruit_cmps, d_cell, h_cell, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
+            mip_melon = MIP_melon(q_vy, n_col, n_row, 0, d_cell, d_o, d_hrzn, x_lim, fruit_data.y_lim, z_lim, density)
             # set the y-coordinate movement limits within the cell if not equal to cell length. Only affects the Jobs() object if it's not equal to the d_cell 
 
         elif set_solve_row == 1 and set_algorithm < 3: # the first 3 algorithms are MIP-based
             n_row_loop = n_row # because we are solving per row, we need to loop through each row in each view/snapshot
             # init the MIP melon object, n_row set to one for each since we're running it per row
             # start the row at 0th row and then change the row as needed after this and before create arms
-            mip_melon = MIP_melon(q_vy, n_col, 1, 0, set_distribution, v_vy_fruit_cmps, d_cell, h_cell, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
-            mip_melon.addArmTravelLimits(l_real_y_travel)
+            mip_melon = MIP_melon(q_vy, n_col, 1, 0, d_cell, d_o, d_hrzn, x_lim, fruit_data.y_lim, z_lim, density)
 
         elif set_algorithm == 3:
             n_row_loop = 1 # because the whole view is being solved at once, no need to loop
@@ -337,7 +373,7 @@ def main():
             # create a flag that determines when FCFS is done and MIP has to be used to determine the schedule with the new velocity range
             task_alloc_done_flag = 0
             # init MIP to then solve for more optimal scheduling
-            mip_melon = MIP_melon(q_vy, n_col, n_row, 0, set_distribution, v_vy_fruit_cmps, d_cell, h_cell, vehicle_h, l_hor_m, x_lim, fruit_data.y_lim, z_lim, density)
+            mip_melon = MIP_melon(q_vy, n_col, n_row, 0, d_cell, d_o, d_hrzn, x_lim, fruit_data.y_lim, z_lim, density)
 
         elif set_algorithm == 6:
             n_row_loop = 1 # because the whole view is being solved at once, no need to loop
@@ -350,24 +386,24 @@ def main():
         if set_view_field == 0:
             # global view
             n_snapshots = 1 
-            l_view_m = fruit_data.y_lim[1] - fruit_data.y_lim[0]
-            l_step_m = fruit_data.y_lim[1] + vehicle_l  # in m, the travel length
+            d_view = fruit_data.y_lim[1] - fruit_data.y_lim[0]
+            D_ = fruit_data.y_lim[1] + d_vehicle  # in m, the travel length
             FPE_min = 0.95 # in %, what is the minimum FPE desired (not exclusive) for the velocity loop setting
 
         elif set_view_field == 1:
             # limited view, no horizon
-            l_step_m = 0.3  # in m, the travel length before resolving MIP, now the step length taken before for a snapshot 
-            n_snapshots = math.ceil((fruit_data.y_lim[1] - fruit_data.y_lim[0]) / l_step_m)  # set just to do the area in front of the vehicle
-            FPE_min = l_step_m / (vehicle_l)  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
+            D_ = 0.3  # in m, the travel length before resolving MIP, now the step length taken before for a snapshot 
+            n_snapshots = math.ceil((fruit_data.y_lim[1] - fruit_data.y_lim[0]) / D_)  # set just to do the area in front of the vehicle
+            FPE_min = D_ / (d_vehicle)  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
 
         else: 
             # limited view with horizon
-            l_step_m = 0.6 #vehicle_l + l_hor_m  # in m, the travel length before resolving MIP, now the step length ta en before for a snapshot 
+            D_ = 0.6 #d_vehicle + d_hrzn  # in m, the travel length before resolving MIP, now the step length ta en before for a snapshot 
             if set_MPC == 0:
-                FPE_min = .35 # l_step_m / (vehicle_l + l_hor_m) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
+                FPE_min = .35 # D_ / (d_vehicle + d_hrzn) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
             else:
-                FPE_min = .95 # l_step_m / (vehicle_l + l_hor_m) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
-            n_snapshots = math.ceil((fruit_data.y_lim[1] - fruit_data.y_lim[0]) / l_step_m)  # set just to do the area in front of the vehicle
+                FPE_min = .95 # D_ / (d_vehicle + d_hrzn) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
+            n_snapshots = math.ceil((fruit_data.y_lim[1] - fruit_data.y_lim[0]) / D_)  # set just to do the area in front of the vehicle
             
 
         # arrays saving end of snapshot result values
@@ -378,7 +414,7 @@ def main():
         mean_Td_array         = np.zeros(n_snapshots) # in s, saves the mean Td value of each snapshot
 
         if set_algorithm != 3 and set_algorithm != 6:
-            mip_melon.setTravelLength(l_step_m)           # needed an easy and clear way to set this in mip_melon since it changes depending on the settings
+            mip_melon.setTravelLength(D_)           # needed an easy and clear way to set travel length in mip_melon since it changes depending on the settings
 
         # because we're restarting the object at every run, need to only provide this run's seed list. Needs a list of lists since it assumes it could be multiple runs
         this_seed.append(seed_list[i_run])    ## might want to clean this up so it only runs when creating fake fruit distributions
@@ -386,8 +422,8 @@ def main():
         if print_out == 1:
             print()
             print('length of the full dataset:', (fruit_data.y_lim[1] - fruit_data.y_lim[0]), 'm')
-            print('vehicle view window length: {:.1f} m'.format(l_view_m)) 
-            print('vehicle travel per snapshot: {:.1f} m'.format(l_step_m)) 
+            print('vehicle view window length: {:.1f} m'.format(d_view)) 
+            print('vehicle travel per snapshot: {:.1f} m'.format(D_)) 
             print('number of snapshots:', n_snapshots)
             print('FPE minimum set at {:.1f}%'.format(FPE_min*100))
             if v_vy_lb_cmps != v_vy_ub_cmps:
@@ -403,7 +439,7 @@ def main():
             print('-----------------------------------------------------------------')
         
         # create the simulated environment
-        fruit_data.buildOrchard(1, set_algorithm, set_distribution, this_seed)
+        fruit_data.buildOrchard(1, set_distribution, this_seed)
 
         # save the complete dataset of fruits
         # total_sortedFruit = np.copy(mip_melon.sortedFruit)
@@ -421,7 +457,7 @@ def main():
         for i_snap in range(n_snapshots):
             fruit_picked_by = list()
             # Figure out which fruits go into this snapshot and transform their index to start with zero (save the index start)
-            i_snap_sortedFruit_index  = fruit_data.fruitsInView(q_vy, l_view_m, fruit_data.sortedFruit, d_cell, l_real_y_travel)
+            i_snap_sortedFruit_index  = fruit_data.fruitsInView(q_vy, d_view, fruit_data.sortedFruit, d_cell, l_real_y_travel)
             # make a copy of sortedFruit that works for the snapshot which will also be used to create the necessary Arm() Objects for the snapshot
             i_snap_sortedFruit        = np.copy(fruit_data.sortedFruit[:,i_snap_sortedFruit_index])
             # calculate the number of fruits in the snapshot
@@ -431,12 +467,12 @@ def main():
             i_snap_available_numFruit = i_snap_numFruit - len(index_unavailable[0])
 
             # determine the z_edges for this snapshot
-            [bot_edge, top_edge] = fruit_data.set_zEdges(set_edges, z_lim, h_cell, i_snap_sortedFruit)
+            [bot_edge, top_edge] = fruit_data.set_zEdges(set_edges, z_lim, h_cell, h_g, i_snap_sortedFruit)
             if set_algorithm != 3 and set_algorithm != 6:
                 mip_melon.setZlim(bot_edge, top_edge)
             
             # need to calculate the density, R, etc. so as to determine the best v_vy value
-            horizon_indexes = fruit_data.getHorizonIndex(i_snap_sortedFruit, q_vy, vehicle_l, l_hor_m)
+            horizon_indexes = fruit_data.getHorizonIndex(i_snap_sortedFruit, q_vy, d_vehicle, d_hrzn)
 
             ## calculate multiple R and v_vy values based on multiple slices of the current view
             # return a list of fruit densities in each cell 
@@ -447,7 +483,7 @@ def main():
 
             ## using the fruit densities, determine the vehicle speed to set a specific R value?
             # currently, the R value would be 
-            R = fruit_data.calcR(v_vy, len(horizon_indexes), l_hor_m, vehicle_h, w_arm)  # calculated based on columns and the horizon length
+            R = fruit_data.calcR(v_vy, len(horizon_indexes), d_hrzn, h_vehicle, w_arm)  # calculated based on columns and the horizon length
 
             snapshot_cell.append([d, R])
 
@@ -546,7 +582,7 @@ def main():
 
                     elif set_algorithm >= 3 and set_algorithm <= 5 and task_alloc_done_flag == 0:
                         # run FCFS algorithm
-                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = fcfs.main(n_col, n_row, mip_fruit, mip_job, v_vy_curr_cmps, q_vy, d_cell, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, fruit_data.z_row_bot_edges, fruit_data.z_row_top_edges)
+                        [i_loop_fruit_picked_by, i_loop_fruit_picked_at] = fcfs.main(n_col, n_row, mip_fruit, mip_job, v_vy_curr_cmps, q_vy, d_cell, d_o, fruit_data.fruit_travel_matrix, fruit_data.sortedFruit, fruit_data.z_row_bot_edges, fruit_data.z_row_top_edges)
                         make_v_vy = v_vy_curr_cmps
                         curr_count = np.copy(fcfs.curr_j)
 
@@ -615,7 +651,7 @@ def main():
                             pre_queue_fruit_picked_by[0][-1] = list(pre_queue_unpicked)
 
                         # calculate the velocity's FPT
-                        pre_queue_FPT = pre_queue_total_picked / (l_step_m / v_vy_mps)
+                        pre_queue_FPT = pre_queue_total_picked / (D_ / v_vy_mps)
 
                         # calculate the velocity's FPE 
                         if i_snap_available_numFruit > 0:
@@ -644,7 +680,7 @@ def main():
                                 fruit_when     = i_loop_fruit_picked_at[column]  # if fruit_pick_arm doesn't work, neither will this
                                 # print('this arm is picking', fruit_pick_arm, 'at', fruit_when)
 
-                            queue_manager = MIP_queu_manager(q_vy, q_vy_start, v_vy_mps, l_step_m, fruit_pick_arm, fruit_when)
+                            queue_manager = MIP_queu_manager(q_vy, q_vy_start, v_vy_mps, D_, fruit_pick_arm, fruit_when)
                             not_picked = queue_manager.unpicked_queue
                             yes_picked = queue_manager.picked_queue
                             
@@ -714,7 +750,7 @@ def main():
                     v_curr_fruit_picked_by[0][-1] = list(unpicked)
 
                 # calculate the velocity's FPT
-                v_curr_FPT = v_curr_total_picked / (l_step_m / v_vy_mps)
+                v_curr_FPT = v_curr_total_picked / (D_ / v_vy_mps)
 
                 # calculate the velocity's FPE 
                 if i_snap_available_numFruit > 0:
@@ -943,13 +979,13 @@ def main():
             # print('Global number unpicked:', len(where_no[0]), '\nGlobal number scheduled:', len(where_sh[0]), '\nGlobal number picked', len(where_pi[0]))
 
             # calculate how long each arm was working vs idle
-            state_time = fruit_data.calcStateTime(fruit_picked_by, mip_fruit, l_step_m, v_vy)
+            state_time = fruit_data.calcStateTime(fruit_picked_by, mip_fruit, D_, v_vy)
             # print(state_time)            
 
             # save chosen velocity
             chosen_v_vy_mps_array[i_snap] = v_vy
             # save the time this snapshot takes based on chosen v_vy
-            snapshot_time_array[i_snap] = l_step_m / v_vy  # in s, l_step in m, v_vy in m/s
+            snapshot_time_array[i_snap] = D_ / v_vy  # in s, l_step in m, v_vy in m/s
 
             # calculate the mean Td for the snapshot, not working yet
             this_mean_Td = fruit_data.calcMeanTd(total_picked, state_time)
@@ -957,7 +993,7 @@ def main():
             mean_Td_array[i_snap] = this_mean_Td
 
             # fill in snapshot object and list with current results, object definition in MIP_melon.py
-            snapshot = Snapshot(n_col, n_row, l_hor_m, vehicle_l, d_cell, v_max, a_max, set_algorithm, this_mean_Td, v_vy, FPE, FPT, fruit_data.y_lim, i_snap_numFruit, chosen_j, fruit_data.sortedFruit, fruit_picked_by, state_time)
+            snapshot = Snapshot(n_col, n_row, d_hrzn, d_vehicle, d_cell, v_max, a_max, set_algorithm, this_mean_Td, v_vy, FPE, FPT, fruit_data.y_lim, i_snap_numFruit, chosen_j, fruit_data.sortedFruit, fruit_picked_by, state_time)
             snapshot_list.append(snapshot)
 
             # calculate the global FPE for this snapshot
@@ -997,7 +1033,7 @@ def main():
             print()
 
             # update the vehicle's location
-            q_vy += l_step_m
+            q_vy += D_
 
             # reset FCFS_done flag to 0
             task_alloc_done_flag = 0
@@ -1045,7 +1081,7 @@ def main():
 
         # elif solution_found == 1:
         # combine the results based on the various snapshots taken
-        results = IG_data_analysis(snapshot_list, snapshot_cell, l_step_m, fruit_data.y_lim, set_algorithm, print_out)
+        results = IG_data_analysis(snapshot_list, snapshot_cell, D_, fruit_data.y_lim, set_algorithm, print_out)
         if print_out == 1:
             results.printSettings()
             print('\nThe velocities for each of the %d snapshots in m/s:' % n_snapshots)
@@ -1072,7 +1108,7 @@ def main():
         time_list.append(time_snap_list)
 
     # if n_runs > 1:
-    analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list, snapshot_cell, print_out)
+    analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list, snapshot_cell, print_out, log_out)
     
     
 if __name__ == '__main__':
