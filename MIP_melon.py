@@ -39,7 +39,7 @@ class MIP_melon(object):
 
         ## settings
         self.Td    = 2.      # in s, fruit handling time when it's constant
-        self.M     = 280     # arbitrarily large number, should be based on the largest difference between t[k, l, i] and t[k, l, j] plus some extra (upper bound)  
+        self.M     = 280     # arbitrarily large number, should be based on the largest difference between t[c, r,i] and t[c, r,j] plus some extra (upper bound)  
         self.q_vy  = q_vy    # in m, backmost, lowest coordinate of the vehicle
         self.q_vy0 = q_vy    # in m, the actual start (snapshots require negatve values)
 
@@ -113,8 +113,8 @@ class MIP_melon(object):
         '''
         ## Build useful data structures
         # lists:
-        K  = [*range(self.n_col)]        # list of columns containing the arms (number of arms in a column based on the number of rows)
-        L  = [*range(self.n_row)]        # list of horizontal row numbers, uses the argument-unpacking operator *
+        C_  = [*range(self.n_col)]        # list of columns containing the arms (number of arms in a column based on the number of rows)
+        R_  = [*range(self.n_row)]        # list of horizontal row numbers, uses the argument-unpacking operator *
         N  = [i.index for i in fruit]    # list of fruit indexes starting at 0, with an offset when needed
         Y  = [i.y_coord for i in fruit]  # list of fruits' y-coordinate (x-coordinate in the paper)
         Z  = [i.z_coord for i in fruit]  # list of fruits' z-coordinate
@@ -132,9 +132,9 @@ class MIP_melon(object):
             offset_fruit_index = 0
 
         # if self.print_out == 1:
-            # print('number of arms in each horizontal row:',K, 'with length', len(K))
+            # print('number of arms in each horizontal row:',C_, 'with length', len(C_))
             # print()
-            # print('number of horizontal rows:',L, 'with length', len(L))
+            # print('number of horizontal rows:',R_, 'with length', len(R_))
             # print()
             # print('number of fruits:\n',N, '\nwith length', len(N))
             # print()
@@ -150,9 +150,9 @@ class MIP_melon(object):
             TW_start = {i : [j.TW_start for j in job if j.fruit_i.index == i] for i in N}
             TW_end   = {i : [j.TW_end for j in job if j.fruit_i.index == i] for i in N}
 
-            if len(TW_start) != len(TW_end) or len(TW_start) != len(N) or len(job) != len(N)*len(K)*len(L):
+            if len(TW_start) != len(TW_end) or len(TW_start) != len(N) or len(job) != len(N)*len(C_)*len(R_):
                 print('Error: The number of fruit and the number of jobs or TW times do not match, exiting out of system')
-                print('Number of jobs', len(job), 'and number of fruits*arms', len(N)*len(K)*len(L))
+                print('Number of jobs', len(job), 'and number of fruits*arms', len(N)*len(C_)*len(R_))
                 print()
                 sys.exit(0)
 
@@ -187,8 +187,8 @@ class MIP_melon(object):
 
         ### Decision variables
         # to create the variables, see https://www.gurobi.com/documentation/9.5/refman/py_model_addvars.html
-        # Arm-fruit assignment (is fruit i picked by arm k in row l)
-        x = m.addVars(K, L, N, vtype=GRB.BINARY, name="x")
+        # Arm-fruit assignment (is fruit i picked by arm c in row l)
+        x = m.addVars(C_, R_, N, vtype=GRB.BINARY, name="x")
 
         # upper bound when arm can pick the fruit, set at the time when the vehicle will reach the end of it's travel length
         # print('\nthe velocity being used to calculate time bounds:', v_vy_curr) 
@@ -219,20 +219,20 @@ class MIP_melon(object):
             print(f'The potential travel distance window without the horizon: %4.2f s' % t_move)
             print('The upper bound for when an arm can pick a fruit is {:.3f} sec\n'.format(t_ub))
 
-        # Time arm k, l reaches fruit i
-        t = m.addVars(K, L, N, lb=0, ub=t_ub, name="t")
+        # Time arm c, l reaches fruit i
+        t = m.addVars(C_, R_, N, lb=0, ub=t_ub, name="t")
 
         if set_algorithm == 1 or set_algorithm == 2 or set_algorithm == 4 or set_algorithm == 5:
             # any TW start and end should be less than the total move time since nothing can be picked after this
             # the lower bound allows for negatives only because the aux values that take place after will switch to 0 if negative
-            tw_s          = m.addVars(K, N, lb=-t_ub, ub=t_ub, name="tw_s")
-            tw_e          = m.addVars(K, N, lb=-t_ub, ub=t_ub, name="tw_e")
+            tw_s          = m.addVars(C_, N, lb=-t_ub, ub=t_ub, name="tw_s")
+            tw_e          = m.addVars(C_, N, lb=-t_ub, ub=t_ub, name="tw_e")
 
             # required because gurobi doesn't like >= or <= constraints that deal with two variables
-            aux_end       = m.addVars(K, N, lb=0, name="aux_end")
-            aux_start     = m.addVars(K, N, lb=0, name="aux_start")
-            aux_comp      = m.addVars(K, N, lb=0, name="aux_compare")
-            aux_comp_end  = m.addVars(K, N, lb=0, name="aux_compare_end")
+            aux_end       = m.addVars(C_, N, lb=0, name="aux_end")
+            aux_start     = m.addVars(C_, N, lb=0, name="aux_start")
+            aux_comp      = m.addVars(C_, N, lb=0, name="aux_compare")
+            aux_comp_end  = m.addVars(C_, N, lb=0, name="aux_compare_end")
 
             # in cm/s, vehicle velocity along orchard row
             # bounded by the cell length and Td (melon paper) and bounded by max velocity of the lift (90 cm/s)
@@ -241,9 +241,9 @@ class MIP_melon(object):
 
             # variable t_move calculated with currently chosen v_vy
             # t_move_var    = m.addVar(lb=0, name="var_t_move")
-            t_harvested   = m.addVars(K, L, N, lb=0, ub=t_ub, name="t_harvested")   # used to get the makespan of harvested fruits, not all fruits
+            t_harvested   = m.addVars(C_, R_, N, lb=0, ub=t_ub, name="t_harvested")   # used to get the makespan of harvested fruits, not all fruits
             makespan      = m.addVar(lb=0, name="makespan")
-            t_max_arm     = m.addVars(K, name="t_max")  # max t value for each arm
+            t_max_arm     = m.addVars(C_, name="t_max")  # max t value for each arm
             makespan_norm = m.addVar(lb=0, name="makespan_norm")
 
             FPE_var       = m.addVar(lb=0, name="FPE")
@@ -259,7 +259,7 @@ class MIP_melon(object):
             # v_vy.start = 2 # in cm/s
 
             # create a variable that saves the last picking time, or makespan
-            x_weighted    = m.addVars(K, L, N, lb=0, name="x_weighted")   # used to get the makespan of harvested fruits, not all fruits
+            x_weighted    = m.addVars(C_, R_, N, lb=0, name="x_weighted")   # used to get the makespan of harvested fruits, not all fruits
         
 
         ### Constraints
@@ -267,81 +267,81 @@ class MIP_melon(object):
         m.addConstrs((x.sum('*', '*', i) <= 1 for i in N), name="assignOne")
 
         # Time elapsed between pickup of any two fruit reached by the same arm is at least Td (2)
-        # m.addConstrs((t[k, l, i] + self.Td - t[k, l, j] <= self.M * (2 - x[k, l, j] - x[k, l, i]) for i in N for j in N for k in K for l in L if Y[j] > Y[i]), name="atLeast")
-        m.addConstrs((t[k, l, j] + TX[j] + fruit_travel_matrix[j+offset_fruit_index, i+offset_fruit_index] + TX[i] + self.t_grab - t[k, l, i] <= self.M * (2 - x[k, l, i] - x[k, l, j]) for i in N for j in N for k in K for l in L if Y[j] < Y[i]), name="atLeast")
+        # m.addConstrs((t[c, r,i] + self.Td - t[c, r,j] <= self.M * (2 - x[c, r,j] - x[c, r,i]) for i in N for j in N for c in C_ for r in R_ if Y[j] > Y[i]), name="atLeast")
+        m.addConstrs((t[c, r, j] + TX[j] + fruit_travel_matrix[j+offset_fruit_index, i+offset_fruit_index] + TX[i] + self.t_grab - t[c, r, i] <= self.M * (2 - x[c, r, i] - x[c, r, j]) for i in N for j in N for c in C_ for r in R_ if Y[j] < Y[i]), name="atLeast")
         
         # If fruit z-coord is outside of arm's range, do not pick it
         if self.starting_row_n >= self.n_row:
             # if the mip is divided so each row gets a mip run, the row number has to be changed
             n_row = self.starting_row_n
-            m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Z[i] < self.z_row_bot_edges[k,n_row] or Z[i] > self.z_row_top_edges[k,n_row]), name="verticalWorkArea")
+            m.addConstrs(((x[c, r, i] == 0) for i in N for r in R_ for c in C_ if Z[i] < self.z_row_bot_edges[n_row,c] or Z[i] > self.z_row_top_edges[n_row,c]), name="verticalWorkArea")
         else:
-            m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Z[i] < self.z_row_bot_edges[k,l] or Z[i] > self.z_row_top_edges[k,l]), name="verticalWorkArea")
+            m.addConstrs(((x[c, r, i] == 0) for i in N for r in R_ for c in C_ if Z[i] < self.z_row_bot_edges[r,c] or Z[i] > self.z_row_top_edges[r,c]), name="verticalWorkArea")
 
         # If fruit was removed because it's scheduled and picked, do not schedule it again
         # offset added because the indexes have to start at 0 for every run, but when scheduling snapshots, the index of the fruits may not start at 0
-        m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if sortedFruit[4,i+offset_fruit_index] == 2), name="removeScheduledAndPicked")
+        m.addConstrs(((x[c, r, i] == 0) for i in N for r in R_ for c in C_ if sortedFruit[4,i+offset_fruit_index] == 2), name="removeScheduledAndPicked")
         # if the travel distance between snapshots is less than the view distance, don't harvest fruits that are too far forward for arms in column k to pick given that limited travel distance
         if set_MPC == 0:
             #### THIS ONE to be removed if using MPC, or used seperately
-            m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Y[i] - (self.q_vy + (k + 1)*self.d_cell) >= d_solve), name="fruitInHorizon")
+            m.addConstrs(((x[c, r, i] == 0) for i in N for r in R_ for c in C_ if Y[i] - (self.q_vy + (c + 1)*self.d_cell + c*self.d_o) >= d_solve), name="fruitInHorizon")
         # if TW_end is negative, the fruit has passed the column k’s back edge and cannot be harvested by any arm in that column
-        m.addConstrs(((x[k, l, i] == 0) for i in N for l in L for k in K if Y[i] - (self.q_vy + k*self.d_cell) <= 0 ), name="fruitStartPassed")
+        m.addConstrs(((x[c, r, i] == 0) for i in N for r in R_ for c in C_ if Y[i] - (self.q_vy + c*self.d_cell + c*self.d_o) <= 0 ), name="fruitStartPassed")
 
         # If the fruit is at the back edge, then it cannot be picked because the arm has to extend out and grab the fruit
-        m.addConstrs(((t[k, l, i] - TX[i] - self.t_grab >= -(1.5 + self.t_grab)*(1 - x[k, l, i]) + 0.001*x[k, l, i]) for i in N for l in L for k in K), name="minHarvestTime")
+        m.addConstrs(((t[c, r, i] - TX[i] - self.t_grab >= -(1.5 + self.t_grab)*(1 - x[c, r, i]) + 0.001*x[c, r, i]) for i in N for r in R_ for c in C_), name="minHarvestTime")
         
         if set_algorithm == 0:   
             # the time of harvest for fruit i by arm in column k and row l has to be within the calculated time windows for that fruit and that column 
-            m.addConstrs((t[k, l, i] >= min(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinStart")
-            m.addConstrs((t[k, l, i] <= max(TW_start[i][k], TW_end[i][k]) for i in N for l in L for k in K), name="timeWinEnd")
+            m.addConstrs((t[c, r, i] >= min(TW_start[i][c], TW_end[i][c]) for i in N for r in R_ for c in C_), name="timeWinStart")
+            m.addConstrs((t[c, r, i] <= max(TW_start[i][c], TW_end[i][c]) for i in N for r in R_ for c in C_), name="timeWinEnd")
 
         elif set_algorithm == 1 or set_algorithm == 2 or set_algorithm == 4 or set_algorithm == 5:
             # min values for slack constranints
             FPE_min_val = FPE_min    # the minimum FPE in a soft constraint
             FPT_min_val = 2.5   # in fruits/s, the minimum FPT in a soft constraint
             # calculate the time windows for each fruit given the tested/chosen velocity 
-            m.addConstrs(((tw_s[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + (k + 1)*self.d_cell + k*self.d_o))) for i in N for k in K), name="TW_start")
-            m.addConstrs(((tw_e[k, i] * (v_vy / 100) == (Y[i] - (self.q_vy + k*self.d_cell + k*self.d_o))) for i in N for k in K), name="TW_end")
+            m.addConstrs(((tw_s[c, i] * (v_vy / 100) == (Y[i] - (self.q_vy + (k + 1)*self.d_cell + k*self.d_o))) for i in N for c in C_), name="TW_start")
+            m.addConstrs(((tw_e[c, i] * (v_vy / 100) == (Y[i] - (self.q_vy + k*self.d_cell + k*self.d_o))) for i in N for c in C_), name="TW_end")
             
-            # turns x[k, l, i] == 0 if t[k, l, i] * (v_vy/100) >= D_, or the fruit cannot be picked if the time of picking is larger than the time between snapshots
+            # turns x[c, r, i] == 0 if t[c, r, i] * (v_vy/100) >= D_, or the fruit cannot be picked if the time of picking is larger than the time between snapshots
             # to learn about building this constraint see https://or.stackexchange.com/questions/5860/link-a-binary-variable-to-continuous-variable-in-java-gurobi
             if set_MPC == 0:
                 #### THIS ONE to be removed if using MPC, or used seperately
-                m.addConstrs(((d_solve - t[k, l, i]*(v_vy / 100) >= -(self.d_vehicle + d_solve + self.d_hrzn) * (1 - x[k, l, i]) + 0.0001 * x[k, l, i]) for i in N for l in L for k in K), name="tCannotPasstMove")
+                m.addConstrs(((d_solve - t[c, r, i]*(v_vy / 100) >= -(self.d_vehicle + d_solve + self.d_hrzn) * (1 - x[c, r, i]) + 0.0001 * x[c, r, i]) for i in N for r in R_ for c in C_), name="tCannotPasstMove")
 
             # to learn how to deal with max/min with variables
             # see https://support.gurobi.com/hc/en-us/community/posts/360076808711-how-to-add-a-max-constr-General-expressions-can-only-be-equal-to-a-single-var
             # comparing to 0 because the value should never be negative
             # if the time window start or end times are negative, then they should be zeroed out because negative means that time has been passed
-            m.addConstrs((aux_end[k, i]      == gp.max_(0, tw_e[k, i]) for i in N for k in K), name="fixEndNegative")
-            m.addConstrs((aux_start[k, i]    == gp.max_(0, tw_s[k, i]) for i in N for k in K), name="fixStartNegative")
+            m.addConstrs((aux_end[c, i]      == gp.max_(0, tw_e[c, i]) for i in N for c in C_), name="fixEndNegative")
+            m.addConstrs((aux_start[c, i]    == gp.max_(0, tw_s[c, i]) for i in N for c in C_), name="fixStartNegative")
             # if aux_end <= 0, then aux_start should also be < 0, so choose the min value of the two
-            m.addConstrs((aux_comp[k, i]     == gp.min_(aux_end[k, i], aux_start[k, i]) for i in N for k in K), name="ifEndZeroStartZero")
-            m.addConstrs((aux_comp_end[k, i] == gp.max_(aux_end[k, i], aux_start[k, i]) for i in N for k in K), name="maxIsEnd")
+            m.addConstrs((aux_comp[c, i]     == gp.min_(aux_end[c, i], aux_start[c, i]) for i in N for c in C_), name="ifEndZeroStartZero")
+            m.addConstrs((aux_comp_end[c, i] == gp.max_(aux_end[c, i], aux_start[c, i]) for i in N for c in C_), name="maxIsEnd")
 
             # Ensure each node is visited within the given time window (3) and (4)
             # TW_start and TW_end are matching the fruit index number exactly (disctionary), so [2][0] == index 2 (even 
             # though it starts at zero, second arm back from 0th arm)  
-            m.addConstrs(((t[k, l, i] >= aux_comp[k, i]) for i in N for l in L for k in K), name="timeWinStart")
-            m.addConstrs(((t[k, l, i] <= aux_comp_end[k, i]) for i in N for l in L for k in K), name="timeWinEnd")
+            m.addConstrs(((t[c, r, i] >= aux_comp[c, i]) for i in N for r in R_ for c in C_), name="timeWinStart")
+            m.addConstrs(((t[c, r, i] <= aux_comp_end[c, i]) for i in N for r in R_ for c in C_), name="timeWinEnd")
 
             # Ensure at least 90% (or desired percentage) of available fruit are harvested, not needed if multi-objective setup works
-            # m.addConstr((gp.quicksum(x[k, l, i] for i in N for l in L for k in K)/n_snap >= FPE_min), name="percentHarvest")
+            # m.addConstr((gp.quicksum(x[c, r, i] for i in N for r in R_ for c in C_)/n_snap >= FPE_min), name="percentHarvest")
 
             # # set makespan as the latest t^k_i value/ for every arm no matter the row or fruit
             # # see https://support.gurobi.com/hc/en-us/community/posts/360071830171-Use-index-of-decision-variable-in-max-constraint
-            # m.addConstrs(((t_harvested[k, l, i] == t[k, l, i] * x[k, l, i]) for i in N for l in L for k in K), name='timeHarvestedFruits')
-            # m.addConstrs((t_max_arm[k]          == gp.max_(t_harvested.select(k, '*', '*')) for k in K), name='max_value')
+            # m.addConstrs(((t_harvested[c, r, i] == t[c, r, i] * x[c, r, i]) for i in N for r in R_ for c in C_), name='timeHarvestedFruits')
+            # m.addConstrs((t_max_arm[c]          == gp.max_(t_harvested.select(c, '*', '*')) for c in C_), name='max_value')
 
             # opposite of penalty added to the sum(x) objective so that a weight that changes with the velocity can be used to get better results
-            m.addConstrs(((x_weighted[k, l, i] == x[k, l, i] * (v_vy / 100)) for i in N for l in L for k in K), name='xWeighted')
+            m.addConstrs(((x_weighted[c, r, i] == x[c, r, i] * (v_vy / 100)) for i in N for r in R_ for c in C_), name='xWeighted')
 
             # FPT * FPE
-            m.addConstr((FPT_var <= (1/d_solve) * gp.quicksum(x_weighted[k, l, i] for i in N for l in L for k in K)), name='FPT')
-            m.addConstr((FPE_var <= (1/n_snap) * gp.quicksum(x[k, l, i] for i in N for l in L for k in K)), name='FPE')
-            # m.addConstr((FPT_var - maxFPT_slack <= (1/d_solve) * gp.quicksum(x_weighted[k, l, i] for i in N for l in L for k in K)), name='FPT')
-            # m.addConstr((FPE_var - maxFPE_slack <= (1/n_snap) * gp.quicksum(x[k, l, i] for i in N for l in L for k in K)), name='FPE')
+            m.addConstr((FPT_var <= (1/d_solve) * gp.quicksum(x_weighted[c, r, i] for i in N for r in R_ for c in C_)), name='FPT')
+            m.addConstr((FPE_var <= (1/n_snap) * gp.quicksum(x[c, r, i] for i in N for r in R_ for c in C_)), name='FPE')
+            # m.addConstr((FPT_var - maxFPT_slack <= (1/d_solve) * gp.quicksum(x_weighted[c, r, i] for i in N for r in R_ for c in C_)), name='FPT')
+            # m.addConstr((FPE_var - maxFPE_slack <= (1/n_snap) * gp.quicksum(x[c, r, i] for i in N for r in R_ for c in C_)), name='FPE')
             # m.addConstr((FPE_var <= 0.85), name='FPEmax')
             if n_snap > 10 and (set_algorithm == 1 or set_algorithm == 4):
                 m.addConstr((FPE_var + minFPE_slack >= FPE_min_val), name='FPEmin')
@@ -350,33 +350,33 @@ class MIP_melon(object):
             elif n_snap > 10 and (set_algorithm == 2 or set_algorithm == 5):
                 m.addConstr((FPE_var + minFPE_slack >= FPE_min_val), name='FPEmin')
 
-            # m.addConstrs((t_max_arm[k] == gp.max_(t.select(k, '*', '*')) for k in K), name='max_value')  # doesn't take into account if fruit harvested or not
+            # m.addConstrs((t_max_arm[c] == gp.max_(t.select(c, '*', '*')) for c in C_), name='max_value')  # doesn't take into account if fruit harvested or not
             
             # # obtain the makespan and then normalize it over the total vailable travel time
-            # m.addConstrs((makespan >= t_max_arm[k] for k in K), name='makespan_constraint')
+            # m.addConstrs((makespan >= t_max_arm[c] for c in C_), name='makespan_constraint')
             # m.addConstr((makespan_norm == makespan * (v_vy / 100) / d_solve), name='normalized_makespan')
 
-            # m.addConstrs((((v_vy / 100) * aux_var[k, l, i] == x[k, l, i]) for i in N for l in L for k in K), name="aux")
-            # m.addConstrs(((v_vy * aux_var[k, l, i] == (d_solve / n_snap) * x[k, l, i]) for i in N for l in L for k in K), name="aux")
+            # m.addConstrs((((v_vy / 100) * aux_var[c, r, i] == x[c, r, i]) for i in N for r in R_ for c in C_), name="aux")
+            # m.addConstrs(((v_vy * aux_var[c, r, i] == (d_solve / n_snap) * x[c, r, i]) for i in N for r in R_ for c in C_), name="aux")
             # set makespan as the latest t^k_i value/ for every arm no matter the row or fruit
             # see https://support.gurobi.com/hc/en-us/community/posts/360071830171-Use-index-of-decision-variable-in-max-constraint
-            m.addConstrs(((t_harvested[k, l, i] == t[k, l, i] * x[k, l, i]) for i in N for l in L for k in K), name='timeHarvestedFruits')
-            m.addConstrs((t_max_arm[k] == gp.max_(t_harvested.select(k, '*', '*')) for k in K), name='max_value')
+            m.addConstrs(((t_harvested[c, r, i] == t[c, r, i] * x[c, r, i]) for i in N for r in R_ for c in C_), name='timeHarvestedFruits')
+            m.addConstrs((t_max_arm[c] == gp.max_(t_harvested.select(c, '*', '*')) for c in C_), name='max_value')
 
-            # m.addConstrs((t_max_arm[k] == gp.max_(t.select(k, '*', '*')) for k in K), name='max_value')  # doesn't take into account if fruit harvested or not
+            # m.addConstrs((t_max_arm[c] == gp.max_(t.select(c, '*', '*')) for c in C_), name='max_value')  # doesn't take into account if fruit harvested or not
             if set_algorithm == 2 or set_algorithm == 5:
-                m.addConstrs((makespan >= t_max_arm[k] for k in K), name='makespan_constraint')
+                m.addConstrs((makespan >= t_max_arm[c] for c in C_), name='makespan_constraint')
                 m.addConstr((makespan_norm == makespan * (v_vy / 100) / d_solve), name='normalized_makespan')
 
-            # m.addConstrs((((v_vy / 100) * aux_var[k, l, i] == x[k, l, i]) for i in N for l in L for k in K), name="aux")
-            # m.addConstrs(((v_vy * aux_var[k, l, i] == (d_solve / total_fruit) * x[k, l, i]) for i in N for l in L for k in K), name="aux")
+            # m.addConstrs((((v_vy / 100) * aux_var[c, r, i] == x[c, r, i]) for i in N for r in R_ for c in C_), name="aux")
+            # m.addConstrs(((v_vy * aux_var[c, r, i] == (d_solve / total_fruit) * x[c, r, i]) for i in N for r in R_ for c in C_), name="aux")
 
 
 
         ### Objective function
         if set_algorithm == 0:
             # single run MIP
-            m.setObjective(gp.quicksum(x[k, l, i] for i in N for l in L for k in K), GRB.MAXIMIZE)
+            m.setObjective(gp.quicksum(x[c, r, i] for i in N for r in R_ for c in C_), GRB.MAXIMIZE)
             
         elif set_algorithm == 1 or set_algorithm == 4:
             # FPE*FPT 
@@ -445,7 +445,7 @@ class MIP_melon(object):
                 fruit_picked_by.append([])
                 fruit_picked_at.append([])
 
-            for k in range(self.n_col+1):
+            for c in range(self.n_col+1):
                 if self.n_row > 1:
                     fruit_picked_by[n].append([])
                     fruit_picked_at[n].append([])
@@ -516,11 +516,11 @@ class MIP_melon(object):
         # check that TW and t^k_i match indexes and arms
         # print()
         # for i in N:
-        #     for k in K:
+        #     for c in C_:
         #         row = 0
         #         # for row in range(self.n_row):
         #         # TW start and end are the same for every row, but not t, so depending on what's being checked, add or remove this for loop and add to t[].X
-        #         print('For row', row, 'arm',k, 'and fruit', i, 'TW start:', TW_start[i][k], 'TW end:', TW_end[i][k], 'and t^k_i', t[k, row, i].X)
+        #         print('For row', row, 'arm',c, 'and fruit', i, 'TW start:', TW_start[i][c], 'TW end:', TW_end[i][c], 'and t^k_i', t[c, row, i].X)
         #     print('Fruit harvested?', self.sortedFruit[4,i])
         #     print('----')
 
