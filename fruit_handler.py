@@ -1,5 +1,6 @@
 import csv
 import numpy as np
+from numpy.random import PCG64
 # from scipy.spatial import KDTree # for clusters
 import sys
 
@@ -26,15 +27,23 @@ class fruit_handler(object):
 
 
 
-    def buildOrchard(self, n_runs, set_distribution, seed_list):
-        '''Creates the simulated environment, separated so that MIP run/row can happen'''
+    def buildOrchard(self, set_distribution, seed_list):
+        '''
+           Set up to create the simulated environment, separated from createFruitDistribution so that MIP run/row can happen.
+           Seed list is a list with three seeds to compute the random the x, y, and z-coordinates. It's obtained from a CSV but
+           only one set of three values is passed to buildorchard at a time to save time. 
+        '''
 
-        for run in range(n_runs):
-            # get seeds for x, y, and z RNG (probably unneccessary right now, especially for x)
-            seed = [seed_list[run][0], seed_list[run][1], seed_list[run][2]]
-            x_seed = PCG64(int(seed[0]))
-            y_seed = PCG64(int(seed[1]))
-            z_seed = PCG64(int(seed[2])) 
+        # for run in range(n_runs):
+        #     # use seeds from CSV for x, y, and z RNG 
+        #     seed = [seed_list[run][0], seed_list[run][1], seed_list[run][2]]
+        #     x_seed = PCG64(int(seed[0]))
+        #     y_seed = PCG64(int(seed[1]))
+        #     z_seed = PCG64(int(seed[2])) 
+        
+        x_seed = PCG64(int(seed_list[0]))
+        y_seed = PCG64(int(seed_list[1]))
+        z_seed = PCG64(int(seed_list[2])) 
 
         # create fruit distribution and get total number of fruits
         fruitD = fruitDistribution(self.x_lim, self.y_lim, self.z_lim) # init fruit distribution script
@@ -398,11 +407,6 @@ class fruit_handler(object):
 
         
             
-        
-
-
-    
-
     def fruitsInView(self, Q, d_view, total_sortedFruit, d_cell, d_arm_travel):
     # def fruitsInView(q_vy, n_snapshots, l_view_m, total_sortedFruit, cell_l, pick_travel_l):
         '''Determine which fruits are unpicked and in front of the vehicle for each snapshot.'''
@@ -438,7 +442,7 @@ class fruit_handler(object):
     def getRNGSeedList(self, n_runs, csv_name):
         '''
         Open the random seed list rngseed_list_20200901.csv with 200 seeds for each of the 3 real fruit coordinate axis
-        and 3 fake fruit coordinate axis.
+        and 3 extra (used to be for "fake fruits" but switching to z-coordinates for row top and bottom boundaries).
         '''
         # keeps track of the row number of the csv being read (each row contains the seeds for one run)
         csv_i     = 0
@@ -447,7 +451,7 @@ class fruit_handler(object):
 
         with open(csv_name) as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-            for row in reader:
+            for row in reader:  # row contains the values in the CSV's row so it cannot be used as the counter
                 seed_list.append(row)
                 if csv_i == n_runs:
                     break
@@ -459,75 +463,103 @@ class fruit_handler(object):
     
 
 
-    def set_zEdges(self, set_edges, z_lim, h_cell, h_g, sortedFruit):
+    def calcRowZBounds(self, set_edges, z_lim, h_cell, h_g, sortedFruit, boundary_seed):
         '''
         Calculate the z-coord for each horizontal row, assuming the whole row shares these edges.
 
         Returns a n_row x n_col matrix for both the bottom and top edges of each cell. Takes into account the
         height of the gripper, adding dead space to remove the possiblility of collisions between arms in a
         column. If there are multiple columns, adds a random offset between columns to remove dead space.
+
+        Returns two arrays, z_row_bot_edges[row,col] and z_row_top_edges[row,col]
         '''   
         # find what fruits are available to harvest (some may have already been picked or removed)
         index_available = np.where(sortedFruit[4,:] <= 1) 
 
-        # edges for the nth horizontal row of cells
-        if set_edges == 0 or len(index_available[0]) < 1: 
+        # compute a the random offset per column by using CSV-saved seeds so that results are reprodicible, only create C-1 offsets because column 0 is set at the boundary value
+        if self.C > 1:
+            boundary_offset = np.random.default_rng(PCG64(int(boundary_seed))).uniform(-h_g, h_g, [(self.R-1), self.C]) # create C number of offsets
+            # zero out the c=0 offset
+            boundary_offset[:,0] = 0
+            # use boundary offset to create two new matrixes with zeros in the correct row to add offsets correctly to the top and bottom matrices
+            zero_array      = np.zeros([self.C])
+            bot_offset      = np.concatenate(([zero_array], boundary_offset), axis=0)
+            top_offset      = np.concatenate((boundary_offset, [zero_array]), axis=0)
+            # print('\nBoundary offset:\n', boundary_offset)
+            # print('bottom offset:\n', bot_offset)
+            # print('top offset:\n', top_offset)
+        else:
+            boundary_offset = np.zeros([self.R, self.C])
+
+        # calculate the z-coordinates for equal height rows
+        if set_edges == 0 or len(index_available[0]) <= self.R: 
             # divided equally by distance along orchard height or there are no fruits in view
+            # bottom = np.mgrid
             # row bottom edge = n*self.cell_h
-            bottom = np.linspace(0, (self.R*h_cell - h_cell), self.R, endpoint=True)
+            bottom = np.linspace(0, (self.R*h_cell - h_cell), self.R, endpoint=True)  # h_cell is interesting because it's already calculated from h_vehicle/n_rows 
+            # print('\nthe first bottom set of boundaries', bottom, '\n')
 
-            bot_edge = np.tile(bottom, (self.C, 1))
+            # bot_edge = np.tile(bottom, (self.C, 1))
+            bot_edge = np.transpose(np.tile(bottom, (self.C,1)))   # need to output bottom[row, col] which requires the transpose
             top_edge = np.copy(bot_edge) + h_cell
-        #     print('bottom edges:', bot_edge)
-        #     print()
-        #     print('top edges:', top_edge)
-        #     print()
-        elif set_edges == 1:
-            # divided by number of fruit
-            
-            # make zero arrays for top and bottom. Since edges shared along horizontal row, can tile it by n_col
-            top    = np.zeros(self.R)
-            bottom = np.zeros(self.R)
+            # print('\nh_cell*c for c = 0, ...., C-1:', 0, h_cell*1, h_cell*2)
+            # print('\nbottom edges:\n', bot_edge)
+            # print()
+            # print('top edges:\n', top_edge)
+            # print()
 
-            # calculate how many fruits should be in each row
+        elif set_edges == 1:
+            bot_edge = np.zeros([self.R, self.C])
+            top_edge = np.zeros([self.R, self.C])
+             # calculate how many fruits should be in each row
             fruit_in_row = math.floor(len(index_available[0]) / self.R)  # total fruit in each horizontal row (round down, one row could be heavier)
             # fruit_in_row = math.floor(numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
             # fruit_in_row = math.floor(self.numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
-            print('number of fruit in each row, rounded down', fruit_in_row)
+            print('\nnumber of fruit in each row, rounded down', fruit_in_row, '\n')
             print()
             
             # get the z-coord array of the remaining fruits
             # z_check = np.array(sortedFruit[2])
             z_coord = np.array(sortedFruit[2,index_available[0]])
-
             # print('z_check', z_check)
             # print()
             # print('z_coord', z_coord)
-            # sort the array
+
+            # sort the array from small to large value
             z_sorted = np.sort(z_coord)
     #         print('sorted z-coord', z_sorted)
             
             for row in range(self.R-1):
-                top[row]      = z_sorted[fruit_in_row*(row+1)]-0.05
+                # take the average of the fruit and next fruit's coordinates that determine the z-coordinate boundary value
                 # it's row+1 for the bottom because bottom[0] == 0 because it should be at the bottom frame 
-                bottom[row+1] = z_sorted[fruit_in_row*(row+1)]+0.05
-            # the last top edge should be loacted at the top frame
-            top[-1] = z_lim[1]
-                
-            bot_edge = np.tile(bottom, (self.C, 1))
-            top_edge = np.tile(top, (self.C, 1))
+                bot_edge[row+1,:] = (z_sorted[fruit_in_row*(row+1)] + z_sorted[fruit_in_row*(row+1) + 1]) / 2
+                top_edge[row,:]   = (z_sorted[fruit_in_row*(row+1)] + z_sorted[fruit_in_row*(row+1) + 1]) / 2
+
+            # the last top edge should be located at the top frame
+            top_edge[self.R-1,:] = z_lim[1]
             
         else:
             print('Not an edge setting, please try again')
             sys.exit(0)
 
-        self.z_row_bot_edges = bot_edge
-        self.z_row_top_edges = top_edge
+        # add the dead space caused by the gripper taking up h_g vertical space, avoid adding or subtracting from the top and bottom physical frame location values
+        # print('\nBEFORE h_g and the random offset')
+        # print('\nbottom edges:\n', bot_edge)
+        # print()
+        # print('top edges:\n', top_edge)
+        bot_edge[1:,:]          += 1/2 * h_g
+        top_edge[:(self.C-2),:] -= 1/2 * h_g
 
-        # print('bottom z-axis edges', self.z_row_bot_edges)
+        # add the random offset
+        self.z_row_bot_edges = bot_edge + bot_offset
+        self.z_row_top_edges = top_edge + top_offset
+        # print('\nAFTER h_g')
+        # print('bottom z-axis edges:\n', self.z_row_bot_edges)
         # print()
-        # print('top z-axis edges', self.z_row_top_edges)
+        # print('top z-axis edges:\n', self.z_row_top_edges)
         # print()
+        # sys.exit(0)  # testing only
+
         return([bot_edge, top_edge])  
     
 

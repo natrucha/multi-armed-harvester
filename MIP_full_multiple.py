@@ -220,7 +220,7 @@ def main():
     d_o              = 0.15            # in m, space between the columns
     d_hrzn           = 0.3             # in m, the extra length (horizon) in front of the robot that the robot can see
     h_cell           = 2. / n_row      # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
-    h_g              = 0.3             # in m, height of the gripper (dead space inducing)
+    h_g              = 0.05             # in m, height of the gripper (dead space inducing)
     w_arm            = 1               # how far the arm can reach into the canopy
     # will end up removing this because d_o makes much more sense and easier to deal with
     l_real_y_travel  = d_cell          # in m, actual arm horizontal (y-coordinate) travel distance within a cell (measured on the prototype to be 0.46 m)
@@ -439,7 +439,8 @@ def main():
             print('-----------------------------------------------------------------')
         
         # create the simulated environment
-        fruit_data.buildOrchard(1, set_distribution, this_seed)
+        # print('seeds being passed to buildOrchard:', this_seed[i_run][:3])
+        fruit_data.buildOrchard(set_distribution, this_seed[i_run][:3]) 
 
         # save the complete dataset of fruits
         # total_sortedFruit = np.copy(mip_melon.sortedFruit)
@@ -466,8 +467,8 @@ def main():
             index_unavailable         = np.where(i_snap_sortedFruit[4,:] == 2)
             i_snap_available_numFruit = i_snap_numFruit - len(index_unavailable[0])
 
-            # determine the z_edges for this snapshot
-            [bot_edge, top_edge] = fruit_data.set_zEdges(set_edges, z_lim, h_cell, h_g, i_snap_sortedFruit)
+            # determine the z_edges for this snapshot, add RNG seeds to give the z-bounds a random offset between columns to decrease dead-space 
+            [bot_edge, top_edge] = fruit_data.calcRowZBounds(set_edges, z_lim, h_cell, h_g, i_snap_sortedFruit, this_seed[i_run][3])
             if set_algorithm != 3 and set_algorithm != 6:
                 mip_melon.setZlim(bot_edge, top_edge)
             
