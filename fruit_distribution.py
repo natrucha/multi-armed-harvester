@@ -1,6 +1,6 @@
 import csv                      # read and write CSV file-type
 import numpy as np
-from numpy.random import PCG64
+# from numpy.random import PCG64
 
 import math
 
@@ -78,11 +78,11 @@ class fruitDistribution(object):
             y = y * 0.3048
             z = z * 0.3048
 
-        # calculate the real density in the file instead (make it volumn late)
-        area = abs(y.max() - y.min()) * abs(z.max() - z.min())
+        # calculate the real density in the file instead (make it volume later)
+        volume = abs(y.max() - y.min()) * abs(z.max() - z.min()) * abs(x.max() - x.min())
 
-        density = len(y) / area
-        print('\nThe density of fruits in the file is:', density, 'f/m^2 \n')
+        density = len(y) / volume
+        print('\nThe density of fruits in the file is:', density, 'f/m^3 \n')
 
         # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
         # something like 0.2 m away in the x-direction
@@ -164,10 +164,10 @@ class fruitDistribution(object):
         # in Raj's data set, the average denisty is around 48 fruit/m^2
         # Raj_density = 48
         # calculate the real density in the file instead (make it volumn late)
-        area = abs(y.max() - y.min()) * abs(z.max() - z.min())
+        volume = abs(y.max() - y.min()) * abs(z.max() - z.min()) * abs(x.max() - x.min())
 
-        density = numFruit / area
-        print('\nThe original density of the file is:', density, 'f/m^2 \n  The desired density is:', desired_density, 'f/m^2 \n')
+        density = numFruit / volume
+        print('\nThe original density of the file is:', density, 'f/m^3 \n  The desired density is:', desired_density, 'f/m^3 \n')
 
         # if we want the final density to be 20 fruit/m^2, that's 42% of the density, so we want to remove 1-20/48 
         percent_2_remove = 1 - desired_density/density
@@ -188,7 +188,6 @@ class fruitDistribution(object):
         # if (numFruit - total_2_remove) == len(x):
         #     # check if the number of fruit in the array is correct
         #     print('got the correct number of fruit')
-
 
         if is_meter == 0:
             # if is_meter is zero, convert from feet to meters
@@ -253,28 +252,28 @@ class fruitDistribution(object):
         return([numFruit, sortedFruit])
 
 
-    def uniformRandomMelon(self, density, y_seed, z_seed):
-        '''
-           Fruit distribution set uniform random along total y, and z given y, and z limits, seeds, 
-           and desired density. x is asumed constant for melons.
-        '''
-        numFruit = int(density * (self.len_y*self.len_x*self.len_z)) 
+    # def uniformRandomMelon(self, density, y_seed, z_seed):
+    #     '''
+    #        Fruit distribution set uniform random along total y, and z given y, and z limits, seeds, 
+    #        and desired density. x is asumed constant for melons.
+    #     '''
+    #     numFruit = int(density * (self.len_y*self.len_x*self.len_z)) 
 
-        x = np.ones(numFruit)
+    #     x = np.ones(numFruit)
 
-        y = np.random.default_rng(y_seed).uniform(self.y_lim[0], self.y_lim[1], numFruit)
-        z = np.random.default_rng(z_seed).uniform(self.z_lim[0], self.z_lim[1], numFruit)
+    #     y = np.random.default_rng(y_seed).uniform(self.y_lim[0], self.y_lim[1], numFruit)
+    #     z = np.random.default_rng(z_seed).uniform(self.z_lim[0], self.z_lim[1], numFruit)
 
-        # # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
-        # fruit = np.stack([x, y, z])
+    #     # # need a matrix to sort x, y, and z based on the y-axis (to know what fruit show up earlier)
+    #     # fruit = np.stack([x, y, z])
 
-        # axis_to_sort = np.argsort(y) # sort based on y-axis
-        # sortedFruit = fruit[:,axis_to_sort]
+    #     # axis_to_sort = np.argsort(y) # sort based on y-axis
+    #     # sortedFruit = fruit[:,axis_to_sort]
 
-        sortedFruit = self.sortNstack(x, y, z)
+    #     sortedFruit = self.sortNstack(x, y, z)
 
-        # return numFruit and the sortedFruit
-        return([numFruit, sortedFruit])
+    #     # return numFruit and the sortedFruit
+    #     return([numFruit, sortedFruit])
 
 
     def uniformRandomMelon_MultipleDensity(self, densities, y_seed, z_seed):
