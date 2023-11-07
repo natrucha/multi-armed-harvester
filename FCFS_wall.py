@@ -83,7 +83,7 @@ class FCFS(object):
 
                 for r_row in R:
                     # check what row the fruit is in
-                    if Z[i_fruit] > z_row_bot_edges[c_col,r_row] and Z[i_fruit] < z_row_top_edges[c_col,r_row]:
+                    if Z[i_fruit] > z_row_bot_edges[r_row, c_col] and Z[i_fruit] < z_row_top_edges[r_row, c_col]:
 
                         j_fruit = busy_with[r_row, c_col] # previously harvested fruit
                         # print('previously scheduled fruit index: %d' %j_fruit)
