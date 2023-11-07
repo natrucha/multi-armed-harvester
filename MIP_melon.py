@@ -301,8 +301,8 @@ class MIP_melon(object):
             FPE_min_val = FPE_min    # the minimum FPE in a soft constraint
             FPT_min_val = 2.5   # in fruits/s, the minimum FPT in a soft constraint
             # calculate the time windows for each fruit given the tested/chosen velocity 
-            m.addConstrs(((tw_s[c, i] * (v_vy / 100) == (Y[i] - (self.q_vy + (k + 1)*self.d_cell + k*self.d_o))) for i in N for c in C_), name="TW_start")
-            m.addConstrs(((tw_e[c, i] * (v_vy / 100) == (Y[i] - (self.q_vy + k*self.d_cell + k*self.d_o))) for i in N for c in C_), name="TW_end")
+            m.addConstrs(((tw_s[c, i] * (v_vy / 100) == (Y[i] - (self.q_vy + (c + 1)*self.d_cell + c*self.d_o))) for i in N for c in C_), name="TW_start")
+            m.addConstrs(((tw_e[c, i] * (v_vy / 100) == (Y[i] - (self.q_vy + c*self.d_cell + c*self.d_o))) for i in N for c in C_), name="TW_end")
             
             # turns x[c, r, i] == 0 if t[c, r, i] * (v_vy/100) >= D_, or the fruit cannot be picked if the time of picking is larger than the time between snapshots
             # to learn about building this constraint see https://or.stackexchange.com/questions/5860/link-a-binary-variable-to-continuous-variable-in-java-gurobi
