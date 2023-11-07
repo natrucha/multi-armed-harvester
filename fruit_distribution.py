@@ -17,9 +17,9 @@ class fruitDistribution(object):
         self.len_y = y_lim[1] - y_lim[0]  
         self.len_z = z_lim[1] - z_lim[0]
 
-        self.x_lim = x_lim
-        self.y_lim = y_lim
-        self.z_lim = z_lim
+        self.x_lim = np.copy(x_lim)
+        self.y_lim = np.copy(y_lim)
+        self.z_lim = np.copy(z_lim)
         # print('length of orchard row within the fruit distribution creator:', self.y_lim)
 
 
@@ -42,7 +42,7 @@ class fruitDistribution(object):
         return(sortedFruit)
 
 
-    def csvFile(self, file_name, is_meter):
+    def csvFile(self, file_name, is_meter, file_delimiter=' '):
         '''
             Import fruit coordinates from given CSV file, where each fruit is a row, columns are x, y, z
             coordinates. 
@@ -50,6 +50,7 @@ class fruitDistribution(object):
             file_name has to be string with '...' 
 
             is_meter = 0 means ft, 1 is meter (other values for other measurements?).
+            file_delimiter, 2022 data uses space (default) while the rest use commas
         '''
         x_list = list()
         y_list = list()
@@ -58,12 +59,19 @@ class fruitDistribution(object):
         numFruit = 0
 
         with open(file_name) as csvfile:
-            reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+            reader = csv.reader(csvfile, delimiter=file_delimiter, quoting=csv.QUOTE_NONNUMERIC)
             for row in reader:
-                # need to check that x, y, z, coordinates match my definition of x, y, z -> apples 2015 do
-                x_list.append(row[0])
-                y_list.append(row[1])
-                z_list.append(row[2])
+                if file_delimiter == ' ':
+                    # the 2022 data is the only data set that has different x, y, z definitions than the rest of the project
+                    x_list.append(row[2]) # depth into the canopy
+                    y_list.append(row[0]) # length along orchard row
+                    z_list.append(row[1]) # height
+
+                else:
+                    # datasets match the code's definition of the x, y, and z axes
+                    x_list.append(row[0])
+                    y_list.append(row[1])
+                    z_list.append(row[2])
 
                 numFruit += 1
 
@@ -79,7 +87,7 @@ class fruitDistribution(object):
             z = z * 0.3048
 
         # calculate the real density in the file instead (make it volume later)
-        volume = abs(y.max() - y.min()) * abs(z.max() - z.min()) * abs(x.max() - x.min())
+        volume = abs(np.amax(y) - np.amin(y)) * abs(np.amax(z) - np.amin(z)) * abs(np.amax(x) - np.amin(x))
 
         density = len(y) / volume
         print('\nThe density of fruits in the file is:', density, 'f/m^3 \n')
@@ -92,13 +100,16 @@ class fruitDistribution(object):
         # something like 0 m long in the y-direction
         y_translate = np.amin(y)
         y = y - y_translate
+        # fix the self.y_lim[1] value because hard-coding values isn't a good idea
+        real_y_max   = np.amax(y) + 0.01
+        # print('compare self.y_lim[1] vs data np.amax(y)', self.y_lim[1], 'vs', np.amax(y))
         # something like 0 m high in the z-direction
         z_translate = np.amin(z)
         z = z - z_translate
 
         # remove any fruit that is outside of the robot's max limits
         index_out_of_x_bounds = np.where(x >= self.x_lim[1])
-        index_out_of_y_bounds = np.where(y >= self.y_lim[1])
+        index_out_of_y_bounds = np.where(y >= real_y_max)
         index_out_of_z_bounds = np.where(z >= self.z_lim[1])
         # print('out of z bounds (before):')
         # print(index_out_of_z_bounds[0])
@@ -122,7 +133,7 @@ class fruitDistribution(object):
         if len(sortedFruit[0]) != numFruit:
             numFruit = len(sortedFruit[0])
 
-        return([numFruit, sortedFruit])        
+        return([numFruit, sortedFruit, real_y_max])        
 
 
 
@@ -166,14 +177,14 @@ class fruitDistribution(object):
         # calculate the real density in the file instead (make it volumn late)
         volume = abs(y.max() - y.min()) * abs(z.max() - z.min()) * abs(x.max() - x.min())
 
-        density = numFruit / volume
+        density = len(y) / volume
         print('\nThe original density of the file is:', density, 'f/m^3 \n  The desired density is:', desired_density, 'f/m^3 \n')
 
         # if we want the final density to be 20 fruit/m^2, that's 42% of the density, so we want to remove 1-20/48 
         percent_2_remove = 1 - desired_density/density
         # print('percent of fruit to remove', percent_2_remove, 'out of total', numFruit, 'fruit')
         # print()
-        total_2_remove  = math.floor(numFruit * percent_2_remove)
+        total_2_remove  = math.floor(len(y) * percent_2_remove)
         # print('total fruit to remove', total_2_remove)
         # print()
 

@@ -251,12 +251,12 @@ def main():
     total_picked = 0
 
     ## set fruit distribution flag
-    # 0   * not available *  == 2022 Digitized fruit data (Pink Ladies, Jeff Colombini orchard)
+    # 0     == 2022 Digitized fruit data (Pink Ladies, Jeff Colombini orchard)
     # 1   * not available *  == random (seed-based) segments from 2022 digitized fruit
     # 2     == Raj's digitized fruits (right side)
     # 3     == Juan's digitized fruits (Stavros phone video)
-    # 4     == reduced Raj's digitized fruits; can reduce the density to a desired value 
-    # 5     == reduced Juan's digitized fruits; can reduce the density to a desired value 
+    # 4     == reduced Raj's digitized fruits; can reduce the density to a desired value (density hardcoded currently to 20f/m^3)
+    # 5     == reduced Juan's digitized fruits; can reduce the density to a desired value (density hardcoded currently to 20f/m^3)
     # 6     == uniform random  (if algorithm == 1, use melon version)
     # 7   * not available *  == uniform random, equal cell density
     # 8   * not available *  == multiple densities separated by some space (only melon for now)
@@ -347,6 +347,27 @@ def main():
         time_snap_list  = list()
         this_seed       = list()
 
+        # because we're restarting the object at every run, need to only provide this run's seed list. Needs a list of lists since it assumes it could be multiple runs
+        this_seed.append(seed_list[i_run]) 
+
+        # create the simulated environment
+        # print('seeds being passed to buildOrchard:', this_seed[i_run][:3])
+        if set_distribution == 0:
+            fruit_data.buildOrchard(set_distribution, run_n=i_run) 
+        elif set_distribution == 1 or set_distribution >= 4:
+            fruit_data.buildOrchard(set_distribution, this_seed[i_run][:3], density=density, run_n=i_run) 
+        else:
+            fruit_data.buildOrchard(set_distribution, this_seed[i_run][:3])
+
+        # save the complete dataset of fruits
+        # total_sortedFruit = np.copy(mip_melon.sortedFruit)
+
+        # # find number of problem clusters (extend later to know where the clusters are)
+        # # findClustersTotal(mip_melon.sortedFruit, v_vy, mip_melon.Td, n_col)
+        # fruits2remove = findClustersByRow(mip_melon.sortedFruit, v_vy, mip_melon.Td, n_col, n_row, mip_melon.z_row_bot_edges, mip_melon.z_row_top_edges)
+        # for fruit_i in fruits2remove: 
+        #     mip_melon.sortedFruit[4,fruit_i] = 2  ############ CAREFUL, flag=2 IS USED AS SCHED+PICK ############
+
         # init the MIP melon object 
         if set_solve_row == 0 and set_algorithm < 3: # the first 3 algorithms are MIP-based
             n_row_loop = 1 # because the whole view is being solved at once, no need to loop
@@ -416,9 +437,6 @@ def main():
         if set_algorithm != 3 and set_algorithm != 6:
             mip_melon.setTravelLength(D_)           # needed an easy and clear way to set travel length in mip_melon since it changes depending on the settings
 
-        # because we're restarting the object at every run, need to only provide this run's seed list. Needs a list of lists since it assumes it could be multiple runs
-        this_seed.append(seed_list[i_run])    ## might want to clean this up so it only runs when creating fake fruit distributions
-
         if print_out == 1:
             print()
             print('length of the full dataset:', (fruit_data.y_lim[1] - fruit_data.y_lim[0]), 'm')
@@ -437,19 +455,6 @@ def main():
             # print()
             print('-----------------------------------------------------------------')
             print('-----------------------------------------------------------------')
-        
-        # create the simulated environment
-        # print('seeds being passed to buildOrchard:', this_seed[i_run][:3])
-        fruit_data.buildOrchard(set_distribution, this_seed[i_run][:3]) 
-
-        # save the complete dataset of fruits
-        # total_sortedFruit = np.copy(mip_melon.sortedFruit)
-
-        # # find number of problem clusters (extend later to know where the clusters are)
-        # # findClustersTotal(mip_melon.sortedFruit, v_vy, mip_melon.Td, n_col)
-        # fruits2remove = findClustersByRow(mip_melon.sortedFruit, v_vy, mip_melon.Td, n_col, n_row, mip_melon.z_row_bot_edges, mip_melon.z_row_top_edges)
-        # for fruit_i in fruits2remove: 
-        #     mip_melon.sortedFruit[4,fruit_i] = 2  ############ CAREFUL, flag=2 IS USED AS SCHED+PICK ############
 
         # create the arm object lists, should only be done once per full dataset if not solving by row
         if set_solve_row == 0:

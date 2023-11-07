@@ -27,27 +27,35 @@ class fruit_handler(object):
 
 
 
-    def buildOrchard(self, set_distribution, seed_list):
+    def buildOrchard(self, set_distribution, seed_xyz, density=20, run_n=0):
         '''
            Set up to create the simulated environment, separated from createFruitDistribution so that MIP run/row can happen.
            Seed list is a list with three seeds to compute the random the x, y, and z-coordinates. It's obtained from a CSV but
            only one set of three values is passed to buildorchard at a time to save time. 
         '''
-
-        # for run in range(n_runs):
-        #     # use seeds from CSV for x, y, and z RNG 
-        #     seed = [seed_list[run][0], seed_list[run][1], seed_list[run][2]]
-        #     x_seed = PCG64(int(seed[0]))
-        #     y_seed = PCG64(int(seed[1]))
-        #     z_seed = PCG64(int(seed[2])) 
-        
-        x_seed = PCG64(int(seed_list[0]))
-        y_seed = PCG64(int(seed_list[1]))
-        z_seed = PCG64(int(seed_list[2])) 
-
-        # create fruit distribution and get total number of fruits
+        # init the fruit distribution creation module with the desired limits
         fruitD = fruitDistribution(self.x_lim, self.y_lim, self.z_lim) # init fruit distribution script
-        [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution, x_seed, y_seed, z_seed)
+
+        if set_distribution == 0:
+            [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution, run_n=run_n)
+
+        elif set_distribution == 1:
+            # uses the seed values to get random segments from the 2022 apple data files
+            x_seed = PCG64(int(seed_xyz[0])) 
+            y_seed = PCG64(int(seed_xyz[1]))
+            z_seed = PCG64(int(seed_xyz[2])) 
+            [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution, x_seed=x_seed, y_seed=y_seed, z_seed=z_seed, run_n=run_n)
+
+        elif set_distribution >= 4:
+            # seed values, rather than i_run, will determine changes to any RNG-created distribution
+            x_seed = PCG64(int(seed_xyz[0])) 
+            y_seed = PCG64(int(seed_xyz[1]))
+            z_seed = PCG64(int(seed_xyz[2])) 
+            [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution, x_seed=x_seed, y_seed=y_seed, z_seed=z_seed, density=density)
+
+        else:
+            # non-RNG distributions, so don't bother processing or sending them
+            [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution)        
 
         # print('Density chosen', self.density)
         print('x-lim', self.x_lim, 'y-lim', self.y_lim, 'z-lim', self.z_lim)
@@ -221,23 +229,28 @@ class fruit_handler(object):
 
 
     def calcYlimMax(self, set_distribution):
-        '''Calculates the end of the orchard's coordinate based on the set fruit distribution'''
+        '''
+           Calculates the end of the orchard's coordinate based on the set fruit distribution. 
+           
+           Every data set is a different length which is currently hardcoded in this function. Function runs before 
+           fruits are read in, so it cannot (at this point) be set based on the distribution. Should change this...
+        '''
         # no snapshots, so the travel length is static at the orchard row's length
-        if set_distribution == 2:
+        if set_distribution == 0:
+            # using 2022 Colombini data, full orchard rows 
+            y_max  = 10.9 # in m, although they should all be around 10m, adding 0.9 to test what the correct value should be. 
+
+        elif set_distribution == 2 or set_distribution == 4:
             # if using raj's dataset
             y_max  = 10.9 # in m, for Raj's data
             # self.density   = 48.167         # in fruit/m^2 (on avg.), constant, for Raj's data
             # n_runs    = 1
 
-        elif set_distribution == 3:
+        elif set_distribution == 3 or set_distribution == 5:
             # if using juan's dataset
             y_max  = 16.5 # in m, for Juan's data
             # self.density   = 53.97            # in fruit/m^2 (on avg.), constant, for Juan's data
             # n_runs    = 1
-
-        elif set_distribution == 4 or set_distribution == 5:
-            # if using reduced raj's or juan's dataset
-            y_max = 6 # in m, should watch out because the total distance is actually 12
 
         elif set_distribution == 6:
             # uniform random
@@ -255,7 +268,7 @@ class fruit_handler(object):
         #     y_max  = self.d_y * n_fruit # in m
             
         else: 
-            print('ERROR: that distribution', set_distribution, 'does not exist, exiting the program')
+            print('ERROR: distribution', set_distribution, 'does not exist or is not available, exiting the program')
             sys.exit(0)
 
         self.y_lim[1] = y_max 
@@ -331,34 +344,60 @@ class fruit_handler(object):
     
 
 
-    def createFruitDistribution(self, fruitD, set_distribution, x_seed, y_seed, z_seed, density=54):
+    def createFruitDistribution(self, fruitD, set_distribution, x_seed=0, y_seed=0, z_seed=0, density=20, run_n=0):
         '''
            Determines how the fruit distribution is going to be created, ether from real localization data or from RNG-created data 
            based on the given seeds. See value below for all the options.
+
+           seed values are only provided for distributions that need them, otherwise the defualt is 0 for all seeds.
         '''
         # 0     == 2022 Digitized fruit data (Pink Ladies, Jeff Colombini orchard)
-        # 1     == random (seed-based) segments from 2022 digitized fruit
+        # 1   * not available *  == random (seed-based) segments from 2022 digitized fruit
         # 2     == Raj's digitized fruits (right side)
         # 3     == Juan's digitized fruits (Stavros phone video)
-        # 4     == reduced Raj's digitized fruits; can reduce the density to a desired value 
-        # 5     == reduced Juan's digitized fruits; can reduce the density to a desired value 
+        # 4     == reduced Raj's digitized fruits; can reduce the density to a desired value (density hardcoded currently to 20f/m^3)
+        # 5     == reduced Juan's digitized fruits; can reduce the density to a desired value (density hardcoded currently to 20f/m^3)
         # 6     == uniform random  (if algorithm == 1, use melon version)
         # 7   * not available *  == uniform random, equal cell density
         # 8   * not available *  == multiple densities separated by some space (only melon for now)
         # 9   * not available *  == fruit in vertical columns
         # 10  * not available *  == "melon" version of columns (user inputs desired no. fruits, z height, and distance between fruit in y-coord)
 
-        if set_distribution == 2:
+        if set_distribution == 0:
+            # using 2022 Colombini data, full orchard rows 
+            # there are 18 CSV files, from 4 folders, each file with around 10m of fruit localization data 
+            csv_folder = './TREE_FRUIT_DATA/apple_data_2022/'
+            print('RUN NUMBER:', run_n)
+            if run_n <= 5:
+                run_files = '01_42_4_apples_' + str(run_n+1) + '.csv'
+            elif run_n <= 9:
+                run_files = '46_42_1_apples_' + str(run_n-5) + '.csv'
+            elif run_n <= 13:
+                run_files = '51_42_2_apples_' + str(run_n-9) + '.csv'
+            elif run_n <= 15:
+                run_files = '56_42_3_apples_' + str(run_n-13) + '.csv'
+            else: 
+                print('WARNING: There are no more files in the 2022 dataset to run. Defaulting to the last file.')
+                run_files = '56_42_3_apples_3.csv'
+
+            csv_file = csv_folder + run_files
+            is_meter = 1
+            [N, sortedFruit, real_y_max] = fruitD.csvFile(csv_file, is_meter)
+            self.y_lim[1] = real_y_max
+
+        elif set_distribution == 2:
             # using raj's dataset
             csv_file = './TREE_FRUIT_DATA/apple_tree_data_2015/Applestotheright.csv'
             is_meter = 0
-            [N, sortedFruit] = fruitD.csvFile(csv_file, is_meter)
+            [N, sortedFruit, real_y_max] = fruitD.csvFile(csv_file, is_meter, file_delimiter=',')
+            self.y_lim[1] = real_y_max
 
         elif set_distribution == 3:
             # use juan's dataset
             csv_file = './TREE_FRUIT_DATA/20220811_apples_Juan.csv'
             is_meter = 1
-            [N, sortedFruit] = fruitD.csvFile(csv_file, is_meter)
+            [N, sortedFruit, real_y_max] = fruitD.csvFile(csv_file, is_meter, file_delimiter=',')
+            self.y_lim[1] = real_y_max
 
         elif set_distribution == 4:
             # using raj's reduced dataset
