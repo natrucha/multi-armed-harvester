@@ -25,16 +25,25 @@ def printScen(scenStr):
     print("\n" + "*"*sLen + "\n" + scenStr + "\n" + "*"*sLen + "\n")
 
 
-def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list, snapshot_cell, print_out, log_out):
+def analysisMultiple(set_distribution, n_runs, n_snapshots_array, run_list, time_list, snapshot_cell, log_out):
     '''Obtain average and variance of results and time-to-run for all the runs'''
-    time_array = np.zeros([n_runs, n_snapshots])
-    FPE_array  = np.zeros([n_runs, n_snapshots])
-    FPT_array  = np.zeros([n_runs, n_snapshots])
-    max_row_density  = np.zeros([n_runs, n_snapshots]) # in fruits/m^2 
-    min_row_density  = np.zeros([n_runs, n_snapshots]) # in fruits/m^2
-    snapshot_density = np.zeros([n_runs, n_snapshots]) # in fruits/m^2
 
-    v_vy_cmps_array = np.zeros([n_runs, n_snapshots]) # save the velocity in cm/s used in each snapshot
+    n_snapshots = np.max(n_snapshots_array) # use the max value of snapshots to build the data analysis arrays and avoid index errors
+    print('the max number of snapshots is', n_snapshots_array)
+    # arrays to save the final FPE and FPT values of each run to get avgs and std
+    FPE_max_array = np.zeros(n_runs)
+    FPT_max_array = np.zeros(n_runs)
+
+    C_array          = np.zeros([n_runs, n_snapshots])
+    R_array          = np.zeros([n_runs, n_snapshots])
+    time_array       = np.zeros([n_runs, n_snapshots])
+    FPE_array        = np.zeros([n_runs, n_snapshots])
+    FPT_array        = np.zeros([n_runs, n_snapshots])
+    FPEavg_array     = np.zeros([n_runs, n_snapshots])
+    FPTavg_array     = np.zeros([n_runs, n_snapshots])
+    # Td_avg           = np.zeros([n_runs, n_snapshots])      
+    # snapshot_density = np.zeros([n_runs, n_snapshots]) # in fruits/m^2
+    v_vy_cmps_array  = np.zeros([n_runs, n_snapshots]) # save the velocity in cm/s used in each snapshot
    
     # v_vy_cmps = int(run_list[0][0].v_vy * 100)
     # print('the run\'s v_vy', v_vy_cmps)
@@ -46,61 +55,68 @@ def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list,
     print()
 
     for i_run in range(n_runs):
-        for i_snap in range(n_snapshots):
+        # run up to the number of snapshots in the run
+        for i_snap in range(n_snapshots_array[i_run]):
             # print('Currently analyzing i_run %d and i_snap %d' % (i_run, i_snap))
-            time_array[i_run,i_snap] = time_list[i_run][i_snap].total_seconds()
+            time_array[i_run,i_snap]      = time_list[i_run][i_snap].total_seconds()
             # run list is made up of snapshot lists
-            # try:
-            # some snapshot lists are empty when there is nothing to harvest so end up with an IndexError 
-            FPE_array[i_run,i_snap]  = run_list[i_run][i_snap].FPE * 100
-            FPT_array[i_run,i_snap]  = run_list[i_run][i_snap].FPT
-            # except IndexError:
-            #     # set the values at 100 (no harvestable fruits, no )
-            #     FPE_array[i_run,i_snap]  = 100
-            #     FPT_array[i_run,i_snap]  = 0
-            v_vy_cmps_array[i_run,i_snap] = run_list[i_run][i_snap].v_vy * 100
+            C_array[i_run,i_snap]         = run_list[i_run][i_snap].n_col
+            R_array[i_run,i_snap]         = run_list[i_run][i_snap].n_row
+            FPE_array[i_run,i_snap]       = run_list[i_run][i_snap].FPE * 100
+            FPEavg_array[i_run,i_snap]    = run_list[i_run][i_snap].FPEavg * 100
+            FPT_array[i_run,i_snap]       = run_list[i_run][i_snap].FPT
+            FPTavg_array[i_run,i_snap]    = run_list[i_run][i_snap].FPTavg
+            v_vy_cmps_array[i_run,i_snap] = run_list[i_run][i_snap].v_vy * 100 # in cm/s
 
-            density_rows = np.average(snapshot_cell[i_snap][0], axis=1)
-
-            max_row_density[i_run,i_snap]  = density_rows.max()
-            min_row_density[i_run,i_snap]  = density_rows.min()
-            snapshot_density[i_run,i_snap] = np.average(snapshot_cell[i_snap][0])
+            # density_rows = np.average(snapshot_cell[i_snap][0], axis=1)
+            # snapshot_density[i_run,i_snap] = np.average(snapshot_cell[i_snap][0])
 
             # print('average snapshot density:', snapshot_density[i_run,i_snap])
             # print('row densities:\n', density_rows)
             # print('max row density:', max_row_density[i_run,i_snap])
             # print('min row density:', min_row_density[i_run,i_snap], '\n')
 
-        if print_out == 1:
-            # print out this run's snapshot average results
-            print('Run', i_run, 'results over the run\'s snapshots:')
+        # print out this run's snapshot average results
+        print('Run', i_run, 'results over the run\'s snapshots:')
+        print('------------------------------------------------')
 
-            avg_time_run = np.average(time_array[i_run,:])
-            std_time_run = np.std(time_array[i_run,:])
-            print('    average time, {:.3f}'.format(avg_time_run), '+/-{:.3f} s'.format(std_time_run)) 
+        n_snap_array_index = n_snapshots_array[i_run]-1
 
-            avg_FPE_run = np.average(FPE_array[i_run,:])
-            std_FPE_run = np.std(FPE_array[i_run,:])
-            print('    average FPE, {:.3f}'.format(avg_FPE_run), '+/-{:.3f}%'.format(std_FPE_run)) 
+        print(f'number of columns: %d \nnumber of row: %d' %(C_array[i_run,0], R_array[i_run,0]))
+        print(f'   global FPE: %3.3f percent' % FPE_array[i_run, n_snap_array_index])
+        avg_FPE_run = np.average(FPEavg_array[i_run, :n_snap_array_index])
+        std_FPE_run = np.std(FPEavg_array[i_run, :n_snap_array_index])
+        print('       average snapshot FPE, {:.3f}'.format(avg_FPE_run), '+/-{:.3f}%\n'.format(std_FPE_run)) 
+        print(f'   global FPT: %2.4f f/s' % FPT_array[i_run, n_snap_array_index])
+        avg_FPT_run = np.average(FPTavg_array[i_run, :n_snap_array_index])
+        std_FPT_run = np.std(FPTavg_array[i_run, :n_snap_array_index])
+        print('       average snapshot FPT, {:.3f}'.format(avg_FPT_run), '+/-{:.3f}%\n'.format(std_FPT_run))
+        avg_time_run = np.average(time_array[i_run, :n_snap_array_index])
+        std_time_run = np.std(time_array[i_run, :n_snap_array_index])
+        print('   average time to solve per snapshot, {:.3f}'.format(avg_time_run), '+/-{:.3f} s'.format(std_time_run)) 
+        print() 
 
-            avg_FPT_run = np.average(FPT_array[i_run,:])
-            std_FPT_run = np.std(FPT_array[i_run,:])
-            print('    average FPT, {:.3f}'.format(avg_FPT_run), '+/-{:.3f}%'.format(std_FPT_run)) 
-            print() 
+        FPE_max_array[i_run] = FPE_array[i_run, n_snap_array_index]
+        FPT_max_array[i_run] = FPT_array[i_run, n_snap_array_index]
 
-    if print_out == 1 and n_runs > 1:
+    if n_runs > 1:
+        print()
+        print('----------------------------------------------')
+        print('  Final mean FPE and FPT values for all runs  ')
+        print('----------------------------------------------')
+        print()
         # print out the overall average results assuming there was more than one run
         avg_time = np.average(time_array)
         std_time = np.std(time_array)
-        print('average time for every run, {:.3f} s'.format(avg_time), '+/-{:.3f} s'.format(std_time)) 
+        print('average time to solve a snapshot over every run, {:.3f} s'.format(avg_time), '+/-{:.3f} s'.format(std_time)) 
 
-        avg_FPE = np.average(FPE_array)
-        std_FPE = np.std(FPE_array)
-        print('average FPE for every run, {:.3f}'.format(avg_FPE), '+/-{:.3f}%'.format(std_FPE))  
+        avg_global_FPE = np.average(FPE_max_array)
+        std_global_FPE = np.std(FPE_max_array)
+        print('average global FPE for every run, {:.3f}'.format(avg_global_FPE), '+/-{:.3f}%'.format(std_global_FPE))  
 
-        avg_FPT = np.average(FPT_array)
-        std_FPT = np.std(FPT_array)
-        print('average FPT for every run, {:.3f}'.format(avg_FPT), '+/-{:.3f} fruits/s'.format(std_FPT))  
+        avg_global_FPT = np.average(FPT_max_array)
+        std_global_FPT = np.std(FPT_max_array)
+        print('average global FPT for every run, {:.3f}'.format(avg_global_FPT), '+/-{:.3f} fruits/s'.format(std_global_FPT))  
         print() 
 
     #######################################################################################
@@ -164,11 +180,11 @@ def analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list,
             wr = csv.writer(wr_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             
             for i_run in range(n_runs):
-                for i_snap in range(n_snapshots):
-                    row_data = [v_vy_cmps_array[i_run,i_snap], FPE_array[i_run,i_snap], FPT_array[i_run,i_snap], snapshot_density[i_run,i_snap], min_row_density[i_run,i_snap], max_row_density[i_run,i_snap]]    
+                for i_snap in range(n_snapshots_array[i_run]):
+                    row_data = [i_run, i_snap, n_snapshots_array[i_run], C_array[i_run,0], R_array[i_run,0], v_vy_cmps_array[i_run,i_snap], time_array[i_run,i_snap], FPE_array[i_run,i_snap], FPEavg_array[i_run,i_snap], FPT_array[i_run,i_snap], FPTavg_array[i_run,i_snap]]    
 
                     wr.writerow(row_data)
-                
+                time_array[i_run,:]
             print('CSV written into', file_full)
 
 
@@ -178,7 +194,7 @@ def main():
     ## command line arguments
     # args[0] == n_col
     # args[1] == n_row
-    # args[2] == density
+    # args[2] == n_runs
     # args[3] == v_vy_lb or the single speed being tested in cmps
     # args[4] == v_vy_ub (set equal to v_vy_lb if only wanting to test one velocity)
     # args[5] == algorithm
@@ -209,7 +225,7 @@ def main():
     n_row = int(args[1])  # number of rows of arms
  
     # number of runs per variable change (for Monte Carlo)
-    n_runs = 1
+    n_runs = int(args[2])
 
     # maximum velocity and acceleration, as well as the constant amount of time it takes to harvest a fruit once reached for the arm motors
     v_max            = 0.5   # these values are currently incorrect. The real values are in MIP_melon.py and they are different for each axis
@@ -309,7 +325,7 @@ def main():
     # set density if specific to the set_distibution setting
     if set_distribution >= 4:
         # reduced Raj/Juan or RNG distributions, set density as argument from user
-        density = float(args[2])       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
+        density = 40       # in fruit/m^2, makespan is being limited to rho = 2 with random placement
     else:
         # using real localization data so we don't care about this value
         density = 16 
@@ -333,11 +349,12 @@ def main():
     fruit_data.calcYlimMax(set_distribution)
 
 
-    ##################### LISTS #####################
-    run_list      = list()   # saves the results of each run for analysis
-    time_list     = list()   # saves how long each run took
+    ##################### GLOBAL LISTS and ARRAYS #####################
+    run_list       = list()       # saves the results of each run for analysis
+    time_list      = list()       # saves how long each run took
 
-    seed_list = fruit_data.getRNGSeedList(n_runs, './rngseed_list_20200901.csv') # csv file name to determine the distribution
+    snap_num_array = np.zeros(n_runs, dtype=np.int8)
+    seed_list      = fruit_data.getRNGSeedList(n_runs, './rngseed_list_20200901.csv') # csv file name to determine the distribution
 
     ##################### RUN MIP PYTHON SCRIPT #####################
     for i_run in range(n_runs):
@@ -351,13 +368,13 @@ def main():
         this_seed.append(seed_list[i_run]) 
 
         # create the simulated environment
-        # print('seeds being passed to buildOrchard:', this_seed[i_run][:3])
+        # print('seeds being passed to buildOrchard:', seed_list[i_run][:3])
         if set_distribution == 0:
-            fruit_data.buildOrchard(set_distribution, run_n=i_run) 
+            fruit_data.buildOrchard(set_distribution, seed_list[i_run][:3], run_n=i_run) 
         elif set_distribution == 1 or set_distribution >= 4:
-            fruit_data.buildOrchard(set_distribution, this_seed[i_run][:3], density=density, run_n=i_run) 
+            fruit_data.buildOrchard(set_distribution, seed_list[i_run][:3], density=density, run_n=i_run) 
         else:
-            fruit_data.buildOrchard(set_distribution, this_seed[i_run][:3])
+            fruit_data.buildOrchard(set_distribution, seed_list[i_run][:3])
 
         # save the complete dataset of fruits
         # total_sortedFruit = np.copy(mip_melon.sortedFruit)
@@ -425,8 +442,9 @@ def main():
             else:
                 FPE_min = .95 # D_ / (d_vehicle + d_hrzn) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
             n_snapshots = math.ceil((fruit_data.y_lim[1] - fruit_data.y_lim[0]) / D_)  # set just to do the area in front of the vehicle
-            
 
+        snap_num_array[i_run] = n_snapshots
+            
         # arrays saving end of snapshot result values
         chosen_v_vy_mps_array = np.zeros(n_snapshots) # in m/s, array to save each snapshot's chosen velocity 
         snapshot_time_array   = np.zeros(n_snapshots) # in s, the time a snapshot takes based on chosen velocity
@@ -451,7 +469,7 @@ def main():
                 print('\nVelocity being tested: %d cm/s' % (v_vy_lb_cmps))
 
             # print()
-            # print('this seed\n', this_seed)
+            # print('this seed\n', seed_list[i_run])
             # print()
             print('-----------------------------------------------------------------')
             print('-----------------------------------------------------------------')
@@ -473,7 +491,7 @@ def main():
             i_snap_available_numFruit = i_snap_numFruit - len(index_unavailable[0])
 
             # determine the z_edges for this snapshot, add RNG seeds to give the z-bounds a random offset between columns to decrease dead-space 
-            [bot_edge, top_edge] = fruit_data.calcRowZBounds(set_edges, z_lim, h_cell, h_g, i_snap_sortedFruit, this_seed[i_run][3])
+            [bot_edge, top_edge] = fruit_data.calcRowZBounds(set_edges, z_lim, h_cell, h_g, i_snap_sortedFruit, seed_list[i_run][3])
             if set_algorithm != 3 and set_algorithm != 6:
                 mip_melon.setZlim(bot_edge, top_edge)
             
@@ -998,10 +1016,6 @@ def main():
             # this_mean_Td = fruit_data.calcMeanTd(mip_fruit, total_picked, state_time)
             mean_Td_array[i_snap] = this_mean_Td
 
-            # fill in snapshot object and list with current results, object definition in MIP_melon.py
-            snapshot = Snapshot(n_col, n_row, d_hrzn, d_vehicle, d_cell, v_max, a_max, set_algorithm, this_mean_Td, v_vy, FPE, FPT, fruit_data.y_lim, i_snap_numFruit, chosen_j, fruit_data.sortedFruit, fruit_picked_by, state_time)
-            snapshot_list.append(snapshot)
-
             # calculate the global FPE for this snapshot
             this_global_FPE = len(where_pi[0]) / len(fruit_data.sortedFruit[4,:])
             global_FPE_array[i_snap] = this_global_FPE
@@ -1011,6 +1025,9 @@ def main():
             global_FPT_array[i_snap] = this_global_FPT
 
             ## continue filling if needed: PCT, state_time, fruit_picked_by, fruit_list (all lists?)
+            # fill in snapshot object and list with current results, object definition in fruit_handler.py
+            snapshot = Snapshot(n_col, n_row, d_hrzn, d_vehicle, d_cell, this_mean_Td, v_vy, this_global_FPE, FPE, this_global_FPT, FPT, fruit_data.y_lim, i_snap_numFruit, chosen_j, fruit_data.sortedFruit, fruit_picked_by, state_time)
+            snapshot_list.append(snapshot)
 
             if print_out == 1:
                 # print('the fruits scheduled and harvested in this snapshot are:', i_loop_fruit_picked_by)
@@ -1095,7 +1112,7 @@ def main():
             print('The mean Td for each snapshot in s:')
             print(mean_Td_array)
 
-    #     [realFPE, realFPT] = results.realFPEandFPT(sortedFruit, y_lim, v_vy)
+        # [realFPE, realFPT] = results.realFPEandFPT(sortedFruit, y_lim, v_vy)
         results.avgFPTandFPE()
         # results.avgPCT()
         # print()
@@ -1113,8 +1130,15 @@ def main():
         run_list.append(snapshot_list)
         time_list.append(time_snap_list)
 
-    # if n_runs > 1:
-    analysisMultiple(set_distribution, n_runs, n_snapshots, run_list, time_list, snapshot_cell, print_out, log_out)
+        # reset the location of the vehicle for the next run 
+        q_vy = 0 - d_vehicle
+
+        if set_algorithm != 3 and set_algorithm != 6:
+            # MIP algorithm needs q_vy to be updated at this point as well
+            mip_melon.q_vy = q_vy
+
+    if print_out > 0 or log_out > 0:
+        analysisMultiple(set_distribution, n_runs, snap_num_array, run_list, time_list, snapshot_cell, log_out)
     
     
 if __name__ == '__main__':

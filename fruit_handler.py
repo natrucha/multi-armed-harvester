@@ -492,7 +492,7 @@ class fruit_handler(object):
             reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
             for row in reader:  # row contains the values in the CSV's row so it cannot be used as the counter
                 seed_list.append(row)
-                if csv_i == n_runs:
+                if csv_i == n_runs-1:
                     break
 
                 csv_i += 1
@@ -784,25 +784,22 @@ class Job():
 
 ## create snapshot object for data analysis
 class Snapshot(object):
-    def __init__(self, n_col, n_row, horizon_l, vehicle_l, cell_l, v_max, a_max, set_algorithm, Td, v_vy, FPE, FPT, y_lim, numFruit, curr_j, sortedFruit, fruit_picked_by, state_time):
+    def __init__(self, n_col, n_row, horizon_l, vehicle_l, cell_l, Td, v_vy, FPE_g, FPEavg, FPT_g, FPTavg, y_lim, numFruit, curr_j, sortedFruit, fruit_picked_by, state_time):
         # constants for the whole run
         self.n_col      = n_col
         self.n_row      = n_row
         self.horizon_l  = horizon_l
         self.vehicle_l  = vehicle_l
         self.cell_l     = cell_l
-        self.v_max      = v_max
-        self.a_max      = a_max
-        if set_algorithm == 1:
-            self.Td     = Td
-        else: 
-            self.Td     = Td # is this even neccessary
             
         # constants and results for each snapshot in the run
         self.v_vy       = v_vy
-        self.FPE        = FPE
-        self.FPT        = FPT
+        self.FPE        = FPE_g    # global value
+        self.FPEavg     = FPEavg   # average value
+        self.FPT        = FPT_g    # global value
+        self.FPTavg     = FPTavg   # average value
         self.y_lim      = y_lim
+        self.Td         = Td       # in s, handling time
         self.actual_numFruit = numFruit
         self.curr_j          = curr_j
         self.avg_PCT         = 0.

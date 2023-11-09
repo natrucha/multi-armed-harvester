@@ -41,7 +41,7 @@ class IG_data_analysis(object):
         self.fruit_per_cell_data = snapshot_cell
 
         self.n_col  = 0
-        self.n_row = 0
+        self.n_row  = 0
         self.total_arms = 0
 
         self.step_l = step_l
@@ -61,7 +61,9 @@ class IG_data_analysis(object):
         self.v_vy       = np.zeros(len(self.schedule_data))
         self.y0         = np.zeros(len(self.schedule_data))  # snapshot's y 0th coordinate
         self.FPE        = np.zeros(len(self.schedule_data))
+        self.FPEavg     = np.zeros(len(self.schedule_data))
         self.FPT        = np.zeros(len(self.schedule_data))
+        self.FPTavg     = np.zeros(len(self.schedule_data))
         self.tot_fruit  = np.zeros(len(self.schedule_data)) # total fruit available in snapshot
         self.pick_fruit = np.zeros(len(self.schedule_data))
 
@@ -81,15 +83,14 @@ class IG_data_analysis(object):
                 self.horizon_l  = snapshot.horizon_l
                 self.vehicle_l  = snapshot.vehicle_l
                 self.cell_l     = snapshot.cell_l
-                self.v_max      = snapshot.v_max
-                self.a_max      = snapshot.a_max
-                if self.algorithm == 1:
-                    self.Td     = snapshot.Td
+                self.Td         = snapshot.Td
 
             # extract scheduling data per snapshot
             self.v_vy[index]       = snapshot.v_vy
             self.FPE[index]        = snapshot.FPE
+            self.FPEavg[index]     = snapshot.FPEavg
             self.FPT[index]        = snapshot.FPT
+            self.FPTavg[index]     = snapshot.FPTavg
             self.y0[index]         = snapshot.y_lim[0]
             self.tot_fruit[index]  = snapshot.actual_numFruit
             self.pick_fruit[index] = np.sum(snapshot.curr_j)
@@ -162,7 +163,7 @@ class IG_data_analysis(object):
             
         for snapshot_percent in self.state_time:
             self.state_percent = self.state_percent + snapshot_percent
-            print('snapshot state percent:', self.state_percent)
+            # print('snapshot state percent:', self.state_percent)
         # print('snapshot state times:')
         # print(self.state_percent)
         
@@ -187,13 +188,7 @@ class IG_data_analysis(object):
         if self.print_out == 1:
             print('Settings for these results:')
             print('Number of rows', self.n_row, 'number of arms:', self.n_col)
-
-            if self.algorithm == 1:
-                print('Fruit handling time:', self.Td, 'sec')
-
-            else:
-                print('Arm max velocity:', self.v_max, 'm/s, and max accel:', self.a_max,'m/s^2')
-                
+            print('Fruit handling time:', self.Td, 'sec')    
             print()
             print('Vehicle length: {0:.2f}'.format(self.vehicle_l), 'm, with cell length:', self.cell_l, 'm')
             print('Horizon length:', self.horizon_l, 'm')
