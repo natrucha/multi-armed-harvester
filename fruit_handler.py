@@ -662,7 +662,7 @@ class fruit_handler(object):
         #  should the columns be the same width? increase/decrease the closer to the front of vehicle?
         #  should I calculate R per horizontal row of arms?
 
-        d = np.zeros([R, C])  # total number of cells
+        density = np.zeros([R, C])  # total number of cells
         # starting position on the z-axis (up-down on robot)
         row_z = 0.
 
@@ -681,7 +681,7 @@ class fruit_handler(object):
                             (sortedFruit[2,:] >= row_z) & (sortedFruit[2,:] < row_z + h_row) & 
                             (sortedFruit[4,:] < 1))
                 # save the number of fruit in this cell and divide all the values by the volume of space in front of each cell 
-                d[i_row,k] = len(index[0]) / (arm_reach * d_col * h_row)
+                density[i_row,k] = len(index[0]) / (arm_reach * d_col * h_row)
 
                 # print(d)
                 # move to the next column of cells
@@ -698,7 +698,7 @@ class fruit_handler(object):
         # print('fruit density in each cell [fruit/m^3]:')
         # print(d)
 
-        return(d)
+        return(density)
 
 
 
@@ -786,21 +786,21 @@ class Job():
 class Snapshot(object):
     def __init__(self, n_col, n_row, horizon_l, vehicle_l, cell_l, Td, v_vy, FPE_g, FPEavg, FPT_g, FPTavg, y_lim, numFruit, curr_j, sortedFruit, fruit_picked_by, state_time):
         # constants for the whole run
-        self.n_col      = n_col
-        self.n_row      = n_row
-        self.horizon_l  = horizon_l
-        self.vehicle_l  = vehicle_l
-        self.cell_l     = cell_l
+        self.n_col           = n_col
+        self.n_row           = n_row
+        self.horizon_l       = horizon_l
+        self.vehicle_l       = vehicle_l
+        self.cell_l          = cell_l
             
         # constants and results for each snapshot in the run
-        self.v_vy       = v_vy
-        self.FPE        = FPE_g    # global value
-        self.FPEavg     = FPEavg   # average value
-        self.FPT        = FPT_g    # global value
-        self.FPTavg     = FPTavg   # average value
-        self.y_lim      = y_lim
-        self.Td         = Td       # in s, handling time
-        self.actual_numFruit = numFruit
+        self.v_vy            = v_vy
+        self.FPE             = FPE_g    # global value
+        self.FPEavg          = FPEavg   # average value
+        self.FPT             = FPT_g    # global value
+        self.FPTavg          = FPTavg   # average value
+        self.y_lim           = y_lim
+        self.Td              = Td       # in s, handling time
+        self.N_snap          = numFruit
         self.curr_j          = curr_j
         self.avg_PCT         = 0.
         self.state_time      = state_time
