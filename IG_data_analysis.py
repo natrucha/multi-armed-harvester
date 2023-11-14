@@ -9,6 +9,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D   # plot in 3D
 
+# from datetime import datestime
+from datetime import date
+from pathlib import Path
+
 ######## IMPORT MY OWN MODULES ########
 # from trajectory import *          # import the trajectory time calc (bang-bang) 
 from plotStates_updated import *  # import module to plot % time each arm is in each state
@@ -16,7 +20,7 @@ from plotStates_updated import *  # import module to plot % time each arm is in 
 
 
 class IG_data_analysis(object):
-    def __init__(self, snapshot_list, snapshot_cell, step_l, y_lim, algorithm, print_out):
+    def __init__(self, snapshot_list, snapshot_cell, step_l, y_lim, print_out):
 
         '''
             Obtain list of snapshot/camer frame calculated schedule and fruit density and fruit R at each cell
@@ -27,15 +31,6 @@ class IG_data_analysis(object):
 
         if self.print_out == 1:
             print('--------------------- FINAL RESULTS ---------------------')
-        
-        self.algorithm = 0 # default to not using the melon algorithm
-
-        if algorithm == 1:
-            # if it is based on the melon algorithm
-            self.algorithm = 1
-        else:
-            # who knows, default to not melon algorithm
-            print('Defaulting to not using the melon algorithm')
 
         self.schedule_data       = snapshot_list
         self.fruit_per_cell_data = snapshot_cell
@@ -53,7 +48,7 @@ class IG_data_analysis(object):
         self.fruit_picked_by = list()    # only available if IG_sched function fruitPickedByFunction() called 
         self.fruit_list      = list()    # sorted fruit in slices -> since that's closer to what will actually exist
         self.density         = list()
-        self.R               = list()
+        self.R_melon         = list()
         self.PCT             = list()
         self.state_time      = list()    # list of arrays with the % of time each arm spent in each state during snapshot
         
@@ -64,7 +59,7 @@ class IG_data_analysis(object):
         self.FPEavg     = np.zeros(len(self.schedule_data))
         self.FPT        = np.zeros(len(self.schedule_data))
         self.FPTavg     = np.zeros(len(self.schedule_data))
-        self.tot_fruit  = np.zeros(len(self.schedule_data)) # total fruit available in snapshot
+        self.N_snap     = np.zeros(len(self.schedule_data)) # total fruit available in snapshot
         self.pick_fruit = np.zeros(len(self.schedule_data))
 
         # extract individual pieces of information from the master lists
@@ -84,6 +79,7 @@ class IG_data_analysis(object):
                 self.vehicle_l  = snapshot.vehicle_l
                 self.cell_l     = snapshot.cell_l
                 self.Td         = snapshot.Td
+                self.N          = len(snapshot.sortedFruit[0]) # total number of fruits in the whole run
 
             # extract scheduling data per snapshot
             self.v_vy[index]       = snapshot.v_vy
@@ -92,7 +88,7 @@ class IG_data_analysis(object):
             self.FPT[index]        = snapshot.FPT
             self.FPTavg[index]     = snapshot.FPTavg
             self.y0[index]         = snapshot.y_lim[0]
-            self.tot_fruit[index]  = snapshot.actual_numFruit
+            self.N_snap[index]     = snapshot.N_snap
             self.pick_fruit[index] = np.sum(snapshot.curr_j)
 
             self.PCT.append(snapshot.avg_PCT)
@@ -103,7 +99,55 @@ class IG_data_analysis(object):
         for snapshot in self.fruit_per_cell_data:
             # extract cell fruit data per snapshot
             self.density.append(snapshot[0])
-            self.R.append(snapshot[1])
+            self.R_melon.append(snapshot[1])
+
+
+
+    def filePath(self, run_n):
+        '''Setup for plot path and name based on date and run. Allows plots to be saved for every run.'''
+        # date object of today's date
+        today = date.today() 
+        # print("Current year:", today.year)
+        # print("Current month:", today.month)
+        # print("Current day:", today.day)
+        # print()
+
+        if today.month < 10:
+            month = str(0) + str(today.month)
+        else:
+            month = str(today.month)
+
+        date_today = str(today.year) + month + str(today.day)
+        # date_today = '20220815' # if hardcoded is necessary
+
+        self.file_base = './plots/' + date_today + '_run' + str(run_n) + '_' # save the base of the file name
+
+
+
+    def fileExists(self, file_name, extension):
+        '''Check if file already exists, if so, add a [number] up to [num_checks] so the files are not overwritten'''
+
+        file_base = file_name
+
+        num_checks = 10        # how many times it'll check if the file name exists 
+        # add check to see if the file already exists, if so, add a value at the end
+        for i_check in range(num_checks):
+            # do the check around 10 times, after which just put up an error message that the last file was overwritten
+            check_file = Path(file_name + extension)
+            # run 10 checks after which just send up an error message 
+            if check_file.is_file():
+                # file exists so add an extension to the name
+                file_name = file_base + '[' + str(i_check) + ']'
+                if i_check == num_checks - 1:
+                    # no more checks, the first file will be overwritten
+                    print('WARNING: Files will be overwritten after this run.')
+                    file_name = file_base + 'OVERWRITE'
+            else:
+                # file doesn't exist so can use this name
+                file_full = file_name + extension
+                return(file_full)
+                # break
+
 
 
     def plotValuesOverDistance(self):
@@ -138,11 +182,11 @@ class IG_data_analysis(object):
         axs[3].plot(x, self.v_vy, color='g')
         axs[3].set_ylabel('vehicle velocity [m/s]')
 
-        axs[4].plot(x, self.tot_fruit, color='k')
+        axs[4].plot(x, self.N_snap, color='k')
         axs[4].set_ylabel('available fruit')
 
-        axs[5].plot(x, self.R, color='b')
-        axs[5].set_ylabel('R [fruit/(m^3 s)]')
+        axs[5].plot(x, self.R_melon, color='b')
+        axs[5].set_ylabel('R_melon [fruit/(m^3 s)]')
 
         axs[5].set_xlabel('Snapshot No.')
 
@@ -151,10 +195,13 @@ class IG_data_analysis(object):
         # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
         #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
 
-        file_name = './plots/test0.png'
+        file_fct_name = self.file_base + 'over_distance'
+        file_name = self.fileExists(file_fct_name, '.png')
+
         print('Saving plot of FPT and FPE vs snapshot number in', file_name)
         plt.savefig(file_name,dpi=300)
         # plt.show()
+
 
 
     def plotTotalStatePercent(self):
@@ -174,7 +221,9 @@ class IG_data_analysis(object):
         # print(self.state_percent)
         # print()
 
-        file_name = './plots/state_percent.png'
+        file_fct_name = self.file_base + 'state_percent'
+        file_name = self.fileExists(file_fct_name, '.png')
+
         print('Saving plot of the mean state percent of each arm in', file_name)
 
         # Create and save the plot
@@ -194,25 +243,22 @@ class IG_data_analysis(object):
             print('Horizon length:', self.horizon_l, 'm')
             print('Step length:', self.step_l , 'm')
             print()
+            print('Total harvested fruit', np.sum(self.pick_fruit), 'out of', self.N)
 
 
     def avgFPTandFPE(self):
         '''Takes the various snapshots and combines their FPT and FPE values to get overall average FPT and FPE'''
-        avg_FPE = np.average(self.FPE)*100
-        avg_FPT = np.average(self.FPT)
+        avg_FPE = np.average(self.FPEavg)*100
+        avg_FPT = np.average(self.FPTavg)
         # calculate the "real FPT" value from individual FPT results
         # sum_FPT = np.sum(self.FPT)
         # orchard_veh = (self.y_lim[1] - self.y_lim[0]) / self.vehicle_l  # number of vehicle lengths that fit in orchard row
         if self.print_out == 1:
-            print('Total Picked Fruit', np.sum(self.pick_fruit), 'out of', np.sum(self.tot_fruit))
-            # print('Does not delete potential doubling between snapshot (realism)')
             print()
-
             print('Based on known pickable fruit by system:')
-            print("Average final FPE {0:.2f}".format(avg_FPE), "%")
-            print("Average final FPT {0:.2f}".format(avg_FPT), "fruit/s")
             print('--------------------------------------------------------')
-            print()
+            print("Average snapshot FPE {0:.2f}".format(avg_FPE), "% ")
+            print("Average snapshot FPT {0:.2f}".format(avg_FPT), "fruit/s \n")
             #### NOT WORKING SINCE FIX TO Ts_end
             # print('Sum of FPT values {0:.2f}'.format(sum_FPT), 'fruit/s, and number of times the vehicle length fits in the orchard row:', orchard_veh)
             # print('divide the two to get the REAL FPT: {0:.2f}'.format(sum_FPT/orchard_veh), 'fruit/s')
@@ -221,28 +267,21 @@ class IG_data_analysis(object):
         return([avg_FPE, avg_FPT])
 
 
-    def realFPEandFPT(self, real_sortedFruit, y_lim, v_vy):
+    def runFPEandFPT(self):
         '''
             Takes created fruit distribution matrix and calculates the real overall FPE and FPT 
             assuming that the snapshots will never have the complete picture (newly revealed data, double 
             counting due to the horizon, etc.)
         '''
-        total_fruit = len(real_sortedFruit[4,:])
-        total_time  = (y_lim[1] - y_lim[0]) / v_vy
-
-        picked_index = np.where(real_sortedFruit[4,:] > 1)  # scheduled *and* harvested is flagged as 2, 1 means it was only scheduled
-
-        real_FPE = len(picked_index[0]) / total_fruit * 100
-        real_FPT = len(picked_index[0]) / total_time
+        # the last snapshot will have the global total FPE and FPT
+        run_FPE = self.FPE[-1]*100
+        run_FPT = self.FPT[-1]
 
         if self.print_out == 1:
-            print('--------------------------------------------------------')
-            print('Real total fruit:', total_fruit)
-            print('Real total fruit picked:', len(picked_index[0]))
-            print("Real overall FPE: {0:.2f}".format(real_FPE), "%, and FPT: {0:.2f}".format(real_FPT), "fruit/s")
+            print("Run's global FPE value: {0:.2f}".format(run_FPE), "% \nRun's global FPT value: {0:.2f}".format(run_FPT), "fruit/s")
             print('--------------------------------------------------------')
 
-        return([real_FPE, real_FPT])
+        # return([run_FPE, run_FPT])
 
 
     def avgPCT(self):
@@ -323,7 +362,7 @@ class IG_data_analysis(object):
 
                         
 
-        elif self.n_row == 1 and self.algorithm == 1:  # if using the melon algorithm
+        elif self.n_row == 1:
             for snapshot_i in snapshot_list:
                 for k in range(self.n_col,-1,-1):
                 # for k in range(self.n_col+1):
@@ -369,7 +408,9 @@ class IG_data_analysis(object):
         legend = ax.legend(bbox_to_anchor=(1.1, 1),loc='upper right')
         ax.grid(True)
 
-        file_name = './plots/2dschedule.png'
+        file_fct_name = self.file_base + '2dschedule'
+        file_name = self.fileExists(file_fct_name, '.png')
+        # file_name = './plots/2dschedule.png'
 
         print('Saving 2D plot of the schedule', file_name)
         plt.savefig(file_name,dpi=300)
