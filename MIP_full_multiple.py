@@ -83,18 +83,16 @@ def analysisMultiple(set_distribution, n_runs, n_snapshots_array, run_list, time
         n_snap_array_index = n_snapshots_array[i_run]-1
 
         print(f'number of columns: %d \nnumber of row: %d' %(C_array[i_run,0], R_array[i_run,0]))
-        print(f'   global FPE: %3.3f percent' % FPE_array[i_run, n_snap_array_index])
-        avg_FPE_run = np.average(FPEavg_array[i_run, :n_snap_array_index])
-        std_FPE_run = np.std(FPEavg_array[i_run, :n_snap_array_index])
-        print('       average snapshot FPE, {:.3f}'.format(avg_FPE_run), '+/-{:.3f}%\n'.format(std_FPE_run)) 
-        print(f'   global FPT: %2.4f f/s' % FPT_array[i_run, n_snap_array_index])
-        avg_FPT_run = np.average(FPTavg_array[i_run, :n_snap_array_index])
-        std_FPT_run = np.std(FPTavg_array[i_run, :n_snap_array_index])
-        print('       average snapshot FPT, {:.3f}'.format(avg_FPT_run), '+/-{:.3f}%\n'.format(std_FPT_run))
         avg_time_run = np.average(time_array[i_run, :n_snap_array_index])
         std_time_run = np.std(time_array[i_run, :n_snap_array_index])
-        print('   average time to solve per snapshot, {:.3f}'.format(avg_time_run), '+/-{:.3f} s'.format(std_time_run)) 
-        print() 
+        print('average time to solve per snapshot, {:.3f}'.format(avg_time_run), '+/-{:.3f} s'.format(std_time_run)) 
+        print('\n                   Global value                  Average snapshot value')
+        avg_FPE_run = np.average(FPEavg_array[i_run, :n_snap_array_index])
+        std_FPE_run = np.std(FPEavg_array[i_run, :n_snap_array_index])
+        print(f' FPE (percent):       %3.3f                        %3.3f +/- %3.3f' % (FPE_array[i_run, n_snap_array_index], avg_FPE_run, std_FPE_run))
+        avg_FPT_run = np.average(FPTavg_array[i_run, :n_snap_array_index])
+        std_FPT_run = np.std(FPTavg_array[i_run, :n_snap_array_index])
+        print(f' FPT (fruit/s):        %3.3f                         %3.3f +/- %3.3f\n\n' % (FPT_array[i_run, n_snap_array_index], avg_FPT_run, std_FPT_run))   
 
         FPE_max_array[i_run] = FPE_array[i_run, n_snap_array_index]
         FPT_max_array[i_run] = FPT_array[i_run, n_snap_array_index]
@@ -500,16 +498,16 @@ def main():
 
             ## calculate multiple R and v_vy values based on multiple slices of the current view
             # return a list of fruit densities in each cell 
-            d = fruit_data.calcDensity(q_vy, n_col, n_row, d_cell, w_arm, i_snap_sortedFruit)
+            fruit_density = fruit_data.calcDensity(q_vy, n_col, n_row, d_cell, w_arm, i_snap_sortedFruit)
             # calculate the row densities
             # d_row = np.average(d, axis=1)
             # d_tot = np.average(d)
 
             ## using the fruit densities, determine the vehicle speed to set a specific R value?
             # currently, the R value would be 
-            R = fruit_data.calcR(v_vy, len(horizon_indexes), d_hrzn, h_vehicle, w_arm)  # calculated based on columns and the horizon length
+            R_melon = fruit_data.calcR(v_vy, len(horizon_indexes), d_hrzn, h_vehicle, w_arm)  # calculated based on columns and the horizon length
 
-            snapshot_cell.append([d, R])
+            snapshot_cell.append([fruit_density, R_melon])
 
             if print_out == 1:
                 print('number of fruits in this snaphsot (also counts sched+pick):', i_snap_numFruit)
@@ -1104,23 +1102,25 @@ def main():
 
         # elif solution_found == 1:
         # combine the results based on the various snapshots taken
-        results = IG_data_analysis(snapshot_list, snapshot_cell, D_, fruit_data.y_lim, set_algorithm, print_out)
+        results = IG_data_analysis(snapshot_list, snapshot_cell, D_, fruit_data.y_lim, print_out)
         if print_out == 1:
             results.printSettings()
             print('\nThe velocities for each of the %d snapshots in m/s:' % n_snapshots)
             print(chosen_v_vy_mps_array)
             print('The mean Td for each snapshot in s:')
             print(mean_Td_array)
+            print()
 
-        # [realFPE, realFPT] = results.realFPEandFPT(sortedFruit, y_lim, v_vy)
-        results.avgFPTandFPE()
+        # results.avgFPTandFPE() # works with snapshots but not multiple runs, run once at the end of a run
+        # results.runFPEandFPT()
         # results.avgPCT()
         # print()
         # results.plotValuesOverDistance()
         if plot_out == 1:
-            # currently results.plotTotalStatePercent() does not work with multiple snapshots
+            # set up the plot path and naming convention for the run
+            results.filePath(i_run)
+            # currently results.plotTotalStatePercent() takes the average time in each state per snapshot and returns the plot of the average time each arm spent in each state over the whole run
             results.plotTotalStatePercent()
-
             # currently plot does not save each run attempt's plot. Just the last one (they have the same name so they will get overwritten)
             snapshot_schedules_2_plot = range(n_snapshots)  
             # create a plot only of the snapshots that you want (by their index)
