@@ -18,6 +18,7 @@ class FCFS(object):
             # offset_fruit_index = self.job[0].fruit_i.real_index
             offset_fruit_index = job[0].fruit_i.real_index
             # print('job\'s first real index:', offset_fruit_index, '\n')
+            # print('job\'s last real index:', job[-1].fruit_i.real_index, '\n')
         except IndexError:
             # no fruits visible, not even already picked fruits, probably the start where there are no fruits (entering the row)
             offset_fruit_index = 0  
@@ -91,7 +92,11 @@ class FCFS(object):
                         # check if the arm is busy up to tw_e of the current fruit plus the amount of time it would take to move to the fruit, extend, and grab it
                         if busy_till[r_row, c_col] + fruit_travel_matrix[j_fruit+offset_fruit_index, i_fruit+offset_fruit_index] + TX[i_fruit] + t_grab <= tw_e[c_col]:
                             # mark the fruit as picked, save by which arm, and increase that arm's count of harvested fruits
-                            fruit_picked_by[r_row][c_col].append(i_fruit+offset_fruit_index)
+                            if n_row > 1:
+                                fruit_picked_by[r_row][c_col].append(i_fruit+offset_fruit_index)
+                            else:
+                                fruit_picked_by[c_col].append(i_fruit+offset_fruit_index)
+
                             self.curr_j[r_row, c_col] += 1
                             # sortedFruit[4, j.fruit_i.real_index] = 1  # save to the real index on sortedFruit
                             sortedFruit[4, i_fruit+offset_fruit_index] = 1  # save to the real index on sortedFruit
@@ -111,7 +116,10 @@ class FCFS(object):
                             # print('\narm in col %d and row %d is busy until %0.2f with fruit %d and the next harvest time is %0.2f for fruit %d' %(c_col, r_row, busy_till[r_row, c_col], busy_with[r_row, c_col], t_harvest, i_fruit))
                                 
                             # update that the arm will be busy until the pick time plus an amount of time for retraction (assumes a vacuum gripper is being used)
-                            fruit_picked_at[r_row][c_col].append(t_harvest)
+                            if n_row > 1:
+                                fruit_picked_at[r_row][c_col].append(t_harvest)
+                            else:
+                                fruit_picked_at[c_col].append(t_harvest)
                             busy_till[r_row, c_col] = t_harvest + TX[i_fruit] # in s, the time at which the arm will be ready for the next fruit
                             busy_with[r_row, c_col] = i_fruit
 
@@ -125,15 +133,18 @@ class FCFS(object):
 
         for no_pick_i in no_pick[0]:
             # Adding the indexes of non-picked fruit to a sublist at the end of the first 
-            # horizontal row's list of sublists
-            if n_row > 1:
-                # if multiple horizontal rows, append the non-picked sublist to the first horizontal row's list of lists
-                fruit_picked_by[0][n_col].append(no_pick_i)
-            else:
-                fruit_picked_by[n_col].append(no_pick_i)
+            if (no_pick_i >= offset_fruit_index) & (no_pick_i <= job[-1].fruit_i.real_index):
+                # horizontal row's list of sublists
+                if n_row > 1:
+                    # if multiple horizontal rows, append the non-picked sublist to the first horizontal row's list of lists
+                    fruit_picked_by[0][n_col].append(no_pick_i)
+                else:
+                    fruit_picked_by[n_col].append(no_pick_i)
 
         # print('\nThe list of what arms pick what fruits:')
         # print(fruit_picked_by)
+        # print('Unpicked fruit indexes')
+        # print(fruit_picked_by[0][n_col])
         # print('\nThe list of when an arm picks the next fruit:')
         # print(fruit_picked_at)
         # print('and the array showing how many fruit were picked by each arm:')  
