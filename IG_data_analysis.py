@@ -20,7 +20,7 @@ from plotStates_updated import *  # import module to plot % time each arm is in 
 
 
 class IG_data_analysis(object):
-    def __init__(self, snapshot_list, snapshot_cell, step_l, y_lim, print_out):
+    def __init__(self, snapshot_list, snapshot_cell, print_out):
 
         '''
             Obtain list of snapshot/camer frame calculated schedule and fruit density and fruit R at each cell
@@ -35,13 +35,10 @@ class IG_data_analysis(object):
         self.schedule_data       = snapshot_list
         self.fruit_per_cell_data = snapshot_cell
 
-        self.n_col  = 0
-        self.n_row  = 0
-        self.total_arms = 0
-
-        self.step_l = step_l
-
-        self.y_lim = y_lim # in m, needed to calculate real FPT from the individual snapshot FPT results  
+        # self.n_col  = 0
+        # self.n_row  = 0
+        # self.total_arms = 0
+        # self.D = 0
 
         ### values/lists saved as lists for easier access ###
         # will save each snapshot's schedule as a list of lists
@@ -51,10 +48,12 @@ class IG_data_analysis(object):
         self.R_melon         = list()
         self.PCT             = list()
         self.state_time      = list()    # list of arrays with the % of time each arm spent in each state during snapshot
+        self.z_bot_bounds    = list()
+        self.z_top_bounds    = list()
         
         ### values saved as arrays for easier manipulation/calculations ###
         self.v_vy       = np.zeros(len(self.schedule_data))
-        self.y0         = np.zeros(len(self.schedule_data))  # snapshot's y 0th coordinate
+        self.q0         = np.zeros(len(self.schedule_data)) # whole run's starting y-coordinate
         self.FPE        = np.zeros(len(self.schedule_data))
         self.FPEavg     = np.zeros(len(self.schedule_data))
         self.FPT        = np.zeros(len(self.schedule_data))
@@ -75,22 +74,26 @@ class IG_data_analysis(object):
                 self.n_col      = snapshot.n_col
                 self.n_row      = snapshot.n_row
                 self.total_arms = self.n_col * self.n_row
-                self.horizon_l  = snapshot.horizon_l
-                self.vehicle_l  = snapshot.vehicle_l
-                self.cell_l     = snapshot.cell_l
+                self.d_hrz      = snapshot.d_hrz
+                self.d_vehicle  = snapshot.d_vehicle
+                self.d_cell     = snapshot.d_cell
+                self.D          = snapshot.D
+                self.plan       = snapshot.d_plan
                 self.Td         = snapshot.Td
                 self.N          = len(snapshot.sortedFruit[0]) # total number of fruits in the whole run
 
             # extract scheduling data per snapshot
-            self.v_vy[index]       = snapshot.v_vy
-            self.FPE[index]        = snapshot.FPE
-            self.FPEavg[index]     = snapshot.FPEavg
-            self.FPT[index]        = snapshot.FPT
-            self.FPTavg[index]     = snapshot.FPTavg
-            self.y0[index]         = snapshot.y_lim[0]
-            self.N_snap[index]     = snapshot.N_snap
-            self.pick_fruit[index] = np.sum(snapshot.curr_j)
+            self.v_vy[index]         = snapshot.v_vy
+            self.FPE[index]          = snapshot.FPE
+            self.FPEavg[index]       = snapshot.FPEavg
+            self.FPT[index]          = snapshot.FPT
+            self.FPTavg[index]       = snapshot.FPTavg
+            self.q0[index]           = snapshot.q_plan[0] # in m, whole run's starting coordinate
+            self.N_snap[index]       = snapshot.N_snap
+            self.pick_fruit[index]   = np.sum(snapshot.curr_j)
 
+            self.z_bot_bounds.append(snapshot.z_bot_bounds)
+            self.z_top_bounds.append(snapshot.z_top_bounds)
             self.PCT.append(snapshot.avg_PCT)
             self.state_time.append(snapshot.state_time)
             self.fruit_picked_by.append(snapshot.fruit_picked_by)
@@ -239,9 +242,9 @@ class IG_data_analysis(object):
             print('Number of rows', self.n_row, 'number of arms:', self.n_col)
             print('Fruit handling time:', self.Td, 'sec')    
             print()
-            print('Vehicle length: {0:.2f}'.format(self.vehicle_l), 'm, with cell length:', self.cell_l, 'm')
-            print('Horizon length:', self.horizon_l, 'm')
-            print('Step length:', self.step_l , 'm')
+            print('Vehicle length: {0:.2f}'.format(self.d_vehicle), 'm, with cell length:', self.d_cell, 'm')
+            print('Horizon length:', self.d_hrz, 'm')
+            print('Step length between reschedules:', self.D , 'm')
             print()
             print('Total harvested fruit', np.sum(self.pick_fruit), 'out of', self.N)
 
@@ -252,7 +255,6 @@ class IG_data_analysis(object):
         avg_FPT = np.average(self.FPTavg)
         # calculate the "real FPT" value from individual FPT results
         # sum_FPT = np.sum(self.FPT)
-        # orchard_veh = (self.y_lim[1] - self.y_lim[0]) / self.vehicle_l  # number of vehicle lengths that fit in orchard row
         if self.print_out == 1:
             print()
             print('Based on known pickable fruit by system:')
@@ -317,105 +319,132 @@ class IG_data_analysis(object):
         # used to indicate arm number, see https://matplotlib.org/stable/gallery/color/named_colors.html
         color     = ['blue', 'red', 'purple', 'chartreuse', 'black', 'aqua', 'pink', 'sienna', 'deepskyblue', 'teal', 'tomato', 'slategrey']
 
+        array_of_first_populated_list = np.zeros(self.n_col+1)  # flag with values 0, 1, 2 used to determine the first populated list so it can be used to create the legend labels  
+
         if self.n_row > 1:
             for snapshot_i in snapshot_list:
-                for n in range(self.n_row):
-                    for k in range(self.n_col+1):
-                        try:
-                            # some snapshots will have empty lists which lead to an IndexError
-                            x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][n][k]]
-                            y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][n][k]]
+                # plot the z bounds to see where they end up at each snapshot
+                y_bound_array= [self.q0[snapshot_i]+(self.D*snapshot_i), self.q0[snapshot_i]+(self.D*(snapshot_i+1))] # calculate planning window y-bounds
+                # print('start and end y_coord of snapshot', snapshot_i)
+                # print(y_bound_array)
 
-                                # add modulo later so it works with n and k > 3 
-                            if k == self.n_col:
+                for i_row in range(self.n_row):
+                    for i_col in range(self.n_col+1):
+                        # print('COLUMN NUMBER (WANT IT EQUAL TO 3 AT SOME POINT):', i_col)
+                        # print('indexes of the fruits picked in the snapshot_i by the arm in i_row, i_col', self.fruit_picked_by[snapshot_i][i_row][i_col])
+                        # print()
+
+                        if self.fruit_picked_by[snapshot_i][i_row][i_col]: # if there are harvested fruits by this arm in this planning window
+                            if array_of_first_populated_list[i_col] == 0:
+                                # this will be used as the label/legend setup dataset
+                                array_of_first_populated_list[i_col] = 1
+
+                            # obtain the y and z-coordinates
+                            y_coord = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][i_row][i_col]]  # y-coordinates of the fruits indicated by fruits_picked_byin the snapshot_i by the arm in i_row, i_col
+                            z_coord = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][i_row][i_col]]  # z-coordinates of the fruits indicated by fruits_picked_byin the snapshot_i by the arm in i_row, i_col
+                            
+                            # determine the color and line style so that they can be  identified in the plot
+                            if i_col == self.n_col:
                                 line_color = 'gold'
-                                linestyle = ''
+                                line_style = ''
                                 arm_label = 'unpicked'
-                            elif k == 0:
-                                line_color = str(color[k])
-                                linestyle = line_type[n]
+                            elif i_col == 0:
+                                line_color = str(color[i_col])
+                                line_style = line_type[i_row]
                                 arm_label = 'back arm'
-                            elif k == self.n_col-1:
-                                line_color = str(color[k])
-                                linestyle = line_type[n]
+                            elif i_col == self.n_col-1:
+                                line_color = str(color[i_col])
+                                line_style = line_type[i_row]
                                 arm_label = 'front arm'
                             else:
-                                line_color = str(color[k])
-                                linestyle = line_type[n]
-                                arm_label = 'middle arm ' + str(k)
+                                line_color = str(color[i_col])
+                                line_style = line_type[i_row]
+                                arm_label = 'middle arm ' + str(i_col)
 
-                            if snapshot_i == 0 and n == 0:
+                            # plot the z-bounds for each snapshot
+                            if i_col < self.n_col:
+                                # i_col == n_col doesn't really exist---it's saving the unpicked fruit---so there is no such thing as z-bounds for it and it returns an index error
+                                z_bound_array_bot = np.ones(2) * self.z_bot_bounds[snapshot_i][i_row][i_col]
+                                z_bound_array_top = np.ones(2) * self.z_top_bounds[snapshot_i][i_row][i_col]
+                                # print('z_bound arrays')
+                                # print('bot\n', z_bound_array_bot)
+                                # print('top\n', z_bound_array_top)
+
+                            # if snapshot_i == 0 and i_row == 0:
+                            if array_of_first_populated_list[i_col] == 1:
                                 # limits the labels for the legend
                                 # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
                                 #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
+                                plt.plot(y_coord, z_coord, linestyle=line_style, color=line_color, marker='o', label=arm_label)
+                                # plot the z-bounds
+                                if i_col < self.n_col:
+                                    plt.plot(y_bound_array, z_bound_array_bot, linestyle='--', color=line_color, linewidth=0.5, label='z_bounds')
+                                    plt.plot(y_bound_array, z_bound_array_top, linestyle='--', color=line_color, linewidth=0.5)
 
-                                plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o', label=arm_label)
+                                array_of_first_populated_list[i_col] = 2
 
                             else:
                                 # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
                                 #         self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
-                                plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o')
-                        
-                        except IndexError:
-                            print('\nWARNING: current row', n, 'and column', k, 'in snapshot', snapshot_i, 'has an empty list and has to be skipped')
-                            # return(0)
-
-                        
+                                plt.plot(y_coord, z_coord, linestyle=line_style, color=line_color, marker='o')
+                                # plot the z-bounds
+                                if i_col < self.n_col:
+                                    plt.plot(y_bound_array, z_bound_array_bot, linestyle='--', color=line_color, linewidth=0.5)
+                                    plt.plot(y_bound_array, z_bound_array_top, linestyle='--', color=line_color, linewidth=0.5) 
 
         elif self.n_row == 1:
             for snapshot_i in snapshot_list:
-                for k in range(self.n_col,-1,-1):
+                for i_col in range(self.n_col,-1,-1):
                 # for k in range(self.n_col+1):
-                    x = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][k]]
-                    y = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][k]]
+                    y_coord = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][i_col]]
+                    z_coord = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][i_col]]
 
-                    linestyle = line_type[2]
+                    line_style = line_type[2]
 
                     # add modulo later so it works with n and k > 3 
-                    if k == self.n_col:
+                    if i_col == self.n_col:
                         line_color = 'gold'
-                        linestyle = ''
+                        line_style = ''
                         arm_label = 'unpicked'
-                    elif k == 0:
-                        line_color = str(color[k])
+                    elif i_col == 0:
+                        line_color = str(color[i_col])
                         # linestyle = line_type[n]
-                        arm_label = 'front arm (k=0)'     
-                    elif k == self.n_col-1:
-                        line_color = str(color[k])
+                        arm_label = 'front arm (c=0)'     
+                    elif i_col == self.n_col-1:
+                        line_color = str(color[i_col])
                         # linestyle = line_type[n]
-                        arm_label = 'back arm (k=' + str(k) + ')'      
+                        arm_label = 'back arm (c=' + str(i_col) + ')'      
                     else:
-                        line_color = str(color[k])
+                        line_color = str(color[i_col])
                         # linestyle = line_type[n]
-                        arm_label = 'k=' + str(k)
+                        arm_label = 'c=' + str(i_col)
 
                     if snapshot_i == 0:
                         # limits the labels for the legend
                         # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
                         #         self.sortedFruit[2][fruit_picked_by[n][k]], linestyle=linestyle, color=line_color, marker='o', label=arm_label)
 
-                        plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o', label=arm_label)
+                        plt.plot(y_coord, z_coord, linestyle=line_style, color=line_color, marker='o', label=arm_label)
 
                     else:
                         # plt.plot(self.sortedFruit[1][fruit_picked_by[n][k]], 
                         #         self.sortedFruit[2][fruit_picked_by[n][k]], marker='o')
-                        plt.plot(x, y, linestyle=linestyle, color=line_color, marker='o')
-
+                        plt.plot(y_coord, z_coord, linestyle=line_style, color=line_color, marker='o')        
 
         plt.xlabel('Distance along orchard row (m)')
         plt.ylabel('Height from ground (m)')
 
-        legend = ax.legend(bbox_to_anchor=(1.1, 1),loc='upper right')
+        legend = ax.legend(bbox_to_anchor=(1.3, 1),loc='upper right')
+        fig.tight_layout()
         ax.grid(True)
 
         file_fct_name = self.file_base + '2dschedule'
         file_name = self.fileExists(file_fct_name, '.png')
-        # file_name = './plots/2dschedule.png'
 
         print('Saving 2D plot of the schedule', file_name)
         plt.savefig(file_name,dpi=300)
                         
-        # plt.show()
+        plt.show()
 
     
     # def plot3DSchedule(self, fruit_picked_by): 
