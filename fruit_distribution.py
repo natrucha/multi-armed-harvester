@@ -100,7 +100,7 @@ class fruitDistribution(object):
         # something like 0 m long in the y-direction
         y_translate = np.amin(y)
         y = y - y_translate
-        # fix the self.y_lim[1] value because hard-coding values isn't a good idea
+        # fix the self.y_lim[1] value because hard-coding values isn't a good idea (unless explicitly set -> separate into segments -> it's own function?)
         real_y_max   = np.amax(y) + 0.01
         # print('compare self.y_lim[1] vs data np.amax(y)', self.y_lim[1], 'vs', np.amax(y))
         # something like 0 m high in the z-direction
@@ -111,6 +111,8 @@ class fruitDistribution(object):
         index_out_of_x_bounds = np.where(x >= self.x_lim[1])
         index_out_of_y_bounds = np.where(y >= real_y_max)
         index_out_of_z_bounds = np.where(z >= self.z_lim[1])
+        # print('out of x bounds (before):')
+        # print(index_out_of_x_bounds[0])
         # print('out of z bounds (before):')
         # print(index_out_of_z_bounds[0])
 
@@ -125,15 +127,127 @@ class fruitDistribution(object):
         # index_out_of_x_bounds = np.where(x >= self.x_lim[1])
         # index_out_of_y_bounds = np.where(y >= self.y_lim[1])
         # index_out_of_z_bounds = np.where(z >= self.z_lim[1])
+        # print('out of x bounds (after):')
+        # print(index_out_of_x_bounds[0])
         # print('out of z bounds (after):')
         # print(index_out_of_z_bounds[0])
 
         sortedFruit = self.sortNstack(x, y, z)
+        # print(f'after removing out of bounds, the number of fruits left is %d' %len(sortedFruit[0]))
 
         if len(sortedFruit[0]) != numFruit:
             numFruit = len(sortedFruit[0])
 
         return([numFruit, sortedFruit, real_y_max])        
+
+
+
+    def csvFile_segment(self, file_name, is_meter, y_limit, file_delimiter=' '):
+        '''
+            Import fruit coordinates from given CSV file, where each fruit is a row, columns are x, y, z
+            coordinates then remove any fruit that is ouside of the given segment start and end coordinates.
+            
+            file_name has to be string with '...' 
+
+            is_meter = 0 means ft, 1 is meter (other values for other measurements?).
+            file_delimiter, 2022 data uses space (default) while the rest use commas
+        '''
+        x_list = list()
+        y_list = list()
+        z_list = list()
+
+        print(f'Harvesting a segment of the CSV file between y-coordinates %3.3f and %3.3f' %(y_limit[0], y_limit[1]))
+
+        numFruit = 0
+
+        with open(file_name) as csvfile:
+            reader = csv.reader(csvfile, delimiter=file_delimiter, quoting=csv.QUOTE_NONNUMERIC)
+            for row in reader:
+                if file_delimiter == ' ':
+                    # the 2022 data is the only data set that has different x, y, z definitions than the rest of the project
+                    x_list.append(row[2]) # depth into the canopy
+                    y_list.append(row[0]) # length along orchard row
+                    z_list.append(row[1]) # height
+
+                else:
+                    # datasets match the code's definition of the x, y, and z axes
+                    x_list.append(row[0])
+                    y_list.append(row[1])
+                    z_list.append(row[2])
+
+                numFruit += 1
+
+        # convert list to array
+        x = np.array(x_list)
+        y = np.array(y_list)
+        z = np.array(z_list) 
+
+        if is_meter == 0:
+            # if is_meter is zero (not in meters), convert from feet to meters
+            x = x * 0.3048
+            y = y * 0.3048
+            z = z * 0.3048
+
+        # calculate the real density in the file instead
+        # volume = abs(np.amax(y) - np.amin(y)) * abs(np.amax(z) - np.amin(z)) * abs(np.amax(x) - np.amin(x))
+        # density = len(y) / volume
+        # print('\nThe density of fruits in the file is:', density, 'f/m^3 before removing fruits outside of the work volume\n')
+
+        # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
+        # something like 0.2 m away in the x-direction
+        x_translate = np.amin(x) # in m
+        # print('x smallest value, in m', x_translate)
+        x = x - x_translate + 0.2
+        # something like 0 m long in the y-direction
+        y_translate = np.amin(y)
+        y = y - y_translate
+        # something like 0 m high in the z-direction
+        z_translate = np.amin(z)
+        z = z - z_translate
+
+        # remove any fruit that is outside of the robot's max limits
+        index_out_of_x_bounds = np.where(x >= self.x_lim[1])
+        index_out_of_y_bounds = np.where((y <= y_limit[0]) | (y >= y_limit[1]))  # only taking the fruits that fit within the segment (needs to be after translating the fruits, so not at CSV file read)
+        index_out_of_z_bounds = np.where(z >= self.z_lim[1])
+        # print('out of y bounds (before):')
+        # print(index_out_of_y_bounds[0])
+        # print('out of z bounds (before):')
+        # print(index_out_of_z_bounds[0])
+
+        out_of_bounds = np.concatenate((index_out_of_x_bounds[0], index_out_of_y_bounds[0], index_out_of_z_bounds[0]), axis=None)
+        u = np.unique(out_of_bounds) # make sure there are no dulplicates, see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
+        # print('indexes to be deleted:',u, 'with size', len(u))
+        x = np.delete(x, u)
+        y = np.delete(y, u)
+        z = np.delete(z, u)
+        # ## check if it worked
+        # # remove any fruit that is outside of the robot's max limits
+        # index_out_of_x_bounds = np.where(x >= self.x_lim[1])
+        # index_out_of_y_bounds = np.where((y <= y_lim[0]) | (y >= y_lim[1])) 
+        # index_out_of_z_bounds = np.where(z >= self.z_lim[1])
+        # print('out of x bounds (after):')
+        # print(index_out_of_x_bounds[0])
+        # print('out of y bounds (after):')
+        # print(index_out_of_y_bounds[0])
+        # print('out of z bounds (after):')
+        # print(index_out_of_z_bounds[0])
+
+        # print('There are %d fruits in this segment' %len(y))
+        # print('The first fruit is at', np.amin(y))
+
+        # calculate the density in the segment
+        volume = abs(np.amax(y) - np.amin(y)) * abs(np.amax(z) - np.amin(z)) * abs(np.amax(x) - np.amin(x))
+        density = len(y) / volume
+        print('\nThe density of fruits in the segment is:', density, 'f/m^3 after removing fruits outside of the work volume\n')
+
+        sortedFruit = self.sortNstack(x, y, z)
+        # print(f'after removing out of bounds, the number of fruits left is %d' %len(sortedFruit[0]))
+
+        if len(sortedFruit[0]) != numFruit:
+            numFruit = len(sortedFruit[0])
+        # print('The number of fruits passed back is %d' %numFruit)
+
+        return([numFruit, sortedFruit]) 
 
 
 
@@ -508,7 +622,7 @@ class fruitDistribution(object):
 
 
     def calcTime(self, traj_calc, start, end, v_max, a_max, d_max):
-        '''Use trajectoyr module to determine movement times for a start and end time'''
+        '''Use trajectory module to determine movement times for a start and end time'''
 
         traj_calc.adjInit(start, 0.) # start moving from zero speed
         traj_calc.noJerkProfile(traj_calc.q0, end, traj_calc.v0, v_max, a_max, d_max)

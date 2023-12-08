@@ -40,11 +40,8 @@ class fruit_handler(object):
             [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution, run_n=run_n)
 
         elif set_distribution == 1:
-            # uses the seed values to get random segments from the 2022 apple data files
-            x_seed = PCG64(int(seed_xyz[0])) 
-            y_seed = PCG64(int(seed_xyz[1]))
-            z_seed = PCG64(int(seed_xyz[2])) 
-            [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution, x_seed=x_seed, y_seed=y_seed, z_seed=z_seed, run_n=run_n)
+            # uses self.y_lim (updated in MIP_full_multiple when calling buildOrchard) to determine the segment being analyzed
+            [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution, run_n=run_n)
 
         elif set_distribution >= 4:
             # seed values, rather than i_run, will determine changes to any RNG-created distribution
@@ -228,50 +225,54 @@ class fruit_handler(object):
     
 
 
-    def calcYlimMax(self, set_distribution):
-        '''
-           Calculates the end of the orchard's coordinate based on the set fruit distribution. 
+    # def calcYlimMax(self, set_distribution):
+    #     '''
+    #        Calculates the end of the orchard's coordinate based on the set fruit distribution. 
            
-           Every data set is a different length which is currently hardcoded in this function. Function runs before 
-           fruits are read in, so it cannot (at this point) be set based on the distribution. Should change this...
-        '''
-        # no snapshots, so the travel length is static at the orchard row's length
-        if set_distribution == 0:
-            # using 2022 Colombini data, full orchard rows 
-            y_max  = 10.9 # in m, although they should all be around 10m, adding 0.9 to test what the correct value should be. 
+    #        Every data set is a different length which is currently hardcoded in this function. Function runs before 
+    #        fruits are read in, so it cannot (at this point) be set based on the distribution. Should change this...
+    #     '''
+    #     # no snapshots, so the travel length is static at the orchard row's length
+    #     if set_distribution == 0:
+    #         # using 2022 Colombini data, full orchard rows 
+    #         y_max  = 10.9 # in m, doesn't quite matter, however, because the CSV function will determine the max y-coordinate and set that plus an offset as the real max y-lim 
 
-        elif set_distribution == 2 or set_distribution == 4:
-            # if using raj's dataset
-            y_max  = 10.9 # in m, for Raj's data
-            # self.density   = 48.167         # in fruit/m^2 (on avg.), constant, for Raj's data
-            # n_runs    = 1
+    #     elif set_distribution == 1:
+    #         # using 2022 Colombini data, end coordinate of the segments analyzed in each CSV dataset (segment length will be y_max - (d_vehicle + d_hrzn) for now)
+    #         y_max = 10
 
-        elif set_distribution == 3 or set_distribution == 5:
-            # if using juan's dataset
-            y_max  = 16.5 # in m, for Juan's data
-            # self.density   = 53.97            # in fruit/m^2 (on avg.), constant, for Juan's data
-            # n_runs    = 1
+    #     elif set_distribution == 2 or set_distribution == 4:
+    #         # if using raj's dataset
+    #         y_max  = 10.9 # in m, for Raj's data
+    #         # self.density   = 48.167         # in fruit/m^2 (on avg.), constant, for Raj's data
+    #         # n_runs    = 1
 
-        elif set_distribution == 6:
-            # uniform random
-            y_max  = 6 # in m, usually 5 m + length
+    #     elif set_distribution == 3 or set_distribution == 5:
+    #         # if using juan's dataset
+    #         y_max  = 16.5 # in m, for Juan's data
+    #         # self.density   = 53.97            # in fruit/m^2 (on avg.), constant, for Juan's data
+    #         # n_runs    = 1
 
-        # elif set_distribution == 3:
-        #     y_max  = 30 # in m
+    #     elif set_distribution == 6:
+    #         # uniform random
+    #         y_max  = 6 # in m, usually 5 m + length
+
+    #     # elif set_distribution == 3:
+    #     #     y_max  = 30 # in m
             
-        # elif set_distribution == 5:
-        #     v_vy_fruit_mps = v_vy_fruit_cmps / 100
-        #     self.d_y  = self.Td*v_vy_fruit_mps*(n_fruit+1)/(n_fruit+2) # kind of works 3/4 or 5/8 fruit with 1 arm: (Td/2)*v_vy
-        # #     d_y  = Td*v_vy_fruit*(n_fruit+1)/(n_fruit+2) # kind of works 3/4 or 5/8 fruit with 1 arm: (Td/2)*v_vy
-        #     print('with Td', self.Td, 'and v_vy for fruit distribution', v_vy_fruit_cmps, 'cm/s')
-        #     print('d_y for this line of fruit:', self.d_y, 'so the total distance they take up:', self.d_y*n_fruit)
-        #     y_max  = self.d_y * n_fruit # in m
+    #     # elif set_distribution == 5:
+    #     #     v_vy_fruit_mps = v_vy_fruit_cmps / 100
+    #     #     self.d_y  = self.Td*v_vy_fruit_mps*(n_fruit+1)/(n_fruit+2) # kind of works 3/4 or 5/8 fruit with 1 arm: (Td/2)*v_vy
+    #     # #     d_y  = Td*v_vy_fruit*(n_fruit+1)/(n_fruit+2) # kind of works 3/4 or 5/8 fruit with 1 arm: (Td/2)*v_vy
+    #     #     print('with Td', self.Td, 'and v_vy for fruit distribution', v_vy_fruit_cmps, 'cm/s')
+    #     #     print('d_y for this line of fruit:', self.d_y, 'so the total distance they take up:', self.d_y*n_fruit)
+    #     #     y_max  = self.d_y * n_fruit # in m
             
-        else: 
-            print('ERROR: distribution', set_distribution, 'does not exist or is not available, exiting the program')
-            sys.exit(0)
+    #     else: 
+    #         print('ERROR: distribution', set_distribution, 'does not exist or is not available, exiting the program')
+    #         sys.exit(0)
 
-        self.y_lim[1] = y_max 
+    #     self.y_lim[1] = y_max 
 
 
 
@@ -344,7 +345,7 @@ class fruit_handler(object):
     
 
 
-    def createFruitDistribution(self, fruitD, set_distribution, x_seed=0, y_seed=0, z_seed=0, density=20, run_n=0):
+    def createFruitDistribution(self, fruitD, set_distribution, x_seed=0, y_seed=0, z_seed=0, density=20, run_n=0, d_segment=10):
         '''
            Determines how the fruit distribution is going to be created, ether from real localization data or from RNG-created data 
            based on the given seeds. See value below for all the options.
@@ -352,7 +353,7 @@ class fruit_handler(object):
            seed values are only provided for distributions that need them, otherwise the defualt is 0 for all seeds.
         '''
         # 0     == 2022 Digitized fruit data (Pink Ladies, Jeff Colombini orchard)
-        # 1   * not available *  == random (seed-based) segments from 2022 digitized fruit
+        # 1     == segments of 2022 digitized fruit data between a given ymin and ymax determined in fruit_handler.py createFruitDistribution(), runs through all 2022 Colombini files 
         # 2     == Raj's digitized fruits (right side)
         # 3     == Juan's digitized fruits (Stavros phone video)
         # 4     == reduced Raj's digitized fruits; can reduce the density to a desired value (density hardcoded currently to 20f/m^3)
@@ -384,6 +385,29 @@ class fruit_handler(object):
             is_meter = 1
             [N, sortedFruit, real_y_max] = fruitD.csvFile(csv_file, is_meter)
             self.y_lim[1] = real_y_max
+
+        elif set_distribution == 1:
+            # using 2022 Colombini data, full orchard rows 
+            # there are 18 CSV files, from 4 folders, each file with around 10m of fruit localization data 
+            csv_folder = './TREE_FRUIT_DATA/apple_data_2022/'
+            print('RUN NUMBER:', run_n)
+            if run_n <= 5:
+                run_files = '01_42_4_apples_' + str(run_n+1) + '.csv'
+            elif run_n <= 9:
+                run_files = '46_42_1_apples_' + str(run_n-5) + '.csv'
+            elif run_n <= 13:
+                run_files = '51_42_2_apples_' + str(run_n-9) + '.csv'
+            elif run_n <= 15:
+                run_files = '56_42_3_apples_' + str(run_n-13) + '.csv'
+            else: 
+                print('WARNING: There are no more files in the 2022 dataset to run. Defaulting to the last file.')
+                run_files = '56_42_3_apples_3.csv'
+
+            y_limits = [0, self.y_lim[1]]
+
+            csv_file = csv_folder + run_files
+            is_meter = 1
+            [N, sortedFruit] = fruitD.csvFile_segment(csv_file, is_meter, y_limits)
 
         elif set_distribution == 2:
             # using raj's dataset
@@ -515,6 +539,12 @@ class fruit_handler(object):
         # find what fruits are available to harvest (some may have already been picked or removed)
         index_available = np.where(sortedFruit[4,:] <= 1) 
 
+        # get the z-coord array of the remaining fruits
+        # z_check = np.array(sortedFruit[2])
+        z_coord = np.array(sortedFruit[2,index_available[0]])
+        # sort the array from small to large value
+        z_sorted = np.sort(z_coord)
+
         # compute a the random offset per column by using CSV-saved seeds so that results are reprodicible, only create C-1 offsets because column 0 is set at the boundary value
         if self.C > 1:
             boundary_offset = np.random.default_rng(PCG64(int(boundary_seed))).uniform(-h_g, h_g, [(self.R-1), self.C]) # create C number of offsets
@@ -528,7 +558,11 @@ class fruit_handler(object):
             # print('bottom offset:\n', bot_offset)
             # print('top offset:\n', top_offset)
         else:
-            boundary_offset = np.zeros([self.R, self.C])
+            # boundary_offset = np.zeros([self.R, self.C])
+            # use boundary offset to create two new matrixes with zeros in the correct row to add offsets correctly to the top and bottom matrices
+            # zero_array      = np.zeros([self.C])
+            bot_offset      = np.zeros([self.R, self.C])
+            top_offset      = np.zeros([self.R, self.C])
 
         # calculate the z-coordinates for equal height rows
         if set_edges == 0 or len(index_available[0]) <= self.R: 
@@ -559,13 +593,13 @@ class fruit_handler(object):
             
             # get the z-coord array of the remaining fruits
             # z_check = np.array(sortedFruit[2])
-            z_coord = np.array(sortedFruit[2,index_available[0]])
+            # z_coord = np.array(sortedFruit[2,index_available[0]])
             # print('z_check', z_check)
             # print()
             # print('z_coord', z_coord)
 
-            # sort the array from small to large value
-            z_sorted = np.sort(z_coord)
+            # # sort the array from small to large value
+            # z_sorted = np.sort(z_coord)
     #         print('sorted z-coord', z_sorted)
             
             for row in range(self.R-1):
@@ -592,6 +626,17 @@ class fruit_handler(object):
         # add the random offset
         self.z_row_bot_edges = bot_edge + bot_offset
         self.z_row_top_edges = top_edge + top_offset
+
+        # calculate and print the number of fruits in each row (approx assuming all columns have no random offset)
+        print(f'fruits available %d divided by number of rows %3.3f' %(len(index_available[0]), len(index_available[0])/self.R))
+        for row in range(self.R):
+            # print("top_edge[row,0]", top_edge[row,0])
+            # print("bot_edge[row,0]", bot_edge[row,0])
+            in_row = np.where((z_sorted > bot_edge[row,0]) & (z_sorted < top_edge[row,0]))
+            # print('np.where(z_sorted > bot_edge[row,0] & z_sorted < top_edge[row,0])', np.where((z_sorted > bot_edge[row,0]) & (z_sorted < top_edge[row,0])))
+            print(f'row number %d has %d fruits' %(row,len(in_row[0])))
+        print()         
+
         # print('\nAFTER h_g')
         # print('bottom z-axis edges:\n', self.z_row_bot_edges)
         # print()
@@ -599,7 +644,7 @@ class fruit_handler(object):
         # print()
         # sys.exit(0)  # testing only
 
-        return([bot_edge, top_edge])  
+        return([self.z_row_bot_edges, self.z_row_top_edges])  
     
 
 
@@ -669,7 +714,7 @@ class fruit_handler(object):
         for i_row in range(R):
             # starting position in the y_axis (front-back on robot)
             y_col = Q
-            h_row = self.z_row_top_edges[0,i_row] - self.z_row_bot_edges[0,i_row]
+            h_row = self.z_row_top_edges[i_row,0] - self.z_row_bot_edges[i_row,0]
             # print('Cell height for this', n, 'loop', h_row)
             # print('bottom', self.z_row_bot_edges[0,n], 'top', self.z_row_top_edges[0,n], '\n')
 
@@ -784,23 +829,27 @@ class Job():
 
 ## create snapshot object for data analysis
 class Snapshot(object):
-    def __init__(self, n_col, n_row, horizon_l, vehicle_l, cell_l, Td, v_vy, FPE_g, FPEavg, FPT_g, FPTavg, y_lim, numFruit, curr_j, sortedFruit, fruit_picked_by, state_time):
+    def __init__(self, n_col, n_row, d_hrz, d_vehicle, d_cell, D, d_plan, z_bot_bounds, z_top_bounds, Td, v_vy, FPE_g, FPEavg, FPT_g, FPTavg, q_plan, numFruit, curr_j, sortedFruit, fruit_picked_by, state_time):
         # constants for the whole run
         self.n_col           = n_col
         self.n_row           = n_row
-        self.horizon_l       = horizon_l
-        self.vehicle_l       = vehicle_l
-        self.cell_l          = cell_l
+        self.d_hrz           = d_hrz
+        self.d_vehicle       = d_vehicle
+        self.d_cell          = d_cell
+        self.D               = D            # in m, the distance travelled before rescheduling
+        self.d_plan          = d_plan       # in m, the length of the planning window (what the robot can see and schedule)
             
         # constants and results for each snapshot in the run
         self.v_vy            = v_vy
-        self.FPE             = FPE_g    # global value
-        self.FPEavg          = FPEavg   # average value
-        self.FPT             = FPT_g    # global value
-        self.FPTavg          = FPTavg   # average value
-        self.y_lim           = y_lim
-        self.Td              = Td       # in s, handling time
-        self.N_snap          = numFruit
+        self.z_bot_bounds    = z_bot_bounds # array, bottom bounds of every row for the snapshot
+        self.z_top_bounds    = z_top_bounds # array, top bounds of every row for the snapshot
+        self.FPE             = FPE_g        # global value
+        self.FPEavg          = FPEavg       # average value
+        self.FPT             = FPT_g        # global value
+        self.FPTavg          = FPTavg       # average value
+        self.q_plan          = q_plan        # in m, start and end coordinates of the whole run
+        self.Td              = Td           # in s, average handling time of fruits in a snapshot
+        self.N_snap          = numFruit     # number of fruits in the snapshot
         self.curr_j          = curr_j
         self.avg_PCT         = 0.
         self.state_time      = state_time
