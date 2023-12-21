@@ -92,7 +92,7 @@ class fruitDistribution(object):
         density = len(y) / volume
         print('\nThe density of fruits in the file is:', density, 'f/m^3 \n')
 
-        # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
+        # translate fruit so it starts at 0 (some files are negative, etc.)
         # something like 0.2 m away in the x-direction
         x_translate = np.amin(x) # in m
         # print('x smallest value, in m', x_translate)
@@ -176,7 +176,7 @@ class fruitDistribution(object):
                     z_list.append(row[2])
 
                 numFruit += 1
-
+   
         # convert list to array
         x = np.array(x_list)
         y = np.array(y_list)
@@ -193,7 +193,7 @@ class fruitDistribution(object):
         # density = len(y) / volume
         # print('\nThe density of fruits in the file is:', density, 'f/m^3 before removing fruits outside of the work volume\n')
 
-        # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
+        # translate fruit so it starts at 0 (some files are negative, etc.)
         # something like 0.2 m away in the x-direction
         x_translate = np.amin(x) # in m
         # print('x smallest value, in m', x_translate)
@@ -232,20 +232,34 @@ class fruitDistribution(object):
         # print('out of z bounds (after):')
         # print(index_out_of_z_bounds[0])
 
-        # print('There are %d fruits in this segment' %len(y))
-        # print('The first fruit is at', np.amin(y))
+        if len(y) > 0:
+            # check if there are any fruits left, if so, continue
 
-        # calculate the density in the segment
-        volume = abs(np.amax(y) - np.amin(y)) * abs(np.amax(z) - np.amin(z)) * abs(np.amax(x) - np.amin(x))
-        density = len(y) / volume
-        print('\nThe density of fruits in the segment is:', density, 'f/m^3 after removing fruits outside of the work volume\n')
+            # make the segment start at 0 in the y-axis relative to the vehicle
+            # print('y-coordinates before translating 2nd time', y)
+            y_translate_again = np.amin(y)
+            y = y - y_translate_again
+            # print('y-coordinates after translating 2nd time', y)
 
-        sortedFruit = self.sortNstack(x, y, z)
-        # print(f'after removing out of bounds, the number of fruits left is %d' %len(sortedFruit[0]))
+            # print('There are %d fruits in this segment' %len(y))
+            # print('The first fruit is at', np.amin(y))
 
-        if len(sortedFruit[0]) != numFruit:
-            numFruit = len(sortedFruit[0])
-        # print('The number of fruits passed back is %d' %numFruit)
+            # calculate the density in the segment
+            volume = abs(np.amax(y) - np.amin(y)) * abs(np.amax(z) - np.amin(z)) * abs(np.amax(x) - np.amin(x))
+            density = len(y) / volume
+            print('\nThe density of fruits in the segment is:', density, 'f/m^3 after removing fruits outside of the work volume\n')
+
+            sortedFruit = self.sortNstack(x, y, z)
+            # print(f'after removing out of bounds, the number of fruits left is %d' %len(sortedFruit[0]))
+
+            if len(sortedFruit[0]) != numFruit:
+                numFruit = len(sortedFruit[0])
+            # print('The number of fruits passed back is %d' %numFruit)
+
+        else:
+            # there are no more fruits, at least not in this segment
+            numFruit = 0
+            sortedFruit = []
 
         return([numFruit, sortedFruit]) 
 
