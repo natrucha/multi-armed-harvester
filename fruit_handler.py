@@ -27,7 +27,7 @@ class fruit_handler(object):
 
 
 
-    def buildOrchard(self, set_distribution, seed_xyz, density=20, run_n=0):
+    def buildOrchard(self, set_distribution, seed_xyz, density=20, run_n=0, seg_n=0):
         '''
            Set up to create the simulated environment, separated from createFruitDistribution so that MIP run/row can happen.
            Seed list is a list with three seeds to compute the random the x, y, and z-coordinates. It's obtained from a CSV but
@@ -41,7 +41,7 @@ class fruit_handler(object):
 
         elif set_distribution == 1:
             # uses self.y_lim (updated in MIP_full_multiple when calling buildOrchard) to determine the segment being analyzed
-            [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution, run_n=run_n)
+            [self.N, self.sortedFruit] = self.createFruitDistribution(fruitD, set_distribution, run_n=run_n, seg_n=seg_n)
 
         elif set_distribution >= 4:
             # seed values, rather than i_run, will determine changes to any RNG-created distribution
@@ -345,7 +345,7 @@ class fruit_handler(object):
     
 
 
-    def createFruitDistribution(self, fruitD, set_distribution, x_seed=0, y_seed=0, z_seed=0, density=20, run_n=0, d_segment=10):
+    def createFruitDistribution(self, fruitD, set_distribution, x_seed=0, y_seed=0, z_seed=0, density=20, run_n=0, seg_n=0):
         '''
            Determines how the fruit distribution is going to be created, ether from real localization data or from RNG-created data 
            based on the given seeds. See value below for all the options.
@@ -371,12 +371,12 @@ class fruit_handler(object):
             print('RUN NUMBER:', run_n)
             if run_n <= 5:
                 run_files = '01_42_4_apples_' + str(run_n+1) + '.csv'
-            elif run_n <= 9:
+            elif run_n <= 10:
                 run_files = '46_42_1_apples_' + str(run_n-5) + '.csv'
-            elif run_n <= 13:
-                run_files = '51_42_2_apples_' + str(run_n-9) + '.csv'
-            elif run_n <= 15:
-                run_files = '56_42_3_apples_' + str(run_n-13) + '.csv'
+            elif run_n <= 14:
+                run_files = '51_42_2_apples_' + str(run_n-10) + '.csv'
+            elif run_n <= 17:
+                run_files = '56_42_3_apples_' + str(run_n-14) + '.csv'
             else: 
                 print('WARNING: There are no more files in the 2022 dataset to run. Defaulting to the last file.')
                 run_files = '56_42_3_apples_3.csv'
@@ -393,17 +393,17 @@ class fruit_handler(object):
             print('RUN NUMBER:', run_n)
             if run_n <= 5:
                 run_files = '01_42_4_apples_' + str(run_n+1) + '.csv'
-            elif run_n <= 9:
+            elif run_n <= 10:
                 run_files = '46_42_1_apples_' + str(run_n-5) + '.csv'
-            elif run_n <= 13:
-                run_files = '51_42_2_apples_' + str(run_n-9) + '.csv'
-            elif run_n <= 15:
-                run_files = '56_42_3_apples_' + str(run_n-13) + '.csv'
+            elif run_n <= 14:
+                run_files = '51_42_2_apples_' + str(run_n-10) + '.csv'
+            elif run_n <= 17:
+                run_files = '56_42_3_apples_' + str(run_n-14) + '.csv'
             else: 
                 print('WARNING: There are no more files in the 2022 dataset to run. Defaulting to the last file.')
                 run_files = '56_42_3_apples_3.csv'
 
-            y_limits = [0, self.y_lim[1]]
+            y_limits = [seg_n*self.y_lim[1], (seg_n+1)*self.y_lim[1]] # sets the segments starts and ends at based on the segment number (keep things consitent between runs/datasets)
 
             csv_file = csv_folder + run_files
             is_meter = 1
@@ -536,6 +536,7 @@ class fruit_handler(object):
 
         Returns two arrays, z_row_bot_edges[row,col] and z_row_top_edges[row,col]
         '''   
+
         # find what fruits are available to harvest (some may have already been picked or removed)
         index_available = np.where(sortedFruit[4,:] <= 1) 
 
@@ -547,9 +548,15 @@ class fruit_handler(object):
 
         # compute a the random offset per column by using CSV-saved seeds so that results are reprodicible, only create C-1 offsets because column 0 is set at the boundary value
         if self.C > 1:
-            boundary_offset = np.random.default_rng(PCG64(int(boundary_seed))).uniform(-h_g, h_g, [(self.R-1), self.C]) # create C number of offsets
+            boundary_offset = np.empty([self.R-1, self.C]) # should give a pattern: h_g * [ 0, +1, -1, +2, -2, +3, -3, ... ]
+            boundary_offset[:,2::2] = -h_g * np.arange(1,np.floor(self.C/2)+1) 
+            boundary_offset[:,1::2] = h_g * np.arange(1,np.floor(self.C/2)+1)
+            # boundary_offset = np.random.default_rng(PCG64(int(boundary_seed))).uniform(-h_g, h_g, [(self.R-1), self.C]) # create C number of offsets
             # zero out the c=0 offset
             boundary_offset[:,0] = 0
+            # print(boundary_offset)
+            # sys.exit(0)
+
             # use boundary offset to create two new matrixes with zeros in the correct row to add offsets correctly to the top and bottom matrices
             zero_array      = np.zeros([self.C])
             bot_offset      = np.concatenate(([zero_array], boundary_offset), axis=0)
@@ -621,7 +628,12 @@ class fruit_handler(object):
         # print()
         # print('top edges:\n', top_edge)
         bot_edge[1:,:]          += 1/2 * h_g
-        top_edge[:(self.C-2),:] -= 1/2 * h_g
+        top_edge[:(self.C-1),:] -= 1/2 * h_g
+
+        # print('\AFTER h_g and BEFORE the random offset')
+        # print('\nbottom edges:\n', bot_edge)
+        # print()
+        # print('top edges:\n', top_edge)
 
         # add the random offset
         self.z_row_bot_edges = bot_edge + bot_offset
