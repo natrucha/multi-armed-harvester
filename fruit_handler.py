@@ -377,9 +377,19 @@ class fruit_handler(object):
                 run_files = '51_42_2_apples_' + str(run_n-10) + '.csv'
             elif run_n <= 17:
                 run_files = '56_42_3_apples_' + str(run_n-14) + '.csv'
+            elif run_n <= 18:
+                run_files = '30_38_2_apples_1.csv'
+                # only one file of this denomination
+            elif run_n <= 19:
+                # only one file of this denomination
+                run_files = '41_42_0_apples_1.csv'
+            elif run_n <= 23:
+                run_files = '41_42_12_apples_' + str(run_n-19) + '.csv'
+            elif run_n <= 27:
+                run_files = '50_38_6_apples_' + str(run_n-23) + '.csv'
             else: 
                 print('WARNING: There are no more files in the 2022 dataset to run. Defaulting to the last file.')
-                run_files = '56_42_3_apples_3.csv'
+                run_files = '50_38_6_apples_4.csv'
 
             csv_file = csv_folder + run_files
             is_meter = 1
@@ -399,9 +409,19 @@ class fruit_handler(object):
                 run_files = '51_42_2_apples_' + str(run_n-10) + '.csv'
             elif run_n <= 17:
                 run_files = '56_42_3_apples_' + str(run_n-14) + '.csv'
+            elif run_n <= 18:
+                run_files = '30_38_2_apples_1.csv'
+                # only one file of this denomination
+            elif run_n <= 19:
+                # only one file of this denomination
+                run_files = '41_42_0_apples_1.csv'
+            elif run_n <= 23:
+                run_files = '41_42_12_apples_' + str(run_n-19) + '.csv'
+            elif run_n <= 27:
+                run_files = '50_38_6_apples_' + str(run_n-23) + '.csv'
             else: 
                 print('WARNING: There are no more files in the 2022 dataset to run. Defaulting to the last file.')
-                run_files = '56_42_3_apples_3.csv'
+                run_files = '50_38_6_apples_4.csv'
 
             y_limits = [seg_n*self.y_lim[1], (seg_n+1)*self.y_lim[1]] # sets the segments starts and ends at based on the segment number (keep things consitent between runs/datasets)
 
@@ -546,7 +566,7 @@ class fruit_handler(object):
         # sort the array from small to large value
         z_sorted = np.sort(z_coord)
 
-        # compute a the random offset per column by using CSV-saved seeds so that results are reprodicible, only create C-1 offsets because column 0 is set at the boundary value
+        # compute a the offset per column by alternating the offset h_g distance above and below the previous boundary, only create C-1 offsets because column 0 is set at the boundary value
         if self.C > 1:
             boundary_offset = np.empty([self.R-1, self.C]) # should give a pattern: h_g * [ 0, +1, -1, +2, -2, +3, -3, ... ]
             boundary_offset[:,2::2] = -h_g * np.arange(1,np.floor(self.C/2)+1) 
@@ -667,6 +687,8 @@ class fruit_handler(object):
 
            Requires that buildOrchard() has already been run.
         '''
+        ###### IF CHANGING v_max, etc., CHANGE IT IN FCFS_wall.py AS WELL!! ########
+        
         # allow calculations for the y-axis, 0.7 m long worst case
         v_max_y   = 1.4 # m/s from Motor Sizing Google sheet calculations if we want to keep triangular profile to maximize speed
         a_max_y   = 2.8 # m/s^2 from Motor Sizing Google sheet calculations if we want desired linear movement time to be 1 second
@@ -694,12 +716,12 @@ class fruit_handler(object):
                     end_y   = self.sortedFruit[1,j]  # in m, fruit j y_coordinate
                     end_z   = self.sortedFruit[2,j]  # in m, fruit j z_coordinate
 
-                    # calculate extension to fruit in y-axis
+                    # calculate side-to-side movement to fruit in y-axis
                     traj_calc_y.adjInit(start_y, 0.) # start moving from zero speed
                     traj_calc_y.noJerkProfile(traj_calc_y.q0, end_y, traj_calc_y.v0, v_max_y, a_max_y, d_max_y)
                     T_y = traj_calc_y.Ta + traj_calc_y.Tv + traj_calc_y.Td 
                     
-                    # calculate extension to fruit in z-axis
+                    # calculate up and down movement to fruit in z-axis
                     traj_calc_z.adjInit(start_z, 0.) # start moving from zero speed
                     traj_calc_z.noJerkProfile(traj_calc_z.q0, end_z, traj_calc_z.v0, v_max_z, a_max_z, d_max_z)
                     T_z = traj_calc_z.Ta + traj_calc_z.Tv + traj_calc_z.Td 
