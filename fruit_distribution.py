@@ -237,8 +237,8 @@ class fruitDistribution(object):
 
             # make the segment start at 0 in the y-axis relative to the vehicle
             # print('y-coordinates before translating 2nd time', y)
-            y_translate_again = np.amin(y)
-            y = y - y_translate_again
+            # y_translate_again = np.amin(y)
+            y = y - y_limit[0]
             # print('y-coordinates after translating 2nd time', y)
 
             # print('There are %d fruits in this segment' %len(y))
