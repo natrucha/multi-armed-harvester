@@ -46,6 +46,7 @@ def analysisMultiple(set_distribution, set_edges, n_runs, n_snapshots_array, run
 
     C_array          = np.zeros([n_runs, n_snapshots])
     R_array          = np.zeros([n_runs, n_snapshots])
+    N_array          = np.zeros([n_runs, n_snapshots])
     time_array       = np.zeros([n_runs, n_snapshots])
     FPE_array        = np.zeros([n_runs, n_snapshots])
     FPT_array        = np.zeros([n_runs, n_snapshots])
@@ -75,6 +76,7 @@ def analysisMultiple(set_distribution, set_edges, n_runs, n_snapshots_array, run
             # run list is made up of snapshot lists
             C_array[i_run,i_snap]         = run_list[run_nonempty_index][i_snap].n_col
             R_array[i_run,i_snap]         = run_list[run_nonempty_index][i_snap].n_row
+            N_array[i_run,i_snap]         = run_list[run_nonempty_index][i_snap].N_snap
             FPE_array[i_run,i_snap]       = run_list[run_nonempty_index][i_snap].FPE * 100
             FPEavg_array[i_run,i_snap]    = run_list[run_nonempty_index][i_snap].FPEavg * 100
             FPT_array[i_run,i_snap]       = run_list[run_nonempty_index][i_snap].FPT
@@ -202,12 +204,12 @@ def analysisMultiple(set_distribution, set_edges, n_runs, n_snapshots_array, run
         elif set_file_save == 1:
             if set_edges == 0:
                 # z-bounds set so all row heights are equal
-                bounds_by = '_height_V'
+                bounds_by = '_height_CR'
             elif set_edges == 1:
                 #z-bounds set so all rows have equal number of fruits
-                bounds_by = '_fruit_V'
+                bounds_by = '_fruit_CR'
 
-            file_name = file_base + bounds_by + str(int(v_vy_cmps_array[0,0])) # save new name so it's seperate from the new file/run set of CSVs
+            file_name = file_base + bounds_by + str(int(C_array[0,0])) + str(int(R_array[0,0])) # save new name so it's seperate from the new file/run set of CSVs
             # append the newest data to the csv (make sure you know what file you are working with!!!)
             check_file = Path(file_name + '.csv')
             # run 10 checks after which just send up an error message 
@@ -229,7 +231,7 @@ def analysisMultiple(set_distribution, set_edges, n_runs, n_snapshots_array, run
             for i_run in range(n_runs):
                 run_nonempty_index = use_indexes[0][i_run]
                 for i_snap in range(n_snapshots_array[run_nonempty_index]):
-                    row_data = [run_nonempty_index, i_snap, n_snapshots_array[run_nonempty_index], C_array[i_run,0], R_array[i_run,0], v_vy_cmps_array[i_run,i_snap], time_array[i_run,i_snap], FPE_array[i_run,i_snap], FPEavg_array[i_run,i_snap], FPT_array[i_run,i_snap], FPTavg_array[i_run,i_snap]]    
+                    row_data = [run_nonempty_index, i_snap, n_snapshots_array[run_nonempty_index], N_array[i_run,i_snap], C_array[i_run,0], R_array[i_run,0], v_vy_cmps_array[i_run,i_snap], time_array[i_run,i_snap], FPE_array[i_run,i_snap], FPEavg_array[i_run,i_snap], FPT_array[i_run,i_snap], FPTavg_array[i_run,i_snap]]    
 
                     wr.writerow(row_data)
                 time_array[i_run,:]
@@ -286,7 +288,10 @@ def main():
     d_cell           = 0.7             # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel. Matches the prototype
     d_o              = 0.15            # in m, space between the columns
     d_hrzn           = 0.3             # in m, the extra length (horizon) in front of the robot that the robot can see
-    h_cell           = 2. / n_row      # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
+    if int(args[9]) != 2:
+        # if set_view_field does not call for a horizon
+        d_hrzn = 0
+    h_cell           = 3.5 / n_row      # in m, width/height of the horizontal row of arms (z-axis) perpendicular to vehicle travel
     h_g              = 0.05            # in m, height of the gripper (dead space inducing)
     w_arm            = 1               # how far the arm can reach into the canopy
     # will end up removing this because d_o makes much more sense and easier to deal with
@@ -353,10 +358,10 @@ def main():
     # 0     == robot sees the whole dataset
     # 1     == robot only sees what's in front of it
     # 2     == robot only sees what's in front of it plus a horizon
-    set_view_field = 2
-    if set_distribution == 1:
-        # made the mistake not to hard-set this flag for the distribution that requires it
-        set_view_field = 0 
+    set_view_field = int(args[9])
+    # if set_distribution == 1:
+    #     # made the mistake not to hard-set this flag for the distribution that requires it
+    #     set_view_field = 0 
 
     ## set if solving per row or the whole view at once 
     # 0     == solve all rows at once 
@@ -364,9 +369,10 @@ def main():
     set_solve_row = 0
 
     if set_distribution == 1:
-        segment_n = int(args[9])  # sets which start and end coordinates will be used for a segment (only when set_distribution= 1):
+        segment_n = int(args[10])  # sets which start and end coordinates will be used for a segment (only when set_distribution= 1):
+        y_lim[1]  = 2.1           # make the segment longer than d_vehicle+d_hrzn by some amount (test segment length effect)
     else:
-        segment_n = 0 
+        segment_n = 1
     # 0 == y-coordinates between 0    - 2.7 m
     # 1 == y-coordinates between 2.7  - 5.4 m
     # 2 == y-coordinates between 5.4  - 8.1 m
@@ -376,8 +382,8 @@ def main():
     ## set print, logging, and plot settings on or off
     # 0     == print/plot is off
     # 1     == print/plot is on
-    print_out = 1  # turns printing states, indexes, and settings on/off (all or nothing)
-    plot_out  = 1  # turns plotting on/off
+    print_out = 0  # turns printing states, indexes, and settings on/off (all or nothing)
+    plot_out  = 0  # turns plotting on/off
     log_out   = 1  # turns logging off gurobi files and csv creation files such as ilp, lp, mlp file creation on/off
 
     ## set Td to be constant or variable? -> see if needed as a flag (not currently)
@@ -448,7 +454,7 @@ def main():
         if set_view_field == 0:
             # global view
             n_snapshots = 1 
-            d_plan      = fruit_data.y_lim[1] - fruit_data.y_lim[0] # in m, the length along the orchard row that the robot can see, in this case, the whole horizon
+            d_plan      = fruit_data.y_lim[1] - fruit_data.y_lim[0] # in m, harvester can see the whole dataset
             D_          = fruit_data.y_lim[1] + d_vehicle  # in m, the travel length
             FPE_min     = 0.95 # in %, what is the minimum FPE desired (not exclusive) for the velocity loop setting
 
@@ -466,14 +472,16 @@ def main():
             n_snapshots = math.ceil((fruit_data.y_lim[1] - fruit_data.y_lim[0]) / D_)  # set just to do the area in front of the vehicle
 
             if set_MPC == 0:
-                FPE_min = .35 # D_ / (d_plan) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
+                FPE_min = 0.90# .35 # D_ / (d_plan) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
             else:
                 FPE_min = .95 # D_ / (d_plan) * 2  # the ratio of traveled length to observed length (how many fruits could be harvested vs. viewed)
             
         snap_num_array[i_run] = n_snapshots
 
+        # if fruit_data.N < 10:
         if fruit_data.N == 0:
             # run has no fruits, should be skipped completely
+            # print('WARNING: Run has less than 10 fruits and will be skipped')
             print('WARNING: Run has no fruits and will be skipped')
             print('----------------------------------------------')
             print('----------------------------------------------\n\n')
