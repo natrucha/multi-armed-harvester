@@ -402,28 +402,31 @@ class fruit_handler(object):
             csv_folder = './TREE_FRUIT_DATA/apple_data_2022/'
             print('RUN NUMBER:', run_n)
             if run_n <= 5:
-                run_files = '01_42_4_apples_' + str(run_n+1) + '.csv'
+                run_files = '01_42_4_' + str(run_n+1) + '.csv'
             elif run_n <= 10:
-                run_files = '46_42_1_apples_' + str(run_n-5) + '.csv'
+                run_files = '46_42_1_' + str(run_n-5) + '.csv'
             elif run_n <= 14:
-                run_files = '51_42_2_apples_' + str(run_n-10) + '.csv'
+                run_files = '51_42_2_' + str(run_n-10) + '.csv'
             elif run_n <= 17:
-                run_files = '56_42_3_apples_' + str(run_n-14) + '.csv'
+                run_files = '56_42_3_' + str(run_n-14) + '.csv'
             elif run_n <= 18:
-                run_files = '30_38_2_apples_1.csv'
+                run_files = '30_38_2_1.csv'
                 # only one file of this denomination
             elif run_n <= 19:
                 # only one file of this denomination
-                run_files = '41_42_0_apples_1.csv'
-            elif run_n <= 23:
-                run_files = '41_42_12_apples_' + str(run_n-19) + '.csv'
-            elif run_n <= 27:
-                run_files = '50_38_6_apples_' + str(run_n-23) + '.csv'
+                run_files = '41_42_0_1.csv'
+            elif run_n <= 24:
+                run_files = '41_42_12_' + str(run_n-19) + '.csv'
+            elif run_n <= 28:
+                run_files = '50_38_6_' + str(run_n-24) + '.csv'
+            elif run_n <= 31:
+                run_files = '06_42_5_' + str(run_n-28) + '.csv'
             else: 
                 print('WARNING: There are no more files in the 2022 dataset to run. Defaulting to the last file.')
-                run_files = '50_38_6_apples_4.csv'
+                run_files = '06_42_5_4.csv'
 
             y_limits = [seg_n*self.y_lim[1], (seg_n+1)*self.y_lim[1]] # sets the segments starts and ends at based on the segment number (keep things consitent between runs/datasets)
+            # print('*************** PRINT y_limits ******************', y_limits)
 
             csv_file = csv_folder + run_files
             is_meter = 1
@@ -560,6 +563,9 @@ class fruit_handler(object):
         # find what fruits are available to harvest (some may have already been picked or removed)
         index_available = np.where(sortedFruit[4,:] <= 1) 
 
+        # the available number of fruits if deadspace is added
+        self.available_numFruit = 0
+
         # get the z-coord array of the remaining fruits
         # z_check = np.array(sortedFruit[2])
         z_coord = np.array(sortedFruit[2,index_available[0]])
@@ -615,7 +621,7 @@ class fruit_handler(object):
             fruit_in_row = math.floor(len(index_available[0]) / self.R)  # total fruit in each horizontal row (round down, one row could be heavier)
             # fruit_in_row = math.floor(numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
             # fruit_in_row = math.floor(self.numFruit / n_row)  # total fruit in each horizontal row (round down, one row could be heavier)
-            print('\nnumber of fruit in each row, rounded down', fruit_in_row, '\n')
+            print('\nnumber of fruit that should be in each row, rounded down', fruit_in_row, '\n')
             print()
             
             # get the z-coord array of the remaining fruits
@@ -659,15 +665,52 @@ class fruit_handler(object):
         self.z_row_bot_edges = bot_edge + bot_offset
         self.z_row_top_edges = top_edge + top_offset
 
-        # calculate and print the number of fruits in each row (approx assuming all columns have no random offset)
+        missing = 0
+
+        # calculate and print the number of fruits in each row
         print(f'fruits available %d divided by number of rows %3.3f' %(len(index_available[0]), len(index_available[0])/self.R))
-        for row in range(self.R):
-            # print("top_edge[row,0]", top_edge[row,0])
-            # print("bot_edge[row,0]", bot_edge[row,0])
-            in_row = np.where((z_sorted > bot_edge[row,0]) & (z_sorted < top_edge[row,0]))
-            # print('np.where(z_sorted > bot_edge[row,0] & z_sorted < top_edge[row,0])', np.where((z_sorted > bot_edge[row,0]) & (z_sorted < top_edge[row,0])))
-            print(f'row number %d has %d fruits' %(row,len(in_row[0])))
-        print()         
+        for row_i in range(self.R-1): # number of dead space bands = R-1
+            missing = 0
+            out_of_bounds = np.empty(1)
+
+            for col_i in range(self.C):
+                # which fruits fall in this row's column's dead space?
+                in_0space = np.where((z_sorted > self.z_row_top_edges[row_i,col_i]) & (z_sorted < self.z_row_bot_edges[row_i+1,col_i])) # gives which fruits (index) fall in row row_i, column col_i's dead band 
+                print('index of fruits in dead space', in_0space[0])
+
+                if col_i == 0:
+                    out_of_bounds = np.copy(in_0space[0])
+                else:
+                    out_of_bounds = np.concatenate((out_of_bounds, in_0space[0]), axis=None)
+            # print('fruits inside of the dead space (out of bounds)', out_of_bounds)
+
+            # see answer in  https://stackoverflow.com/questions/30003068/how-to-get-a-list-of-all-indices-of-repeated-elements-in-a-numpy-array
+            # creates an array of indices, sorted by unique element
+            sort_oob = np.argsort(out_of_bounds)
+            # sorts array so all unique elements are together 
+            sorted_oob = out_of_bounds[sort_oob]
+            # returns the unique values, the index of the first occurrence of a value, and the count for each element
+            vals, oob_start, count = np.unique(sorted_oob, return_counts=True, return_index=True)
+            # splits the indices into separate arrays
+            res = np.split(sort_oob, oob_start[1:])
+            # filter them with respect to their size, keeping only items occurring more than once
+            res = filter(lambda x: x.size > 1, res)
+
+            for i in res:
+                # add that a fruit is missing for every res that went thorugh the filter
+                missing += 1
+
+            # # print("top_edge[row,0]", top_edge[row,0])
+            # # print("bot_edge[row,0]", bot_edge[row,0])
+            # in_row = np.where((z_sorted > bot_edge[row_i,col_i]) & (z_sorted < top_edge[row_i,col_i]))
+            # # print('np.where(z_sorted > bot_edge[row,0] & z_sorted < top_edge[row,0])', np.where((z_sorted > bot_edge[row,0]) & (z_sorted < top_edge[row,0])))
+            # print(f'row number %d has %d fruits' %(row_i,len(in_row[0])))
+
+        self.N_deadspace = missing # the number of fruits that are not inside of dead space in each row
+        # print('For %d columns and %d rows, the number of missing fruits is %d' %(self.C, self.R, missing))
+        print()   
+
+              
 
         # print('\nAFTER h_g')
         # print('bottom z-axis edges:\n', self.z_row_bot_edges)
@@ -863,7 +906,7 @@ class Job():
 
 ## create snapshot object for data analysis
 class Snapshot(object):
-    def __init__(self, n_col, n_row, d_hrz, d_vehicle, d_cell, D, d_plan, z_bot_bounds, z_top_bounds, Td, v_vy, FPE_g, FPEavg, FPT_g, FPTavg, q_plan, numFruit, curr_j, sortedFruit, fruit_picked_by, state_time):
+    def __init__(self, n_col, n_row, d_hrz, d_vehicle, d_cell, D, d_plan, z_bot_bounds, z_top_bounds, Td, v_vy, FPE_g, FPEavg, FPT_g, FPTavg, q_plan, numFruit, N_deadspace, curr_j, sortedFruit, fruit_picked_by, state_time):
         # constants for the whole run
         self.n_col           = n_col
         self.n_row           = n_row
@@ -884,6 +927,7 @@ class Snapshot(object):
         self.q_plan          = q_plan        # in m, start and end coordinates of the whole run
         self.Td              = Td           # in s, average handling time of fruits in a snapshot
         self.N_snap          = numFruit     # number of fruits in the snapshot
+        self.N_deadspace     = N_deadspace  # number of fruit left when deadspace is added
         self.curr_j          = curr_j
         self.avg_PCT         = 0.
         self.state_time      = state_time
