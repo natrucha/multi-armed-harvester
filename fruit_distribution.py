@@ -3,6 +3,7 @@ import numpy as np
 # from numpy.random import PCG64
 
 import math
+import sys
 
 from trajectory import *          # import the trajectory time calc (bang-bang)
 
@@ -195,14 +196,14 @@ class fruitDistribution(object):
 
         # translate fruit so it starts at 0 (some files are negative, etc.)
         # something like 0.2 m away in the x-direction
-        x_translate = np.amin(x) # in m
+        x_translate = np.amin(x) - 0.01 # in m
         # print('x smallest value, in m', x_translate)
-        x = x - x_translate + 0.2
+        x = x - x_translate 
         # something like 0 m long in the y-direction
-        y_translate = np.amin(y)
+        y_translate = np.amin(y) - 0.01
         y = y - y_translate
         # something like 0 m high in the z-direction
-        z_translate = np.amin(z)
+        z_translate = np.amin(z) - 0.01
         z = z - z_translate
 
         # remove any fruit that is outside of the robot's max limits
@@ -247,14 +248,14 @@ class fruitDistribution(object):
             # calculate the density in the segment
             volume = abs(np.amax(y) - np.amin(y)) * abs(np.amax(z) - np.amin(z)) * abs(np.amax(x) - np.amin(x))
             density = len(y) / volume
-            print('\nThe density of fruits in the segment is:', density, 'f/m^3 after removing fruits outside of the work volume\n')
+            # print('\nThe density of fruits in the segment is:', density, 'f/m^3 after removing fruits outside of the work volume\n')
 
             sortedFruit = self.sortNstack(x, y, z)
             # print(f'after removing out of bounds, the number of fruits left is %d' %len(sortedFruit[0]))
 
             if len(sortedFruit[0]) != numFruit:
                 numFruit = len(sortedFruit[0])
-            # print('The number of fruits passed back is %d' %numFruit)
+            # print('####################### The number of fruits passed back is %d\n\n' %numFruit)
 
         else:
             # there are no more fruits, at least not in this segment
