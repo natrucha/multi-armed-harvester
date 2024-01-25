@@ -684,21 +684,26 @@ class fruit_handler(object):
                     out_of_bounds = np.concatenate((out_of_bounds, in_0space[0]), axis=None)
             # print('fruits inside of the dead space (out of bounds)', out_of_bounds)
 
-            # see answer in  https://stackoverflow.com/questions/30003068/how-to-get-a-list-of-all-indices-of-repeated-elements-in-a-numpy-array
-            # creates an array of indices, sorted by unique element
-            sort_oob = np.argsort(out_of_bounds)
-            # sorts array so all unique elements are together 
-            sorted_oob = out_of_bounds[sort_oob]
-            # returns the unique values, the index of the first occurrence of a value, and the count for each element
-            vals, oob_start, count = np.unique(sorted_oob, return_counts=True, return_index=True)
-            # splits the indices into separate arrays
-            res = np.split(sort_oob, oob_start[1:])
-            # filter them with respect to their size, keeping only items occurring more than once
-            res = filter(lambda x: x.size > 1, res)
+            # if there's only one column, all fruits in dead space are "missing"
+            if self.C > 1:
+                # see answer in  https://stackoverflow.com/questions/30003068/how-to-get-a-list-of-all-indices-of-repeated-elements-in-a-numpy-array
+                # creates an array of indices, sorted by unique element
+                sort_oob = np.argsort(out_of_bounds)
+                # sorts array so all unique elements are together 
+                sorted_oob = out_of_bounds[sort_oob]
+                # returns the unique values, the index of the first occurrence of a value, and the count for each element
+                vals, oob_start, count = np.unique(sorted_oob, return_counts=True, return_index=True)
+                # splits the indices into separate arrays
+                res = np.split(sort_oob, oob_start[1:])
+                # filter them with respect to their size, keeping only items occurring more than once
+                res = filter(lambda x: x.size > 1, res)
 
-            for i in res:
-                # add that a fruit is missing for every res that went thorugh the filter
-                missing += 1
+                for i in res:
+                    # add that a fruit is missing for every res that went thorugh the filter
+                    missing += 1
+            
+            else:
+                missing = len(out_of_bounds)
 
             # # print("top_edge[row,0]", top_edge[row,0])
             # # print("bot_edge[row,0]", bot_edge[row,0])
