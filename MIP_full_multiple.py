@@ -44,17 +44,18 @@ def analysisMultiple(set_distribution, set_edges, n_runs, n_snapshots_array, run
     FPE_max_array = np.zeros(n_runs)
     FPT_max_array = np.zeros(n_runs)
 
-    C_array          = np.zeros([n_runs, n_snapshots])
-    R_array          = np.zeros([n_runs, n_snapshots])
-    N_array          = np.zeros([n_runs, n_snapshots])
-    time_array       = np.zeros([n_runs, n_snapshots])
-    FPE_array        = np.zeros([n_runs, n_snapshots])
-    FPT_array        = np.zeros([n_runs, n_snapshots])
-    FPEavg_array     = np.zeros([n_runs, n_snapshots])
-    FPTavg_array     = np.zeros([n_runs, n_snapshots])
+    C_array           = np.zeros([n_runs, n_snapshots])
+    R_array           = np.zeros([n_runs, n_snapshots])
+    N_array           = np.zeros([n_runs, n_snapshots])
+    N_deadspace_array = np.zeros([n_runs, n_snapshots])
+    time_array        = np.zeros([n_runs, n_snapshots])
+    FPE_array         = np.zeros([n_runs, n_snapshots])
+    FPT_array         = np.zeros([n_runs, n_snapshots])
+    FPEavg_array      = np.zeros([n_runs, n_snapshots])
+    FPTavg_array      = np.zeros([n_runs, n_snapshots])
     # Td_avg           = np.zeros([n_runs, n_snapshots])      
     # snapshot_density = np.zeros([n_runs, n_snapshots]) # in fruits/m^2
-    v_vy_cmps_array  = np.zeros([n_runs, n_snapshots]) # save the velocity in cm/s used in each snapshot
+    v_vy_cmps_array   = np.zeros([n_runs, n_snapshots]) # save the velocity in cm/s used in each snapshot
    
     # v_vy_cmps = int(run_list[0][0].v_vy * 100)
     # print('the run\'s v_vy', v_vy_cmps)
@@ -72,16 +73,17 @@ def analysisMultiple(set_distribution, set_edges, n_runs, n_snapshots_array, run
         for i_snap in range(n_snapshots_array[run_nonempty_index]):
             # print(f'i_snap value for i_run %d is %d' %(run_nonempty_index,i_snap))
             # print('Currently analyzing i_run %d and i_snap %d' % (i_run, i_snap))
-            time_array[i_run,i_snap]      = time_list[run_nonempty_index][i_snap].total_seconds()
+            time_array[i_run,i_snap]        = time_list[run_nonempty_index][i_snap].total_seconds()
             # run list is made up of snapshot lists
-            C_array[i_run,i_snap]         = run_list[run_nonempty_index][i_snap].n_col
-            R_array[i_run,i_snap]         = run_list[run_nonempty_index][i_snap].n_row
-            N_array[i_run,i_snap]         = run_list[run_nonempty_index][i_snap].N_snap
-            FPE_array[i_run,i_snap]       = run_list[run_nonempty_index][i_snap].FPE * 100
-            FPEavg_array[i_run,i_snap]    = run_list[run_nonempty_index][i_snap].FPEavg * 100
-            FPT_array[i_run,i_snap]       = run_list[run_nonempty_index][i_snap].FPT
-            FPTavg_array[i_run,i_snap]    = run_list[run_nonempty_index][i_snap].FPTavg
-            v_vy_cmps_array[i_run,i_snap] = run_list[run_nonempty_index][i_snap].v_vy * 100 # in cm/s
+            C_array[i_run,i_snap]           = run_list[run_nonempty_index][i_snap].n_col
+            R_array[i_run,i_snap]           = run_list[run_nonempty_index][i_snap].n_row
+            N_array[i_run,i_snap]           = run_list[run_nonempty_index][i_snap].N_snap
+            N_deadspace_array[i_run,i_snap] = run_list[run_nonempty_index][i_snap].N_deadspace
+            FPE_array[i_run,i_snap]         = run_list[run_nonempty_index][i_snap].FPE * 100
+            FPEavg_array[i_run,i_snap]      = run_list[run_nonempty_index][i_snap].FPEavg * 100
+            FPT_array[i_run,i_snap]         = run_list[run_nonempty_index][i_snap].FPT
+            FPTavg_array[i_run,i_snap]      = run_list[run_nonempty_index][i_snap].FPTavg
+            v_vy_cmps_array[i_run,i_snap]   = run_list[run_nonempty_index][i_snap].v_vy * 100 # in cm/s
 
             # density_rows = np.average(snapshot_cell[i_snap][0], axis=1)
             # snapshot_density[i_run,i_snap] = np.average(snapshot_cell[i_snap][0])
@@ -209,7 +211,15 @@ def analysisMultiple(set_distribution, set_edges, n_runs, n_snapshots_array, run
                 #z-bounds set so all rows have equal number of fruits
                 bounds_by = '_fruit_CR'
 
-            file_name = file_base + bounds_by + str(int(C_array[0,0])) + str(int(R_array[0,0])) # save new name so it's seperate from the new file/run set of CSVs
+            v_file_max = np.amax(v_vy_cmps_array)
+            v_file_min = np.amin(v_vy_cmps_array)
+
+            if v_file_max != v_file_min:
+                v_file = '_Vbest'
+            else:
+                v_file = '_V' + str(int(v_file_max))
+
+            file_name = file_base + bounds_by + str(int(C_array[0,0])) + str(int(R_array[0,0])) + v_file # save new name so it's seperate from the new file/run set of CSVs
             # append the newest data to the csv (make sure you know what file you are working with!!!)
             check_file = Path(file_name + '.csv')
             # run 10 checks after which just send up an error message 
@@ -231,7 +241,7 @@ def analysisMultiple(set_distribution, set_edges, n_runs, n_snapshots_array, run
             for i_run in range(n_runs):
                 run_nonempty_index = use_indexes[0][i_run]
                 for i_snap in range(n_snapshots_array[run_nonempty_index]):
-                    row_data = [run_nonempty_index, i_snap, n_snapshots_array[run_nonempty_index], N_array[i_run,i_snap], C_array[i_run,0], R_array[i_run,0], v_vy_cmps_array[i_run,i_snap], time_array[i_run,i_snap], FPE_array[i_run,i_snap], FPEavg_array[i_run,i_snap], FPT_array[i_run,i_snap], FPTavg_array[i_run,i_snap]]    
+                    row_data = [run_nonempty_index, i_snap, n_snapshots_array[run_nonempty_index], N_array[i_run,i_snap], N_deadspace_array[i_run,i_snap], C_array[i_run,0], R_array[i_run,0], v_vy_cmps_array[i_run,i_snap], time_array[i_run,i_snap], FPE_array[i_run,i_snap], FPEavg_array[i_run,i_snap], FPT_array[i_run,i_snap], FPTavg_array[i_run,i_snap]]    
 
                     wr.writerow(row_data)
                 time_array[i_run,:]
@@ -311,7 +321,7 @@ def main():
     q_vy_start       = q_vy            # in m, saves the start location (q_vy will change as the system 'moves' along the orchard row)
 
     # orchard row limis along all three axes (fruits above or below limits cannot be picked). Used especially when creating fake fruit districutions to test against
-    x_lim            = [0.2, 1.2]               # in m, also determines the distance the arm can move into the canopy
+    x_lim            = [0.2, 3.0]               # in m, also determines the distance the arm can move into the canopy
     y_lim            = [q_vy_start, d_vehicle+d_hrzn]  # in m, sets upper and lower bounds of travel for the vehicle. Can be used to stop the vehicle early with the real fruit distribution data
     z_lim            = [0., h_vehicle]          # in m, how tall the columns of the robots are 
 
@@ -370,7 +380,7 @@ def main():
 
     if set_distribution == 1:
         segment_n = int(args[10])  # sets which start and end coordinates will be used for a segment (only when set_distribution= 1):
-        y_lim[1]  = 2.1           # make the segment longer than d_vehicle+d_hrzn by some amount (test segment length effect)
+        y_lim[1]  = 3.          # make the segment longer than d_vehicle+d_hrzn by some amount (test segment length effect)
     else:
         segment_n = 1
     # 0 == y-coordinates between 0    - 2.7 m
@@ -578,6 +588,7 @@ def main():
 
             # determine the z_edges for this snapshot, add RNG seeds to give the z-bounds a random offset between columns to decrease dead-space 
             [bot_edge, top_edge] = fruit_data.calcRowZBounds(set_edges, z_lim, h_cell, h_g, i_snap_sortedFruit, seed_list[i_run][3])
+            N_deadspace = fruit_data.N_deadspace
             # print('bottom z-bounds')
             # print(bot_edge)
             # print('top z-bounds')
@@ -765,13 +776,15 @@ def main():
                             
                             pre_queue_fruit_picked_by[0][-1] = list(pre_queue_unpicked)
 
-                        # calculate the velocity's FPT
-                        if set_distribution == 1:
-                            # if we are working with single segments, all arms have a vehicle's length of time where they aren't working (entering and exiting the segment)
-                            pre_queue_FPT = pre_queue_total_picked / ((D_ - d_vehicle) / v_vy_mps)
+                        pre_queue_FPT = pre_queue_total_picked / (D_ / v_vy_mps)
 
-                        else:
-                            pre_queue_FPT = pre_queue_total_picked / (D_ / v_vy_mps)                       
+                        # # calculate the velocity's FPT
+                        # if set_distribution == 1:
+                        #     # if we are working with single segments, all arms have a vehicle's length of time where they aren't working (entering and exiting the segment)
+                        #     pre_queue_FPT = pre_queue_total_picked / ((D_ - d_vehicle) / v_vy_mps)
+
+                        # else:
+                        #     pre_queue_FPT = pre_queue_total_picked / (D_ / v_vy_mps)                       
 
                         # calculate the velocity's FPE 
                         if i_snap_available_numFruit > 0:
@@ -869,12 +882,14 @@ def main():
                     
                     v_curr_fruit_picked_by[0][-1] = list(unpicked)
 
+                v_curr_FPT = v_curr_total_picked / (D_ / v_vy_mps)
+
                 # calculate the velocity's FPT
-                if set_distribution == 1:
-                    # if we are working with single segments, all arms have a vehicle's length of time where they aren't working (entering and exiting the segment)
-                    v_curr_FPT = v_curr_total_picked / ((D_ - d_vehicle) / v_vy_mps)
-                else:
-                    v_curr_FPT = v_curr_total_picked / (D_ / v_vy_mps)
+                # if set_distribution == 1:
+                #     # if we are working with single segments, all arms have a vehicle's length of time where they aren't working (entering and exiting the segment)
+                #     v_curr_FPT = v_curr_total_picked / ((D_ - d_vehicle) / v_vy_mps)
+                # else:
+                #     v_curr_FPT = v_curr_total_picked / (D_ / v_vy_mps)
 
                 # calculate the velocity's FPE 
                 if i_snap_available_numFruit > 0:
@@ -1109,11 +1124,12 @@ def main():
             # save chosen velocity
             chosen_v_vy_mps_array[i_snap] = v_vy
             # save the time this snapshot takes based on chosen v_vy
-            if set_distribution == 1:
-                # subtracting a vehicle length in the time because that's how long every arm is not working when entering and exiting the segment are taken into account
-                snapshot_time_array[i_snap] = (D_ - d_vehicle) / v_vy  # in s, l_step in m, v_vy in m/s
-            else:
-                snapshot_time_array[i_snap] = D_ / v_vy  # in s, l_step in m, v_vy in m/s
+            snapshot_time_array[i_snap] = D_ / v_vy
+            # if set_distribution == 1:
+            #     # subtracting a vehicle length in the time because that's how long every arm is not working when entering and exiting the segment are taken into account
+            #     snapshot_time_array[i_snap] = (D_ - d_vehicle) / v_vy  # in s, l_step in m, v_vy in m/s
+            # else:
+            #     snapshot_time_array[i_snap] = D_ / v_vy  # in s, l_step in m, v_vy in m/s
 
             # calculate the mean Td for the snapshot, not working yet
             this_mean_Td = fruit_data.calcMeanTd(total_picked, state_time)
@@ -1130,7 +1146,7 @@ def main():
 
             ## continue filling if needed: PCT, state_time, fruit_picked_by, fruit_list (all lists?)
             # fill in snapshot object and list with current results, object definition in fruit_handler.py
-            snapshot = Snapshot(n_col, n_row, d_hrzn, d_vehicle, d_cell, D_, d_plan, bot_edge, top_edge, this_mean_Td, v_vy, this_global_FPE, FPE, this_global_FPT, FPT, fruit_data.y_lim, i_snap_numFruit, chosen_j, fruit_data.sortedFruit, fruit_picked_by, state_time)
+            snapshot = Snapshot(n_col, n_row, d_hrzn, d_vehicle, d_cell, D_, d_plan, bot_edge, top_edge, this_mean_Td, v_vy, this_global_FPE, FPE, this_global_FPT, FPT, fruit_data.y_lim, i_snap_numFruit, N_deadspace, chosen_j, fruit_data.sortedFruit, fruit_picked_by, state_time)
             snapshot_list.append(snapshot)
 
             if print_out == 1:
