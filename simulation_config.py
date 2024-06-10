@@ -44,16 +44,16 @@ class simulation_config(object):
         self.fruit_row_tk   = 0.7
         # fruit row length, in m -- y-axis
         self.fruit_row_st   = 0.
-        self.fruit_row_end  = 10.
+        self.fruit_row_end  = 20.
         # fruit row height, in m -- z-axis
         self.fruit_row_bt   = 0.
         self.fruit_row_tp   = 2.7
         # values for fruit density (currently supports only one value overall)
-        self.rho_real       = 1.
+        self.rho_real       = 10.
         self.rho_fake       = 0.5
         # decide on the number of arms and rows
         self.num_arms       = 3
-        self.num_row        = 3
+        self.num_row        = 2
         # arm's max velocity and acceleration values apparently in m/s
         self.max_v          = 0.8
         self.max_a          = 3.1

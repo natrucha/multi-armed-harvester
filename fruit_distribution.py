@@ -93,19 +93,15 @@ class fruitDistribution(object):
         density = len(y) / volume
         print('\nThe density of fruits in the file is:', density, 'f/m^3 \n')
 
-        # translate fruit so it starts at 0 (some files are negative, etc.)
-        # something like 0.2 m away in the x-direction
-        x_translate = np.amin(x) # in m
-        # print('x smallest value, in m', x_translate)
-        x = x - x_translate + 0.2
-        # something like 0 m long in the y-direction
-        y_translate = np.amin(y)
+        x_translate = np.amin(x) - 0.01 # in m
+        x = x - x_translate 
+
+        y_translate = np.amin(y) - 0.01
         y = y - y_translate
-        # fix the self.y_lim[1] value because hard-coding values isn't a good idea (unless explicitly set -> separate into segments -> it's own function?)
+        # fix the self.y_lim[1] value because hard-coding values isn't a good idea
         real_y_max   = np.amax(y) + 0.01
-        # print('compare self.y_lim[1] vs data np.amax(y)', self.y_lim[1], 'vs', np.amax(y))
-        # something like 0 m high in the z-direction
-        z_translate = np.amin(z)
+
+        z_translate = np.amin(z) - 0.01
         z = z - z_translate
 
         # remove any fruit that is outside of the robot's max limits
@@ -266,106 +262,106 @@ class fruitDistribution(object):
 
 
 
-    def csvFile_reduced(self, file_name, is_meter, desired_density, x_seed):
-        '''
-            Import fruit coordinates from given CSV file, where each fruit is a row, columns are x, y, z
-            coordinates. The average density in Raj's file is around 48 fruit/m^2.
+    # def csvFile_reduced(self, file_name, is_meter, desired_density, x_seed):
+    #     '''
+    #         Import fruit coordinates from given CSV file, where each fruit is a row, columns are x, y, z
+    #         coordinates. The average density in Raj's file is around 48 fruit/m^2.
 
-            file_name has to be string with '...' 
+    #         file_name has to be string with '...' 
 
-            is_meter = 0 means ft, 1 is meter (other values for other measurements?).
+    #         is_meter = 0 means ft, 1 is meter (other values for other measurements?).
 
-            desired_density is the total desnity that should be returned. Reducetion is done by uniform 
-            randomly choosing indexes and removing them from the list of fruit.
+    #         desired_density is the total desnity that should be returned. Reducetion is done by uniform 
+    #         randomly choosing indexes and removing them from the list of fruit.
 
-            x_seed is a seed used to remove fruits randomly, but with a known seed. 
-        '''
-        x_list = list()
-        y_list = list()
-        z_list = list()
+    #         x_seed is a seed used to remove fruits randomly, but with a known seed. 
+    #     '''
+    #     x_list = list()
+    #     y_list = list()
+    #     z_list = list()
 
-        numFruit = 0
+    #     numFruit = 0
 
-        with open(file_name) as csvfile:
-            reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-            for row in reader:
-                # need to check that x, y, z, coordinates match my definition of x, y, z -> apples 2015 do
-                x_list.append(row[0])
-                y_list.append(row[1])
-                z_list.append(row[2])
+    #     with open(file_name) as csvfile:
+    #         reader = csv.reader(csvfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    #         for row in reader:
+    #             # need to check that x, y, z, coordinates match my definition of x, y, z -> apples 2015 do
+    #             x_list.append(row[0])
+    #             y_list.append(row[1])
+    #             z_list.append(row[2])
 
-                numFruit += 1
+    #             numFruit += 1
 
-        # convert list to array
-        x = np.array(x_list)
-        y = np.array(y_list)
-        z = np.array(z_list) 
+    #     # convert list to array
+    #     x = np.array(x_list)
+    #     y = np.array(y_list)
+    #     z = np.array(z_list) 
 
-        # in Raj's data set, the average denisty is around 48 fruit/m^2
-        # Raj_density = 48
-        # calculate the real density in the file instead (make it volumn late)
-        volume = abs(y.max() - y.min()) * abs(z.max() - z.min()) * abs(x.max() - x.min())
+    #     # in Raj's data set, the average denisty is around 48 fruit/m^2
+    #     # Raj_density = 48
+    #     # calculate the real density in the file instead (make it volumn late)
+    #     volume = abs(y.max() - y.min()) * abs(z.max() - z.min()) * abs(x.max() - x.min())
 
-        density = len(y) / volume
-        print('\nThe original density of the file is:', density, 'f/m^3 \n  The desired density is:', desired_density, 'f/m^3 \n')
+    #     density = len(y) / volume
+    #     print('\nThe original density of the file is:', density, 'f/m^3 \n  The desired density is:', desired_density, 'f/m^3 \n')
 
-        # if we want the final density to be 20 fruit/m^2, that's 42% of the density, so we want to remove 1-20/48 
-        percent_2_remove = 1 - desired_density/density
-        # print('percent of fruit to remove', percent_2_remove, 'out of total', numFruit, 'fruit')
-        # print()
-        total_2_remove  = math.floor(len(y) * percent_2_remove)
-        # print('total fruit to remove', total_2_remove)
-        # print()
+    #     # if we want the final density to be 20 fruit/m^2, that's 42% of the density, so we want to remove 1-20/48 
+    #     percent_2_remove = 1 - desired_density/density
+    #     # print('percent of fruit to remove', percent_2_remove, 'out of total', numFruit, 'fruit')
+    #     # print()
+    #     total_2_remove  = math.floor(len(y) * percent_2_remove)
+    #     # print('total fruit to remove', total_2_remove)
+    #     # print()
 
-        for remove in range(total_2_remove):
-            # tried making an array of random integers to remove, but not all of them were unique
-            index_2_remove = np.random.default_rng(x_seed).uniform(0, len(x)-1, 1)
-            i2r = np.asarray(index_2_remove, dtype = int)
-            x = np.delete(x, i2r)
-            y = np.delete(y, i2r)
-            z = np.delete(z, i2r)
+    #     for remove in range(total_2_remove):
+    #         # tried making an array of random integers to remove, but not all of them were unique
+    #         index_2_remove = np.random.default_rng(x_seed).uniform(0, len(x)-1, 1)
+    #         i2r = np.asarray(index_2_remove, dtype = int)
+    #         x = np.delete(x, i2r)
+    #         y = np.delete(y, i2r)
+    #         z = np.delete(z, i2r)
 
-        # if (numFruit - total_2_remove) == len(x):
-        #     # check if the number of fruit in the array is correct
-        #     print('got the correct number of fruit')
+    #     # if (numFruit - total_2_remove) == len(x):
+    #     #     # check if the number of fruit in the array is correct
+    #     #     print('got the correct number of fruit')
 
-        if is_meter == 0:
-            # if is_meter is zero, convert from feet to meters
-            x = x * 0.3048
-            y = y * 0.3048
-            z = z * 0.3048
+    #     if is_meter == 0:
+    #         # if is_meter is zero, convert from feet to meters
+    #         x = x * 0.3048
+    #         y = y * 0.3048
+    #         z = z * 0.3048
 
-        # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
-        # something like 0.2 m away in the x-direction
-        x_translate = np.amin(x) # in m
-        # print('x smallest value, in m', x_translate)
-        x = x - x_translate + 0.2
-        # something like 0 m long in the y-direction
-        y_translate = np.amin(y)
-        y = y - y_translate
-        # something like 0 m high in the z-direction
-        z_translate = np.amin(z)
-        z = z - z_translate
+    #     # check if need to translate fruit in to get it to correct frame if vehicle is at 0 m and fruit starts...
+    #     # something like 0.2 m away in the x-direction
+    #     x_translate = np.amin(x) # in m
+    #     # print('x smallest value, in m', x_translate)
+    #     x = x - x_translate + 0.2
+    #     # something like 0 m long in the y-direction
+    #     y_translate = np.amin(y)
+    #     y = y - y_translate
+    #     # something like 0 m high in the z-direction
+    #     z_translate = np.amin(z)
+    #     z = z - z_translate
 
-        # remove any fruit that is outside of the robot's max limits
-        index_out_of_x_bounds = np.where(x >= self.x_lim[1])
-        index_out_of_y_bounds = np.where(y >= self.y_lim[1])
-        index_out_of_z_bounds = np.where(z >= self.z_lim[1])
-        # print('out of z bounds (before):')
-        # print(index_out_of_z_bounds[0])
+    #     # remove any fruit that is outside of the robot's max limits
+    #     index_out_of_x_bounds = np.where(x >= self.x_lim[1])
+    #     index_out_of_y_bounds = np.where(y >= self.y_lim[1])
+    #     index_out_of_z_bounds = np.where(z >= self.z_lim[1])
+    #     # print('out of z bounds (before):')
+    #     # print(index_out_of_z_bounds[0])
 
-        out_of_bounds = np.concatenate((index_out_of_x_bounds[0], index_out_of_y_bounds[0], index_out_of_z_bounds[0]), axis=None)
-        u = np.unique(out_of_bounds) # make sure there are no dulplicates, see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
-        # print('indexes to be deleted:',u, 'with size', len(u))
-        x = np.delete(x, u)
-        y = np.delete(y, u)
-        z = np.delete(z, u)
+    #     out_of_bounds = np.concatenate((index_out_of_x_bounds[0], index_out_of_y_bounds[0], index_out_of_z_bounds[0]), axis=None)
+    #     u = np.unique(out_of_bounds) # make sure there are no dulplicates, see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
+    #     # print('indexes to be deleted:',u, 'with size', len(u))
+    #     x = np.delete(x, u)
+    #     y = np.delete(y, u)
+    #     z = np.delete(z, u)
 
-        numFruit = len(x) # reset numFruit because there have been two deletions, one to get the correct density and one to keep them within limits
+    #     numFruit = len(x) # reset numFruit because there have been two deletions, one to get the correct density and one to keep them within limits
 
-        sortedFruit = self.sortNstack(x, y, z)
+    #     sortedFruit = self.sortNstack(x, y, z)
 
-        return([numFruit, sortedFruit]) 
+    #     return([numFruit, sortedFruit]) 
 
 
 

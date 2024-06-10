@@ -320,7 +320,7 @@ class fruit_handler(object):
             fruit_i_real = int(sortedFruit[3][index])
             # create the object
             this_fruit   = Fruit(self.traj_calc_x, fruit_i, fruit_i_real, x_coord, y_coord, z_coord)
-            # print('Fruit index', index, 'should match this index only if no snapshots', sortedFruit[3][index])
+            # print('Fruit index', index, 'should match this index only if no segments', sortedFruit[3][index])
             # print('with y and z coordinates:', y_coord, z_coord)
             fruit.append(this_fruit)
 
@@ -368,28 +368,50 @@ class fruit_handler(object):
             # using 2022 Colombini data, full orchard rows 
             # there are 18 CSV files, from 4 folders, each file with around 10m of fruit localization data 
             csv_folder = './TREE_FRUIT_DATA/apple_data_2022/'
+
+            # print('RUN NUMBER:', run_n)
+            # if run_n <= 0:
+            #     run_files = '56_42_3_1.csv'
+            # elif run_n <= 1:
+            #     run_files = '56_42_3_2.csv'
+            # else:
+            #     run_files = '56_42_3_3.csv'
+
+            # if run_n <= 4:
+            #     run_files = '01_42_4_' + str(run_n+2) + '.csv'
+            # elif run_n <= 9:
+            #     run_files = '46_42_1_' + str(run_n-4) + '.csv'
+            # elif run_n <= 13:
+            #     run_files = '51_42_2_' + str(run_n-9) + '.csv'
+            # elif run_n <= 16:
+            #     run_files = '56_42_3_' + str(run_n-13) + '.csv'
+            # elif run_n <= 17:
+            #     run_files = '30_38_2_1.csv'
+                
             print('RUN NUMBER:', run_n)
             if run_n <= 5:
-                run_files = '01_42_4_apples_' + str(run_n+1) + '.csv'
+                run_files = '01_42_4_' + str(run_n+1) + '.csv'
             elif run_n <= 10:
-                run_files = '46_42_1_apples_' + str(run_n-5) + '.csv'
+                run_files = '46_42_1_' + str(run_n-5) + '.csv'
             elif run_n <= 14:
-                run_files = '51_42_2_apples_' + str(run_n-10) + '.csv'
+                run_files = '51_42_2_' + str(run_n-10) + '.csv'
             elif run_n <= 17:
-                run_files = '56_42_3_apples_' + str(run_n-14) + '.csv'
+                run_files = '56_42_3_' + str(run_n-14) + '.csv'
             elif run_n <= 18:
-                run_files = '30_38_2_apples_1.csv'
+                run_files = '30_38_2_1.csv'
                 # only one file of this denomination
             elif run_n <= 19:
                 # only one file of this denomination
-                run_files = '41_42_0_apples_1.csv'
-            elif run_n <= 23:
-                run_files = '41_42_12_apples_' + str(run_n-19) + '.csv'
-            elif run_n <= 27:
-                run_files = '50_38_6_apples_' + str(run_n-23) + '.csv'
+                run_files = '41_42_0_1.csv'
+            elif run_n <= 24:
+                run_files = '41_42_12_' + str(run_n-19) + '.csv'
+            elif run_n <= 28:
+                run_files = '50_38_6_' + str(run_n-24) + '.csv'
+            elif run_n <= 31:
+                run_files = '06_42_5_' + str(run_n-28) + '.csv'
             else: 
                 print('WARNING: There are no more files in the 2022 dataset to run. Defaulting to the last file.')
-                run_files = '50_38_6_apples_4.csv'
+                run_files = '06_42_5_4.csv'
 
             csv_file = csv_folder + run_files
             is_meter = 1
@@ -401,6 +423,15 @@ class fruit_handler(object):
             # there are 18 CSV files, from 4 folders, each file with around 10m of fruit localization data 
             csv_folder = './TREE_FRUIT_DATA/apple_data_2022/'
             print('RUN NUMBER:', run_n)
+            # if run_n <= 1: # changed when I had gotten 1-4 and needed 5-9
+            #     run_files = '01_42_4_' + str(run_n+5) + '.csv'
+            # elif run_n <= 6:
+            #     run_files = '46_42_1_' + str(run_n-1) + '.csv'
+            # elif run_n <= 10:
+            #     run_files = '51_42_2_' + str(run_n-6) + '.csv'
+            # elif run_n <= 13:
+            #     run_files = '56_42_3_' + str(run_n-10) + '.csv'
+
             if run_n <= 5:
                 run_files = '01_42_4_' + str(run_n+1) + '.csv'
             elif run_n <= 10:
@@ -676,7 +707,7 @@ class fruit_handler(object):
             for col_i in range(self.C):
                 # which fruits fall in this row's column's dead space?
                 in_0space = np.where((z_sorted > self.z_row_top_edges[row_i,col_i]) & (z_sorted < self.z_row_bot_edges[row_i+1,col_i])) # gives which fruits (index) fall in row row_i, column col_i's dead band 
-                print('index of fruits in dead space', in_0space[0])
+                # print('index of fruits in dead space', in_0space[0])
 
                 if col_i == 0:
                     out_of_bounds = np.copy(in_0space[0])
@@ -911,7 +942,7 @@ class Job():
 
 ## create snapshot object for data analysis
 class Snapshot(object):
-    def __init__(self, n_col, n_row, d_hrz, d_vehicle, d_cell, D, d_plan, z_bot_bounds, z_top_bounds, Td, v_vy, FPE_g, FPEavg, FPT_g, FPTavg, q_plan, numFruit, N_deadspace, curr_j, sortedFruit, fruit_picked_by, state_time):
+    def __init__(self, n_col, n_row, d_hrz, d_vehicle, d_cell, D, d_plan, z_bot_bounds, z_top_bounds, Td, v_vy, FPE_global, FPEavg, FPT_global, FPTavg, q_plan, numFruit, N_deadspace, curr_j, sortedFruit, fruit_picked_by, state_time):
         # constants for the whole run
         self.n_col           = n_col
         self.n_row           = n_row
@@ -925,9 +956,9 @@ class Snapshot(object):
         self.v_vy            = v_vy
         self.z_bot_bounds    = z_bot_bounds # array, bottom bounds of every row for the snapshot
         self.z_top_bounds    = z_top_bounds # array, top bounds of every row for the snapshot
-        self.FPE             = FPE_g        # global value
+        self.FPE_global      = FPE_global        # global value
         self.FPEavg          = FPEavg       # average value
-        self.FPT             = FPT_g        # global value
+        self.FPT_global      = FPT_global        # global value
         self.FPTavg          = FPTavg       # average value
         self.q_plan          = q_plan        # in m, start and end coordinates of the whole run
         self.Td              = Td           # in s, average handling time of fruits in a snapshot

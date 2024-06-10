@@ -2,8 +2,8 @@ import math
 import numpy as np
 
 class MIP_queu_manager(object):
-    def __init__(self, q_vy, q_vy_start, v_vy, l_step_m, fruit_picked_a, fruit_when):
-    # def __init__(self, q_vy, q_hy, v_vy, row_n, column_n, l_cell, l_step_m, fruit_picked_a, fruit_when):
+    def __init__(self, q_vy, q_vy_start, v_vy, D_, fruit_picked_a, fruit_when):
+    # def __init__(self, q_vy, q_hy, v_vy, row_n, column_n, l_cell, D_, fruit_picked_a, fruit_when):
         '''
             Works with the mixed integer programming model to make it dynamic. Takes queue created by scheduler and determines which fruits are actually picked 
             based on vehicle, not camera (includes horizonn), locations.
@@ -30,9 +30,9 @@ class MIP_queu_manager(object):
 
         # identify travel distance and velocity
         # self.v_vy = v_vy # in m/s, vehicle velocity in the y-axis
-        # self.l_step_m = l_step_m # in m, the distance the vehicle moves per snapshot
+        # self.D_ = D_ # in m, the distance the vehicle moves per snapshot
 
-        t_move = (l_step_m) / v_vy # in s, the total time of movement for this snapshot
+        t_move = (D_) / v_vy # in s, the total time of movement for this snapshot
         
         # get two lists: indexes of fruits that were picked in time and indexes of fruits that were not picked in time
         [self.picked_queue, self.unpicked_queue] = self.pickedInTime(t_move, when, queue)

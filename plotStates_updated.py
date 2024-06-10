@@ -222,10 +222,10 @@ class plotStates(object):
         # save the plot in high resolution
         plt.savefig(self.file_name,dpi=300)
         # shot plot
-        plt.show()
+        # plt.show()
 
     def mk_groups(self, data):
-        # function takes a dictionary (or anything with an items() method, like collections.OrderedDict) and converts it to a data format that is then used to create the chart. It is basically a list
+        # function takes a dictionary (or anything with an items() method, like collections.OrderedDict() and converts it to a data format that is then used to create the chart. It is basically a list
         try:
             newdata = data.items()
         except:

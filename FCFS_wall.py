@@ -37,7 +37,7 @@ class FCFS(object):
         TX = [i.Tx for i in fruit]       # list of fruit extension times
 
         busy_till       = np.zeros([n_row, n_col])                  # when does this arm (c,r) stop being busy and is available for a new job
-        busy_with       = np.zeros([n_row, n_col], dtype=np.int)    # previous chosen fruit to be harvested for the arm (c,r)
+        busy_with       = np.zeros([n_row, n_col], dtype=np.int32)    # previous chosen fruit to be harvested for the arm (c,r)
 
         # lists of the desired results
         fruit_picked_by = list()                      # list that saves which arm picks which fruit
@@ -66,7 +66,7 @@ class FCFS(object):
             tw_s0 = (Y[i_fruit] - (Q + (0 + 1)*d_cell + 0*d_o)) / V_m
             tw_e0 = (Y[i_fruit] - (Q + (0)*d_cell + 0*d_o)) / V_m
             tw_s_last = (Y[i_fruit] - (Q + (n_col + 1)*d_cell + n_col*d_o)) / V_m  # it should be (n_col-1) but using n_col to add another step to tw_s and tw_e because arange doesn't include the stop value 
-            tw_e_last = (Y[i_fruit] - (Q + n_col*d_cell + n_col*d_o)) / V_m        # it should be (n_col-1) but using n_col to add another step to tw_s and tw_e because arange doesn't include the stop value 
+            tw_e_last = (Y[i_fruit] - (Q + n_col*d_cell + (n_col-1)*d_o)) / V_m        # it should be (n_col-1) but using n_col to add another step to tw_s and tw_e because arange doesn't include the stop value 
             # print(f'first and last tw_s: %4.2f, %4.2f s' %(tw_s0, tw_s_last+(d_cell + d_o)/V_m))
             # print(f'first and last tw_e: %4.2f, %4.2f s' %(tw_e0, tw_e_last+(d_cell + d_o)/V_m))
 

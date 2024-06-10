@@ -1,19 +1,31 @@
 # files being ignored
-/IG_dynamic_cell_l.py
-/sim_loop.py
+# if allready commited, use git rm --cached <FILES>
 /SPT_wall.py
 /cluster_testing.py
+/gurobi.log
+/data.json
+/wall_start.mst 
+/IG_main.py
+/IG_single_run.py 
+/sim_loop.py 
+/arm.py                
+/camera.py 
+/monteCarlo.py         
+/fruitTreeCreator.py   
+/plotStates.py
+
 /*.ipynb
 /*.json
 /*.csv
-/gurobi.log
-/data.json
-/wall_start.mst
+/*.ilp
 
 # file that ignores a certain ignored pattern
 !stats_tester.ipynb
+!wall_MIP_run.ipynb
+!plotter.ipynb
 
 # folders being ignored
+__pycache__/
 csv_files/
 ExtractFruitDensityMaps/
 JerkLimitedTrajectory/

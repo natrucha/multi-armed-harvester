@@ -84,9 +84,9 @@ class IG_data_analysis(object):
 
             # extract scheduling data per snapshot
             self.v_vy[index]         = snapshot.v_vy
-            self.FPE[index]          = snapshot.FPE
+            self.FPE[index]          = snapshot.FPE_global
             self.FPEavg[index]       = snapshot.FPEavg
-            self.FPT[index]          = snapshot.FPT
+            self.FPT[index]          = snapshot.FPT_global
             self.FPTavg[index]       = snapshot.FPTavg
             self.q0[index]           = snapshot.q_plan[0] # in m, whole run's starting coordinate
             self.N_snap[index]       = snapshot.N_snap
@@ -225,7 +225,7 @@ class IG_data_analysis(object):
         # print()
 
         file_fct_name = self.file_base + 'state_percent'
-        file_name = self.fileExists(file_fct_name, '.png')
+        file_name = self.fileExists(file_fct_name, '.pdf')# '.png')
 
         print('Saving plot of the mean state percent of each arm in', file_name)
 
@@ -339,9 +339,12 @@ class IG_data_analysis(object):
                                 # this will be used as the label/legend setup dataset
                                 array_of_first_populated_list[i_col] = 1
 
+                            # need to turn everything in the list to ints so they can work as indexes. Just turn it into an array to make life easier
+                            index_array = np.int_(self.fruit_picked_by[snapshot_i][i_row][i_col])
+
                             # obtain the y and z-coordinates
-                            y_coord = self.fruit_list[snapshot_i][1][self.fruit_picked_by[snapshot_i][i_row][i_col]]  # y-coordinates of the fruits indicated by fruits_picked_byin the snapshot_i by the arm in i_row, i_col
-                            z_coord = self.fruit_list[snapshot_i][2][self.fruit_picked_by[snapshot_i][i_row][i_col]]  # z-coordinates of the fruits indicated by fruits_picked_byin the snapshot_i by the arm in i_row, i_col
+                            y_coord = self.fruit_list[snapshot_i][1][index_array]  # y-coordinates of the fruits indicated by fruits_picked_by in the snapshot_i by the arm in i_row, i_col
+                            z_coord = self.fruit_list[snapshot_i][2][index_array]  # z-coordinates of the fruits indicated by fruits_picked_by in the snapshot_i by the arm in i_row, i_col
                             
                             # determine the color and line style so that they can be  identified in the plot
                             if i_col == self.n_col:
