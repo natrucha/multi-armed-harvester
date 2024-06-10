@@ -1,6 +1,10 @@
 /IG_dynamic_cell_l.py
 /sim_loop.py
-csvfiles/
+/SPT_wall.py
+/cluster_testing.py
+/*.ipnyb
+
+csv_files/
 ExtractFruitDensityMaps/
 JerkLimitedTrajectory/
 json_files20200701/
