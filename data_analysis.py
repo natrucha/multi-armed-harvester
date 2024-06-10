@@ -24,7 +24,7 @@ import numpy as np
 # use matplotlib to visualize graph?
 # see https://www.geeksforgeeks.org/python-visualize-graphs-generated-in-networkx-using-matplotlib/
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D   # plot in 3D
+# from mpl_toolkits.mplot3d import Axes3D   # plot in 3D
 
 # from datetime import datestime
 from datetime import date
@@ -36,7 +36,7 @@ from plotStates_updated import *  # import module to plot % time each arm is in 
 # from fruit_distribution import *  # import module to create the various desired fruit distributions
 
 
-class IG_data_analysis(object):
+class data_analysis(object):
     def __init__(self, snapshot_list, snapshot_cell, print_out):
 
         '''
