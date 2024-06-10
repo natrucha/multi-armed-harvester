@@ -1,5 +1,5 @@
 # files being ignored
-# if allready commited, use git rm --cached <FILES>
+# if already commited, use git rm --cached <FILES>
 /SPT_wall.py
 /cluster_testing.py
 /gurobi.log
@@ -13,6 +13,8 @@
 /monteCarlo.py         
 /fruitTreeCreator.py   
 /plotStates.py
+/simulation_config.py
+/rngseed_list.py
 
 /*.ipynb
 /*.json
