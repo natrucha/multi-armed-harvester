@@ -2,7 +2,7 @@
 /sim_loop.py
 /SPT_wall.py
 /cluster_testing.py
-/*.ipnyb
+/*.ipynb
 
 csv_files/
 ExtractFruitDensityMaps/
