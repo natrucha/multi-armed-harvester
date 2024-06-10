@@ -19,8 +19,7 @@
 import numpy as np
 
 class MIP_queu_manager(object):
-    def __init__(self, q_vy, q_vy_start, v_vy, D_, fruit_picked_a, fruit_when):
-    # def __init__(self, q_vy, q_hy, v_vy, row_n, column_n, l_cell, D_, fruit_picked_a, fruit_when):
+    def __init__(self, v_vy, D_, fruit_picked_a, fruit_when):
         '''
             Works with the mixed integer programming model to make it dynamic. Takes queue created by scheduler and determines which fruits are actually picked 
             based on vehicle, not camera (includes horizonn), locations.
@@ -33,21 +32,9 @@ class MIP_queu_manager(object):
             l_step_l in m, the distance the vehicle moves for each snapshot
             v_vy in m/s, vehicle velocity in the y-axis for the snapshot
         '''
-        # identify the arm by row and column number
-        # self.row_n = row_n
-        # self.column_n = column_n
-
         # identify which fruits the arm picks and when
         queue = np.array(fruit_picked_a)
         when  = np.array(fruit_when)    # linked to fruit_picked by location on the list. VERY IMPORTANT
-
-        # identify the location of important points
-        # self.q_ay = q_vy + l_cell*self.column_n # in m, where is the back of this arm's frame on the y-axis
-        # self.q_hy = q_hy                        # in m, where is the back of the horizon on the y_axis
-
-        # identify travel distance and velocity
-        # self.v_vy = v_vy # in m/s, vehicle velocity in the y-axis
-        # self.D_ = D_ # in m, the distance the vehicle moves per snapshot
 
         t_move = (D_) / v_vy # in s, the total time of movement for this snapshot
         

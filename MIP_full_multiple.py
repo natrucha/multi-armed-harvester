@@ -20,16 +20,16 @@ import math
 import numpy as np
 from datetime import datetime
 from datetime import date
-from datetime import timedelta
+# from datetime import timedelta
 from pathlib import Path
 import sys
 
 # from fruit_distribution import *   # import module to create the various desired fruit distributions 
-from IG_data_analysis import *       # import module to analyze the data from the snapshots
-from MIP_melon import *              # import module that solves the extended MIP in melon algorith *add citation*
+from data_analysis import *       # import module to analyze the data from the snapshots
+from MIP_algorithm import *          # import module that solves the extended MIP in melon algorith *add citation*
 from MIP_queu_manager import *       # import module that adds queue management to the scheduler to add dynamisism
 from fruit_handler import *          # import module that handles the data creation and calculations (distribution, calcPCT, etc.)
-from FCFS_wall import *
+from FCFS_algorithm import *
 from SPT_wall import *
 
 
@@ -318,8 +318,8 @@ def main():
     n_row = int(args[1])  # number of rows of arms
 
     # maximum velocity and acceleration, as well as the constant amount of time it takes to harvest a fruit once reached for the arm motors
-    v_max            = 0.5   # these values are currently incorrect. The real values are in MIP_melon.py and they are different for each axis
-    a_max            = 1.    # these values are currently incorrect. The real values are in MIP_melon.py and they are different for each axis
+    v_max            = 0.5   # these values are currently incorrect. The real values are in MIP_algorithm.py and they are different for each axis
+    a_max            = 1.    # these values are currently incorrect. The real values are in MIP_algorithm.py and they are different for each axis
     t_grab           = 0.5 
 
     d_cell           = 1.0#0.7             # in m, length of the cell along the orchard row (y-axis), parallel to vehicle travel. Matches the prototype
@@ -569,7 +569,7 @@ def main():
         # init the MIP melon object 
         if set_solve_row == 0 and set_algorithm < 3: # the first 3 algorithms are MIP-based
             n_row_loop = 1 # because the whole view is being solved at once, no need to loop
-            mip_melon = MIP_melon(q_vy, n_col, n_row, 0, d_cell, d_o, d_hrzn, x_lim, fruit_data.y_lim, z_lim, density)
+            mip_melon = MIP_algorithm(q_vy, n_col, n_row, 0, d_cell, d_o, d_hrzn, x_lim, fruit_data.y_lim, z_lim, density)
             # set the y-coordinate movement limits within the cell if not equal to cell length. Only affects the Jobs() object if it's not equal to the d_cell 
             if set_distribution == 0:
                 # since we are using FCFS for N < 20, we also need to init FCFS 
@@ -582,7 +582,7 @@ def main():
             n_row_loop = n_row # because we are solving per row, we need to loop through each row in each view/snapshot
             # init the MIP melon object, n_row set to one for each since we're running it per row
             # start the row at 0th row and then change the row as needed after this and before create arms
-            mip_melon = MIP_melon(q_vy, n_col, 1, 0, d_cell, d_o, d_hrzn, x_lim, fruit_data.y_lim, z_lim, density)
+            mip_melon = MIP_algorithm(q_vy, n_col, 1, 0, d_cell, d_o, d_hrzn, x_lim, fruit_data.y_lim, z_lim, density)
 
         elif set_algorithm == 3:
             n_row_loop = 1 # because the whole view is being solved at once, no need to loop
@@ -598,7 +598,7 @@ def main():
             # create a flag that determines when FCFS is done and MIP has to be used to determine the schedule with the new velocity range
             task_alloc_done_flag = 0
             # init MIP to then solve for more optimal scheduling
-            mip_melon = MIP_melon(q_vy, n_col, n_row, 0, d_cell, d_o, d_hrzn, x_lim, fruit_data.y_lim, z_lim, density)
+            mip_melon = MIP_algorithm(q_vy, n_col, n_row, 0, d_cell, d_o, d_hrzn, x_lim, fruit_data.y_lim, z_lim, density)
 
         elif set_algorithm == 6:
             n_row_loop = 1 # because the whole view is being solved at once, no need to loop
@@ -733,7 +733,7 @@ def main():
 
                 # if solving by row, loop thorugh the number of rows, otherwise this only runs once
                 for i_loop in range(n_row_loop):
-                    # need to update the 'starting row number' in the MIP_melon object
+                    # need to update the 'starting row number' in the MIP_algorithm object
                     if set_algorithm != 3 and set_algorithm != 6:
                         mip_melon.starting_row_n = i_loop
 
@@ -886,7 +886,7 @@ def main():
                                 fruit_when     = i_loop_fruit_picked_at[column]  # if fruit_pick_arm doesn't work, neither will this
                                 # print('this arm is picking', fruit_pick_arm, 'at', fruit_when)
 
-                            queue_manager = MIP_queu_manager(q_vy, q_vy_start, v_vy_mps, D_, fruit_pick_arm, fruit_when)
+                            queue_manager = MIP_queu_manager(v_vy_mps, D_, fruit_pick_arm, fruit_when)
                             not_picked = queue_manager.unpicked_queue
                             yes_picked = queue_manager.picked_queue
                             
@@ -1296,7 +1296,7 @@ def main():
 
         # elif solution_found == 1:
         # combine the results based on the various snapshots taken
-        results = IG_data_analysis(snapshot_list, snapshot_cell, print_out)
+        results = data_analysis(snapshot_list, snapshot_cell, print_out)
         if print_out == 1:
             results.printSettings()
             print('\nThe velocities for each of the %d snapshots in m/s:' % n_snapshots)

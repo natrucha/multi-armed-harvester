@@ -27,7 +27,7 @@ import numpy as np
 import sys
 
 from fruit_distribution import *   # import module to create the various desired fruit distributions 
-from IG_data_analysis import *     # import module to analyze the data from the snapshots
+from data_analysis import *        # import module to analyze the data from the snapshots
 from trajectory import *           # import module to calculate the trapezoidal/S-curve (S-curve not working yet) tajectory calculator
 
 # tested with Python 3.7.0 & Gurobi 9.0
@@ -35,7 +35,7 @@ from trajectory import *           # import module to calculate the trapezoidal/
 ## based on the Gurobi technician routing scheduling example
 # https://gurobi.github.io/modeling-examples/technician_routing_scheduling/technician_routing_scheduling.html
 
-class MIP_melon(object):
+class MIP_algorithm(object):
     def __init__(self, q_vy, n_col, n_row, starting_row_n, d_cell, d_o, d_hrzn, x_lim, y_lim, z_lim, density):
 
         '''
