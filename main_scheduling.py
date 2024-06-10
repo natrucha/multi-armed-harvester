@@ -30,7 +30,6 @@ from MIP_algorithm import *          # import module that solves the extended MI
 from MIP_queu_manager import *       # import module that adds queue management to the scheduler to add dynamisism
 from fruit_handler import *          # import module that handles the data creation and calculations (distribution, calcPCT, etc.)
 from FCFS_algorithm import *
-from SPT_wall import *
 
 
 # tested with Python 3.7.0 & Gurobi 9.0
