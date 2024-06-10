@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>. 
 # 
-# 
-# import csv                      # read and write CSV file-type
+
+import csv                      # read and write CSV file-type
 import numpy as np
 # from numpy.random import PCG64
 
