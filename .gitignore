@@ -4,13 +4,14 @@
 /SPT_wall.py
 /cluster_testing.py
 /*.ipynb
+/*.json
+/*.csv
+/gurobi.log
+/data.json
+/wall_start.mst
 
 # file that ignores a certain ignored pattern
 !stats_tester.ipynb
-
-# files or folders with these words are ignored
-gurobi
-.csv
 
 # folders being ignored
 csv_files/
@@ -22,5 +23,6 @@ mip_files/
 trapezoid/
 TREE_FRUIT_DATA/
 videos/
+.ipynb_checkpoints/
 
 
