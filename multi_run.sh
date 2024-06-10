@@ -76,35 +76,35 @@ V_hb=80
 set_edges=1
 
 # single runs
-# python3 ./MIP_full_multiple.py 3 3 $n_datasets $V_lb $V_hb 3 $set_distribution $set_mpc $set_edges $set_view_field 0
-python3 ./MIP_full_multiple.py 1 1 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 1
-python3 ./MIP_full_multiple.py 1 1 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 2
-python3 ./MIP_full_multiple.py 1 1 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 3
+# python3 ./main_scheduling.py 3 3 $n_datasets $V_lb $V_hb 3 $set_distribution $set_mpc $set_edges $set_view_field 0
+python3 ./main_scheduling.py 1 1 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 1
+python3 ./main_scheduling.py 1 1 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 2
+python3 ./main_scheduling.py 1 1 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 3
 
 for r_i in $(seq 1 3);
 do
     # echo $c $r $segment_i
-    python3 ./MIP_full_multiple.py 3 $r_i $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 1
-    python3 ./MIP_full_multiple.py 3 $r_i $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 2
-    python3 ./MIP_full_multiple.py 3 $r_i $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 3
+    python3 ./main_scheduling.py 3 $r_i $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 1
+    python3 ./main_scheduling.py 3 $r_i $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 2
+    python3 ./main_scheduling.py 3 $r_i $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field 0 3
 done
 
 # for segment_i in $(seq 0 $n_segments);
 # do
     # fcfs
-    # python3 ./MIP_full_multiple.py 1 1 $n_datasets $V_lb $V_hb 3 $set_distribution $set_mpc $set_edges $set_view_field $segment_i
-    # python3 ./MIP_full_multiple.py 1 3 $n_datasets $V_lb $V_hb 3 $set_distribution $set_mpc $set_edges $set_view_field $segment_i
-    # python3 ./MIP_full_multiple.py 2 3 $n_datasets $V_lb $V_hb 3 $set_distribution $set_mpc $set_edges $set_view_field $segment_i
-    # python3 ./MIP_full_multiple.py 3 3 $n_datasets $V_lb $V_hb 3 $set_distribution $set_mpc $set_edges $set_view_field $segment_i
+    # python3 ./main_scheduling.py 1 1 $n_datasets $V_lb $V_hb 3 $set_distribution $set_mpc $set_edges $set_view_field $segment_i
+    # python3 ./main_scheduling.py 1 3 $n_datasets $V_lb $V_hb 3 $set_distribution $set_mpc $set_edges $set_view_field $segment_i
+    # python3 ./main_scheduling.py 2 3 $n_datasets $V_lb $V_hb 3 $set_distribution $set_mpc $set_edges $set_view_field $segment_i
+    # python3 ./main_scheduling.py 3 3 $n_datasets $V_lb $V_hb 3 $set_distribution $set_mpc $set_edges $set_view_field $segment_i
 # done
 
 
 # for segment_i in $(seq 0 $n_segments);
 # do
-#     python3 ./MIP_full_multiple.py 3 3 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field $segment_i
-    # python3 ./MIP_full_multiple.py 1 1 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field $segment_i
-    # python3 ./MIP_full_multiple.py 1 3 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field $segment_i
-    # python3 ./MIP_full_multiple.py 2 3 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field $segment_i
+#     python3 ./main_scheduling.py 3 3 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field $segment_i
+    # python3 ./main_scheduling.py 1 1 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field $segment_i
+    # python3 ./main_scheduling.py 1 3 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field $segment_i
+    # python3 ./main_scheduling.py 2 3 $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field $segment_i
 # done
 
 # for c_i in $(seq 1 3);
@@ -114,7 +114,7 @@ done
 # 		for segment_i in $(seq 0 $n_segments);
 # 		do
 # 			# echo $c $r $segment_i
-# 			python3 ./MIP_full_multiple.py $c_i $r_i $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field $segment_i
+# 			python3 ./main_scheduling.py $c_i $r_i $n_datasets $V_lb $V_hb $set_algorithm $set_distribution $set_mpc $set_edges $set_view_field $segment_i
 # 		done
 # 	done
 # done
