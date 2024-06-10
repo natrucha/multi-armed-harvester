@@ -10,8 +10,7 @@
 
 # files or folders with these words are ignored
 gurobi
-csv
-
+.csv
 
 # folders being ignored
 csv_files/
