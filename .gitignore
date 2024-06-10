@@ -1,9 +1,18 @@
+# files being ignored
 /IG_dynamic_cell_l.py
 /sim_loop.py
 /SPT_wall.py
 /cluster_testing.py
-/*.ipynb
 
+# file that ignores a certain ignored pattern
+stats_tester.ipynb
+
+# files or folders with these words are ignored
+gurobi
+csv
+ipynb
+
+# folders being ignored
 csv_files/
 ExtractFruitDensityMaps/
 JerkLimitedTrajectory/
