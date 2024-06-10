@@ -17,7 +17,7 @@
 
 # import math
 import numpy as np
-import sys
+# import sys
 
 from trajectory import *           # import module to calculate the trapezoidal/S-curve (S-curve not working yet) tajectory calculator
 
