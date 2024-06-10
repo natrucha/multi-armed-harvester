@@ -5,7 +5,7 @@
 /cluster_testing.py
 
 # file that ignores a certain ignored pattern
-stats_tester.ipynb
+!stats_tester.ipynb
 
 # files or folders with these words are ignored
 gurobi
